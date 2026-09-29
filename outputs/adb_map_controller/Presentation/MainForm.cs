@@ -442,7 +442,8 @@ public sealed partial class MainForm : Form
         floorPhase = FloorPhase.Explore; portalCandidate = null; targetFloorStopped = false;
         portalJumps.Clear(); portalUnlocks.Clear();
         attemptedRoomPortals.Clear(); pendingRoomPortal = null; roomPortalOrigin = null; roomPortalInteractionAt = 0;
-        runeSelectionVisible = serverErrorDialogVisible = false;
+        ClearRiftGemSelectionState();
+        serverErrorDialogVisible = false;
         pendingNextFloorDialog = NextFloorDialogKind.None;
         pendingGreedySelectionReturnOnly = false;
         mapPanel.Invalidate();
@@ -727,7 +728,8 @@ public sealed partial class MainForm : Form
                 if (popupPipeline is not null)
                     Log($"弹窗管线诊断：结果 {popupPipeline.Value}，节点 {popupPipeline.NodeName ?? "无匹配"}，" +
                         $"节点={popupPipeline.AttemptSummary}，OCR全屏={PopupUiPipelineResult.SummarizeText(popupPipeline.FullFrameText)}");
-                Log($"秘境宝石选择 {(runeSelectionVisible ? "是" : "否")}，宝石标题 {adb.GemTitleDetectionMode} {adb.LastRiftGemTitle ?? "--"}");
+                Log($"秘境宝石选择 本帧命中={(popup == MovementPopupKind.RiftGemSelection ? "是" : "否")}，" +
+                    $"锁存={(runeSelectionVisible ? "是" : "否")}，宝石标题 {adb.GemTitleDetectionMode} {adb.LastRiftGemTitle ?? "--"}");
             }
             return true;
         }
@@ -1856,7 +1858,14 @@ public sealed partial class MainForm : Form
             if (activeMovement is not null) await activeMovement;
             if (activeEntry is not null) await activeEntry;
         }
-        finally { stopping = false; }
+        finally
+        {
+            // StopMovement 是一次新的运行/导航请求的边界。若上一次宝石弹窗
+            // 在点击后被急停，PopupWatchdog 已停止探测，而锁存状态会一直
+            // 遗留到下一次启动，导致普通战斗画面仍显示“宝石选择”。
+            ClearRiftGemSelectionState();
+            stopping = false;
+        }
     }
 
     async Task CalibrateEntry()
@@ -2478,6 +2487,17 @@ public sealed partial class MainForm : Form
         runeSelectionLastClickAt = 0;
         runeSelectionVisible = true;
         Log($"检测到秘境宝石选择界面，标题：{adb.LastRiftGemTitle ?? "<空>"}，暂停移动等待选择");
+    }
+
+    void ClearRiftGemSelectionState()
+    {
+        runeSelectionVisible = false;
+        runeSelectionMisses = 0;
+        runeSelectionStartedAt = 0;
+        runeSelectionCard = -1;
+        runeSelectionClickAttempts = 0;
+        runeSelectionLastClickAt = 0;
+        portalInteractionBlockedByGem = false;
     }
 
     System.Collections.IEnumerator SelectBonusRoutine(CancellationToken token)

@@ -1,0 +1,4 @@
+// 导出符号地址和字节。
+// @category ReverseEngineering
+import java.io.*; import ghidra.app.script.GhidraScript; import ghidra.program.model.address.Address; import ghidra.program.model.symbol.*;
+public class DumpSymbolBytes extends GhidraScript {public void run()throws Exception{String[]a=getScriptArgs();try(BufferedWriter w=new BufferedWriter(new FileWriter(a[0]))){SymbolIterator it=currentProgram.getSymbolTable().getAllSymbols(true);while(it.hasNext()){Symbol s=it.next();boolean m=false;for(int i=1;i<a.length;i++)if(s.getName(true).contains(a[i]))m=true;if(!m||!s.getAddress().isMemoryAddress())continue;Address p=s.getAddress();w.write(s.getName(true)+" @ "+p+" : ");for(int j=0;j<32;j++){try{w.write(String.format("%02x",currentProgram.getMemory().getByte(p.add(j))&255));}catch(Exception e){break;}}w.write("\n");}}}}

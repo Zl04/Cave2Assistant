@@ -1,0 +1,162 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>洞窟地图控制器</AssemblyName>
+    <RootNamespace>AdbMapController</RootNamespace>
+    <!-- Keep every release under the project-local publish directory.  CI can
+         still override this with -p:PublishDir=... when needed. -->
+    <PublishDir>$(MSBuildProjectDirectory)\publish\</PublishDir>
+    <PaddleOCRPublishDirectory>PaddleOCR\</PaddleOCRPublishDirectory>
+    <OpenCVPublishDirectory>OpenCV\</OpenCVPublishDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- ORB/BFMatcher/RANSAC backend for MAA-style FeatureMatch tasks. -->
+    <PackageReference Include="OpenCvSharp4" Version="4.10.0.20240616" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.10.0.20240616" />
+    <!-- In-process PaddleOCR PP-OCRv5 runtime. The x64 native runtime is
+         shipped by NuGet beside the application; no Python sidecar is used. -->
+    <PackageReference Include="PaddleOCRSDK" Version="4.5.3" />
+    <PackageReference Include="PaddleOCRRuntime_x64" Version="4.5.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="**\*.sync-conflict-*.cs" />
+    <Compile Remove="tests\**\*.cs" />
+    <EmbeddedResource Remove="tests\**\*" />
+    <None Remove="tests\**\*" />
+    <Content Include="Resources\Assistant\MiniMapDrawer.template.lua"
+             Link="assistant\MiniMapDrawer.template.lua"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="Always" />
+    <Content Include="Resources\TouchAgents\**\*"
+             Link="TouchAgents\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="Always" />
+    <Content Include="Resources\Vision\**\*"
+             Link="vision\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="Always" />
+    <Content Include="Resources\Automation\**\*"
+             Link="pipelines\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="Always" />
+    <Content Include="Resources\EntranceTemplates\**\*"
+             Link="templates\entrances\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="Always" />
+    <Content Include="Resources\UiTemplates\**\*"
+             Link="templates\ui\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="Always" />
+    <Content Include="Resources\Themes\**\*"
+             Link="themes\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="Always" />
+    <Content Include="Resources\Web\**\*"
+             Link="web\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="Always" />
+    <Content Include="Resources\OcrModels\PP-OCRv5_mobile_det_infer\**\*"
+             Link="$(PaddleOCRPublishDirectory)paddle-models\PP-OCRv5_mobile_det_infer\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="Always" />
+    <Content Include="Resources\OcrModels\PP-OCRv5_mobile_rec_infer\**\*"
+             Link="$(PaddleOCRPublishDirectory)paddle-models\PP-OCRv5_mobile_rec_infer\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="Always" />
+    <Content Include="Resources\OcrModels\PP-LCNet_x1_0_textline_ori_infer\**\*"
+             Link="$(PaddleOCRPublishDirectory)paddle-models\PP-LCNet_x1_0_textline_ori\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="Always" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_me.png" Link="icons\player.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_blame01.png" Link="icons\monster.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_blame03.png" Link="icons\group_monster.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_blame02.png" Link="icons\elite.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_boss01.png" Link="icons\small_boss.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_boss02.png" Link="icons\boss.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_jar.png" Link="icons\pot.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_material.png" Link="icons\bone.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_ordinary.png" Link="icons\wood_chest.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_chest.png" Link="icons\gold_chest.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_gold.png" Link="icons\gold.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_key.png" Link="icons\key.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_rune.png" Link="icons\rune.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_dianjin.png" Link="icons\altar.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_enchanting.png" Link="icons\enchanting.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_businessman.png" Link="icons\merchant.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_cross2.png" Link="icons\trap.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_stairs.png" Link="icons\exit.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_transfer.png" Link="icons\portal.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_room.png" Link="icons\chamber.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_room.png" Link="icons\ui_minimap_icon_room.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Always" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_room_purple.png" Link="icons\ui_minimap_icon_room_purple.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Always" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_guild_wishingpond.png" Link="icons\guild_wishingpond.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_guild_auction.png" Link="icons\guild_auction.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_guild_selectfloor.png" Link="icons\guild_selectfloor.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_town_upgrade.png" Link="icons\ui_minimap_icon_town_upgrade.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_town_guildshop.png" Link="icons\ui_minimap_icon_town_guildshop.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_town_pipe.png" Link="icons\ui_minimap_icon_town_pipe.png" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Original town/house/port minimap frames extracted from the game's
+         ui_general_minimap_icon atlas. The three frames above are excluded
+         from this wildcard because they already have explicit links. -->
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_town_*.png"
+             Exclude="..\game_minimap_icons\ui_minimap_icon_town_upgrade.png;..\game_minimap_icons\ui_minimap_icon_town_guildshop.png;..\game_minimap_icons\ui_minimap_icon_town_pipe.png"
+             Link="icons\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Always" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_house_*.png"
+             Link="icons\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Always" />
+    <Content Include="..\game_minimap_icons\ui_minimap_icon_port_*.png"
+             Link="icons\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Always" />
+  </ItemGroup>
+
+  <!-- PaddleOCRRuntime_x64 places its assets at the publish root. Keep the
+       whole third-party runtime self-contained so the application root only
+       contains the controller and its own resources. -->
+  <Target Name="OrganizePaddleOCRPublish" AfterTargets="Publish">
+    <PropertyGroup>
+      <_PaddleOCRPublishRoot>$(PublishDir)$(PaddleOCRPublishDirectory)</_PaddleOCRPublishRoot>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_PaddleOCRRootAsset Include="$(PublishDir)CPUCheck.exe;$(PublishDir)donate.jpg;$(PublishDir)PaddleOCR-Interface.md;$(PublishDir)PaddleOCRLicenseCode.exe;$(PublishDir)PaddleOCRModelsDownloader.exe;$(PublishDir)PaddleOCRSDK.dll;$(PublishDir)qq.png;$(PublishDir)Readme.txt" />
+      <_PaddleOCRModelAsset Include="$(PublishDir)models\**\*" />
+      <_PaddleOCRConfigAsset Include="$(PublishDir)configs\**\*" />
+      <_PaddleOCRImageAsset Include="$(PublishDir)images\**\*" />
+      <_PaddleOCRNativeAsset Include="$(PublishDir)runtimes\win-x64\native\**\*" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(_PaddleOCRPublishRoot)" />
+    <Copy SourceFiles="@(_PaddleOCRRootAsset)" DestinationFolder="$(_PaddleOCRPublishRoot)" SkipUnchangedFiles="true" Condition="'@(_PaddleOCRRootAsset)' != ''" />
+    <Exec Command="robocopy &quot;$(PublishDir)models&quot; &quot;$(_PaddleOCRPublishRoot)models&quot; /E /NFL /NDL /NJH /NJS /NP" IgnoreExitCode="true" />
+    <Exec Command="robocopy &quot;$(PublishDir)configs&quot; &quot;$(_PaddleOCRPublishRoot)configs&quot; /E /NFL /NDL /NJH /NJS /NP" IgnoreExitCode="true" />
+    <Exec Command="robocopy &quot;$(PublishDir)images&quot; &quot;$(_PaddleOCRPublishRoot)images&quot; /E /NFL /NDL /NJH /NJS /NP" IgnoreExitCode="true" />
+    <Exec Command="robocopy &quot;$(PublishDir)runtimes\win-x64\native&quot; &quot;$(_PaddleOCRPublishRoot)native&quot; /E /NFL /NDL /NJH /NJS /NP" IgnoreExitCode="true" />
+    <Delete Files="@(_PaddleOCRRootAsset);@(_PaddleOCRModelAsset);@(_PaddleOCRConfigAsset);@(_PaddleOCRImageAsset);@(_PaddleOCRNativeAsset)" />
+    <RemoveDir Directories="$(PublishDir)models;$(PublishDir)configs;$(PublishDir)images;$(PublishDir)runtimes\win-x64\native;$(PublishDir)runtimes\win-x64;$(PublishDir)runtimes" />
+  </Target>
+
+  <!-- Keep OpenCvSharp's managed wrapper and native binaries together in the
+       published package. The runtime loader resolves the wrapper from this
+       directory before OpenCV is first used. -->
+  <Target Name="OrganizeOpenCVPublish" AfterTargets="Publish">
+    <PropertyGroup>
+      <_OpenCVPublishRoot>$(PublishDir)$(OpenCVPublishDirectory)</_OpenCVPublishRoot>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_OpenCVManagedAsset Include="$(PublishDir)OpenCvSharp.dll" />
+      <_OpenCVNativeAsset Include="$(PublishDir)OpenCvSharpExtern.dll;$(PublishDir)opencv_videoio_ffmpeg*.dll" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(_OpenCVPublishRoot);$(_OpenCVPublishRoot)native" />
+    <Copy SourceFiles="@(_OpenCVManagedAsset)" DestinationFolder="$(_OpenCVPublishRoot)" SkipUnchangedFiles="true" Condition="'@(_OpenCVManagedAsset)' != ''" />
+    <Copy SourceFiles="@(_OpenCVNativeAsset)" DestinationFolder="$(_OpenCVPublishRoot)native" SkipUnchangedFiles="true" Condition="'@(_OpenCVNativeAsset)' != ''" />
+    <Delete Files="@(_OpenCVManagedAsset);@(_OpenCVNativeAsset)" />
+  </Target>
+</Project>

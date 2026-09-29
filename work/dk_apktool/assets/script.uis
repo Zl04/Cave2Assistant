@@ -1,0 +1,76 @@
+Function 速度加成(选项)'静态下拉框改变选择事件
+   Select Case 选项
+    Case 0
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"164"})
+    Case 1
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"153"})
+    Case 2
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"152"})
+    Case 3
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"149"})
+    Case 4
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"146"})
+    Case 5
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"143"})
+    Case 6
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"138"})
+    Case 7
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"135"})
+    Case 8
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"128"})
+    Case 9
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"126"})
+    Case 10
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"122"})
+    Case 11
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"120"})
+    Case 12
+       Uip.setAttribute("移动间隔输入框", {"初始文本":"117"})
+    Case 13
+       Uip.setAttribute("移动间隔输入框", {"初始文本":"115"})
+    Case 14
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"113"})
+    Case 15
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"110"})
+    Case 16
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"107"})
+    Case 17
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"105"})
+    Case 18
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"103"})
+    Case 19
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"101"})
+    Case 20
+        Uip.setAttribute("移动间隔输入框", {"初始文本":"98"})
+    End Select
+End Function 
+Function 说明
+	TracePrint UI.Newlayout ("脚本设置") 
+TracePrint UI.AddWebView("脚本设置", "web_view", "https://shimo.im/docs/x8q8Yvk8JHtktrrR")
+TracePrint UI.Show ("脚本设置")
+End Function
+
+
+//---------------------------删除的UI--------------------------
+//多选框:
+//			{
+//				注释:"文字大小、高度、宽度是可选属性，如需使用默认值，可保持值为0或直接删除此属性",
+//				名称:"自动任务",
+//				提示内容:"时光英雄任务(其它图不要勾)",
+//				点击响应:"函数名1",
+//				选中:false,
+//				文字大小:0,
+//				高度:0,
+//				宽度:0
+//			},	
+//			多选框:
+//			{
+//				注释:"文字大小、高度、宽度是可选属性，如需使用默认值，可保持值为0或直接删除此属性",
+//				名称:"任务层",
+//				提示内容:"检测任务完成量",
+//				点击响应:"函数名1",
+//				选中:false,
+//				文字大小:0,
+//				高度:0,
+//				宽度:0
+//			},	

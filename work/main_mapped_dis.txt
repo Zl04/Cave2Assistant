@@ -1,0 +1,517 @@
+.version	5.2
+
+.format	0
+.endianness	LITTLE
+.int_size	4
+.size_t_size	4
+.instruction_size	4
+.number_format	float	8
+
+.op	0	add
+.op	1	sub
+.op	2	mul
+.op	3	div
+.op	4	mod
+.op	5	pow
+.op	6	unm
+.op	7	not
+.op	8	len
+.op	9	concat
+.op	10	jmp
+.op	11	eq
+.op	12	lt
+.op	13	le
+.op	14	test
+.op	15	testset
+.op	16	call
+.op	17	tailcall
+.op	18	return
+.op	19	forloop
+.op	20	forprep
+.op	21	tforcall
+.op	22	tforloop
+.op	23	setlist
+.op	24	closure
+.op	25	move
+.op	26	loadk
+.op	27	loadbool
+.op	28	loadnil
+.op	29	getupval
+.op	30	getglobal
+.op	31	gettable
+.op	32	setglobal
+.op	33	setupval
+.op	34	settable
+.op	35	newtable
+.op	36	self
+.op	37	vararg
+.op	38	extraarg
+
+.function	main
+
+.linedefined	0
+.lastlinedefined	0
+.numparams	0
+.is_vararg	1
+.maxstacksize	2
+.source	null
+
+.upvalue	null	0	true
+
+.constant	k0	"ide9809fe5baa6e58aa0e68890"
+.constant	k1	"ide8afb4e6988e"
+.constant	k2	"main"
+
+closure       r0    f0
+setupval      r0  u256
+closure       r0    f1
+setupval      r0  u257
+closure       r0    f2
+setupval      r0  u258
+return        r0     1
+
+.function	main/f0
+
+.linedefined	1
+.lastlinedefined	47
+.numparams	1
+.is_vararg	0
+.maxstacksize	8
+.source	null
+
+.upvalue	null	0	false
+
+.constant	k0	0
+.constant	k1	"LuaAuxLib"
+.constant	k2	"UIP_SetAttribute"
+.constant	k3	"\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1\x86"
+.constant	k4	"Encode_GetJsonLib"
+.constant	k5	"encode"
+.constant	k6	"\xe5\x88\x9d\xe5\xa7\x8b\xe6\x96\x87\xe6\x9c\xac"
+.constant	k7	"164"
+.constant	k8	1
+.constant	k9	"153"
+.constant	k10	2
+.constant	k11	"152"
+.constant	k12	3
+.constant	k13	"149"
+.constant	k14	4
+.constant	k15	"146"
+.constant	k16	5
+.constant	k17	"143"
+.constant	k18	6
+.constant	k19	"138"
+.constant	k20	7
+.constant	k21	"135"
+.constant	k22	8
+.constant	k23	"128"
+.constant	k24	9
+.constant	k25	"126"
+.constant	k26	10
+.constant	k27	"122"
+.constant	k28	11
+.constant	k29	"120"
+.constant	k30	12
+.constant	k31	"117"
+.constant	k32	13
+.constant	k33	"115"
+.constant	k34	14
+.constant	k35	"113"
+.constant	k36	15
+.constant	k37	"110"
+.constant	k38	16
+.constant	k39	"107"
+.constant	k40	17
+.constant	k41	"105"
+.constant	k42	18
+.constant	k43	"103"
+.constant	k44	19
+.constant	k45	"101"
+.constant	k46	20
+.constant	k47	"98"
+
+getupval      r1    u0
+move          r2    r0
+eq             0    r2    k0 ; k0 = 0
+jmp            0   l17
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   263
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l17
+eq             0    r2    k8 ; k8 = 1
+jmp            0   l31
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   265
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l31
+eq             0    r2   k10 ; k10 = 2
+jmp            0   l45
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   267
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l45
+eq             0    r2   k12 ; k12 = 3
+jmp            0   l59
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   269
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l59
+eq             0    r2   k14 ; k14 = 4
+jmp            0   l73
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   271
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l73
+eq             0    r2   k16 ; k16 = 5
+jmp            0   l87
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   273
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l87
+eq             0    r2   k18 ; k18 = 6
+jmp            0  l101
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   275
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l101
+eq             0    r2   k20 ; k20 = 7
+jmp            0  l115
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   277
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l115
+eq             0    r2   k22 ; k22 = 8
+jmp            0  l129
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   279
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l129
+eq             0    r2   k24 ; k24 = 9
+jmp            0  l143
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   281
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l143
+eq             0    r2   k26 ; k26 = 10
+jmp            0  l157
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   283
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l157
+eq             0    r2   k28 ; k28 = 11
+jmp            0  l171
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   285
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l171
+eq             0    r2   k30 ; k30 = 12
+jmp            0  l185
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   287
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l185
+eq             0    r2   k32 ; k32 = 13
+jmp            0  l199
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   289
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l199
+eq             0    r2   k34 ; k34 = 14
+jmp            0  l213
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   291
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l213
+eq             0    r2   k36 ; k36 = 15
+jmp            0  l227
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   293
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l227
+eq             0    r2   k38 ; k38 = 16
+jmp            0  l241
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   295
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l241
+eq             0    r2   k40 ; k40 = 17
+jmp            0  l255
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   297
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l255
+eq             0    r2   k42 ; k42 = 18
+jmp            0  l269
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   299
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l269
+eq             0    r2   k44 ; k44 = 19
+jmp            0  l283
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   301
+call          r5     3     0
+call          r3     0     1
+jmp            0  l296
+.label	l283
+eq             0    r2   k46 ; k46 = 20
+jmp            0  l296
+gettable      r3    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r3 k1794 ; k1794 out of range
+loadk         r4    k3 ; k3 = "\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1" (truncated)
+gettable      r5    r0    k1 ; k1 = "LuaAuxLib"
+setglobal     r5 k2820 ; k2820 out of range
+call          r5     1     2
+vararg        r5     5 c= 261
+self          r7    r0    r1
+newtable      r7   262   303
+call          r5     3     0
+call          r3     0     1
+.label	l296
+return        r1     2
+return        r0     1
+
+.function	main/f1
+
+.linedefined	48
+.lastlinedefined	52
+.numparams	0
+.is_vararg	0
+.maxstacksize	9
+.source	null
+
+.upvalue	null	0	false
+
+.constant	k0	"LuaAuxLib"
+.constant	k1	"TracePrint"
+.constant	k2	"_48:"
+.constant	k3	"UI_NewLayout"
+.constant	k4	"\xe8\x84\x9a\xe6\x9c\xac\xe8\xae\xbe\xe7\xbd\xae"
+.constant	k5	"_49:"
+.constant	k6	"UI_AddWebView"
+.constant	k7	"web_view"
+.constant	k8	"https://shimo.im/docs/x8q8Yvk8JHtktrrR"
+.constant	k9	"_50:"
+.constant	k10	"UI_Show"
+
+getupval      r0    u0
+gettable      r1    r0    k0 ; k0 = "LuaAuxLib"
+setglobal     r1  k769 ; k769 out of range
+loadk         r2    k2 ; k2 = "_48:"
+gettable      r3    r0    k0 ; k0 = "LuaAuxLib"
+setglobal     r3 k1795 ; k1795 out of range
+loadk         r4    k4 ; k4 = "\xe8\x84\x9a\xe6\x9c\xac\xe8\xae\xbe\xe7\xbd\xae"
+getupval      r5    u2
+call          r3     5     0
+call          r1     0     1
+gettable      r1    r0    k0 ; k0 = "LuaAuxLib"
+setglobal     r1  k769 ; k769 out of range
+loadk         r2    k5 ; k5 = "_49:"
+gettable      r3    r0    k0 ; k0 = "LuaAuxLib"
+setglobal     r3 k1798 ; k1798 out of range
+loadk         r4    k4 ; k4 = "\xe8\x84\x9a\xe6\x9c\xac\xe8\xae\xbe\xe7\xbd\xae"
+loadk         r5    k7 ; k7 = "web_view"
+loadk         r6    k8 ; k8 = "https://shimo.im/doc" (truncated)
+getupval      r7    u1
+call          r3     6     0
+call          r1     0     1
+gettable      r1    r0    k0 ; k0 = "LuaAuxLib"
+setglobal     r1  k769 ; k769 out of range
+loadk         r2    k9 ; k9 = "_50:"
+gettable      r3    r0    k0 ; k0 = "LuaAuxLib"
+setglobal     r3 k1802 ; k1802 out of range
+loadk         r4    k4 ; k4 = "\xe8\x84\x9a\xe6\x9c\xac\xe8\xae\xbe\xe7\xbd\xae"
+call          r3     2     0
+call          r1     0     1
+return        r0     2
+return        r0     1
+
+.function	main/f2
+
+.linedefined	53
+.lastlinedefined	54
+.numparams	0
+.is_vararg	0
+.maxstacksize	2
+.source	null
+
+return        r0     1
+

@@ -1,0 +1,31 @@
+PASS: valid target route stays locked; invalid route is released
+PASS: stale temporary block is cleared when the authoritative map has a valid route
+PASS: confirmed function NPC types map correctly; unconfirmed types become unknown
+PASS: all source-confirmed gem selection headers are recognized without inventory false positives
+PASS: all controller dungeon icon classifications match the audited source rules
+PASS: direction and touch coordinate mapping preserved
+PASS: an adjacent target remains actionable when the previous route is invalid
+PASS: full route covers the cave and includes task stops (17 steps)
+PASS: target-free exploration fallback produces a discovery route (1 steps)
+PASS: both exploration planners prefer a long safe detour; full clear retains shortest paths
+PASS: pickup and portal routes also avoid optional combat
+PASS: unavoidable combat minimizes encounters and respects temporary blocks
+PASS: safe exploration is completed before exploring behind enemies
+PASS: forced planning consumes the refreshed fog state
+PASS: no-fog full-map flag suppresses redundant exploration
+PASS: unreachable targets do not block next-floor gating
+PASS: dynamic installer decrypts to source-format Lua
+PASS: route session owns and clears plan state
+PASS: map snapshot captures structural identity
+PASS: floor state has a dedicated owner
+PASS: settings persistence is isolated from the UI
+PASS: portal remains pending until interaction
+PASS: locked Boss floor schedules minimum warning enemies without enabling full clear
+PASS: portal shortcut honors the target-floor stop gate
+PASS: concurrent releases drain in-flight input
+PASS: disconnect is reported and propagated
+PASS: cancellation during preparation prevents input
+PASS: emergency release waits for a pulse
+PASS: synchronous disposal does not block pending input
+PASS: final pulse overshoot requests replanning
+PASS: stale boundary stops movement

@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>用大白话理解 MAA</title>
+  <style>
+    :root { --ink:#172033; --muted:#667085; --blue:#dff1ff; --blue2:#2274a5; --green:#e5f8ed; --green2:#16834f; --orange:#fff0d9; --orange2:#b46300; --red:#ffe4e4; --red2:#b42318; --line:#d9e2ec; --bg:#f7fafc; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--bg); font-family:"Microsoft YaHei",system-ui,sans-serif; line-height:1.6; }
+    main { max-width:1050px; margin:auto; padding:34px 22px 54px; }
+    h1 { font-size:clamp(30px,5vw,56px); line-height:1.12; margin:0 0 12px; letter-spacing:-.04em; }
+    h2 { font-size:clamp(22px,3vw,32px); margin:42px 0 16px; }
+    h3 { margin:0 0 8px; font-size:22px; }
+    p { margin:8px 0; }
+    .lead { font-size:22px; color:#344054; max-width:850px; }
+    .hero { background:linear-gradient(135deg,#eaf6ff,#fff7e9); border:1px solid var(--line); border-radius:26px; padding:30px; box-shadow:0 12px 35px #1d355711; }
+    .big-answer { display:inline-block; margin-top:18px; padding:14px 20px; border-radius:16px; background:#172033; color:white; font-size:25px; font-weight:700; }
+    .flow { display:grid; grid-template-columns:1fr auto 1fr auto 1fr; align-items:center; gap:14px; margin:22px 0; }
+    .arrow { font-size:36px; color:var(--blue2); text-align:center; }
+    .card { border:1px solid var(--line); border-radius:20px; padding:20px; background:white; box-shadow:0 6px 20px #1d355708; }
+    .card.blue { background:var(--blue); border-color:#b9e1fa; }
+    .card.green { background:var(--green); border-color:#bde9ce; }
+    .card.orange { background:var(--orange); border-color:#f2d19d; }
+    .emoji { font-size:48px; display:block; margin-bottom:6px; }
+    .tiny { color:var(--muted); font-size:15px; }
+    .organs { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }
+    .organ { text-align:center; border:1px solid var(--line); background:white; border-radius:18px; padding:16px 10px; min-height:158px; }
+    .organ .emoji { font-size:40px; }
+    .two { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+    .pipeline { background:#132238; color:#fff; border-radius:22px; padding:22px; }
+    .pipeline .step { display:inline-flex; align-items:center; gap:8px; background:#27415e; border-radius:14px; padding:13px 15px; margin:6px 4px; font-size:19px; }
+    .pipeline .step b { color:#ffd166; }
+    .branch { margin:12px 4px 0; padding:12px 14px; border-left:4px solid #ff8c42; background:#20354d; border-radius:9px; color:#eaf2fa; }
+    .mapping { display:grid; grid-template-columns:1fr 70px 1fr; align-items:stretch; gap:12px; }
+    .mapping .equals { display:flex; align-items:center; justify-content:center; font-size:34px; color:var(--blue2); }
+    .do { border-left:6px solid var(--green2); }
+    .dont { border-left:6px solid var(--red2); }
+    .number { width:38px; height:38px; display:inline-grid; place-items:center; border-radius:50%; background:#172033; color:white; font-weight:bold; margin-right:8px; }
+    .steps { display:grid; gap:14px; }
+    .step-card { display:flex; gap:10px; align-items:flex-start; background:white; border:1px solid var(--line); border-radius:18px; padding:16px 18px; }
+    .footer { margin-top:42px; color:var(--muted); font-size:14px; }
+    @media (max-width:780px) { .flow { grid-template-columns:1fr; } .arrow { transform:rotate(90deg); } .organs { grid-template-columns:repeat(2,1fr); } .two,.mapping { grid-template-columns:1fr; } .mapping .equals { transform:rotate(90deg); height:24px; } }
+  </style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <h1>把 MAA 想成一支会玩游戏的机器人</h1>
+    <p class="lead">MAA = 明日方舟助手。它不是一个“神奇按钮”，而是一套把机器人拆成眼睛、手、脑子和工作清单的系统。</p>
+    <div class="big-answer">我们要借鉴的是“分工方式”，不是整台机器人。</div>
+  </section>
+
+  <h2>一、机器人怎么工作？</h2>
+  <div class="flow">
+    <div class="card blue"><span class="emoji">📋</span><h3>任务单</h3><p>“刷图、领奖、回城”</p></div>
+    <div class="arrow">→</div>
+    <div class="card green"><span class="emoji">🤖</span><h3>自动化大脑</h3><p>判断现在画面是什么，再决定下一步。</p></div>
+    <div class="arrow">→</div>
+    <div class="card orange"><span class="emoji">🎮</span><h3>游戏</h3><p>截图、点击、滑动、等待结果。</p></div>
+  </div>
+
+  <h2>二、机器人身上的五个器官</h2>
+  <div class="organs">
+    <div class="organ"><span class="emoji">👀</span><h3>眼睛</h3><p>模板、像素、OCR、Lua 状态</p></div>
+    <div class="organ"><span class="emoji">🖐️</span><h3>手</h3><p>ADB 点击、滑动、长按、释放</p></div>
+    <div class="organ"><span class="emoji">🧠</span><h3>脑子</h3><p>判断状态、规划路线、选择目标</p></div>
+    <div class="organ"><span class="emoji">📖</span><h3>工作清单</h3><p>任务应该按什么顺序执行</p></div>
+    <div class="organ"><span class="emoji">📣</span><h3>对讲机</h3><p>告诉 UI：开始、失败、重试、停止</p></div>
+  </div>
+
+  <h2>三、Pipeline 到底是什么？</h2>
+  <p class="lead">Pipeline 就是一张“如果看到 A，就做 B；成功走 C；失败走 D”的流程图。</p>
+  <div class="pipeline">
+    <div class="step"><b>1</b>看到传送门？</div><span>→</span>
+    <div class="step"><b>2</b>走到旁边</div><span>→</span>
+    <div class="step"><b>3</b>点击传送门</div><span>→</span>
+    <div class="step"><b>4</b>等待弹窗</div><span>→</span>
+    <div class="step"><b>5</b>选择加成</div>
+    <div class="branch">如果没有看到弹窗：等一会儿再看；超过次数还没有看到：释放触摸并安全停止。</div>
+  </div>
+  <p class="tiny">MAA 的官方 Pipeline 还规定了识别顺序、轮询间隔、超时、错误分支、画面稳定等待和点击目标。[查看官方 Pipeline 协议](https://github.com/MaaXYZ/MaaFramework/blob/main/docs/en_us/3.1-PipelineProtocol.md)</p>
+
+  <h2>四、如果移动中突然弹窗呢？</h2>
+  <p class="lead">这时不能等走完再处理。要安排一个“值班员”一直看着屏幕。</p>
+  <div class="two">
+    <div class="card blue"><span class="emoji">🏃</span><h3>移动员</h3><p>按照路线持续走路。</p></div>
+    <div class="card orange"><span class="emoji">👮</span><h3>弹窗值班员</h3><p>移动期间持续检查：有没有弹窗、战斗或异常遮罩？</p></div>
+  </div>
+  <div class="pipeline" style="margin-top:16px">
+    <div class="step"><b>1</b>移动中发现弹窗</div><span>→</span>
+    <div class="step"><b>2</b>立刻取消移动</div><span>→</span>
+    <div class="step"><b>3</b>先松开触摸</div><span>→</span>
+    <div class="step"><b>4</b>处理弹窗</div><span>→</span>
+    <div class="step"><b>5</b>重新看地图再继续</div>
+    <div class="branch">值班员只能发出“暂停请求”，不能和移动员同时乱点屏幕；所有点击、滑动、松手都要经过同一个“交通警察”。</div>
+  </div>
+  <p class="tiny">所以这里的重点不是两个线程抢着操作，而是“一个负责观察，一个统一负责操作”。</p>
+
+  <h2>五、当前项目和 MAA 的关系</h2>
+  <div class="mapping">
+    <div class="card blue"><h3>当前项目已经有</h3><p>地图快照、楼层状态机、地图寻路、路线执行、偏移/停滞恢复、Lua 状态、ADB 和 OCR。</p></div>
+    <div class="equals">≈</div>
+    <div class="card green"><h3>机器人已经有脑子和腿</h3><p>尤其是地图规划和移动控制，不需要推倒重来。</p></div>
+  </div>
+  <div class="mapping" style="margin-top:14px">
+    <div class="card orange"><h3>现在比较挤在一起</h3><p>窗口 UI、弹窗识别、换层选择、路线循环和停止清理都在 MainForm 里。</p></div>
+    <div class="equals">→</div>
+    <div class="card green"><h3>应该补一个“小秘书”</h3><p>专门管理弹窗和 UI 流程，叫 OverlayPipelineRunner。</p></div>
+  </div>
+
+  <h2>六、最简单的改造方案</h2>
+  <div class="steps">
+    <div class="step-card"><span class="number">1</span><div><h3>保留原来的地图大脑</h3><p>Planner 继续规划去哪儿，RouteExecutor 继续负责怎么走。</p></div></div>
+    <div class="step-card"><span class="number">2</span><div><h3>把弹窗交给小秘书</h3><p>秘境选卡、换层确认、战利品确认、服务器异常，先从这四类开始。</p></div></div>
+    <div class="step-card"><span class="number">3</span><div><h3>每一步都留下结果</h3><p>记录：看到了什么、点了哪里、成功了吗、重试了几次。</p></div></div>
+    <div class="step-card"><span class="number">4</span><div><h3>失败时先松手</h3><p>识别失败、状态不可信或设备异常时，先释放触摸，再决定重试还是停止。</p></div></div>
+  </div>
+
+  <h2>七、哪些要借鉴，哪些不要？</h2>
+  <div class="two">
+    <div class="card do"><h3>✅ 借鉴</h3><p>任务清单、识别和动作分开、失败分支、重试上限、事件日志、资源独立更新。</p></div>
+    <div class="card dont"><h3>❌ 暂时不借鉴</h3><p>整套 C++ 框架、复杂任务表达式、把地图规划改成 JSON、全屏高频 OCR、早期远程控制。</p></div>
+  </div>
+
+  <section class="hero" style="margin-top:42px; background:linear-gradient(135deg,#e9fff2,#edf7ff)">
+    <h2 style="margin-top:0">一句话记忆</h2>
+    <p class="lead" style="margin-bottom:0"><b>现在的项目已经会“看地图、想路线、控制人物”；下一步只需要把“看弹窗、点按钮、失败恢复”单独整理出来。</b></p>
+  </section>
+  <p class="footer">这是一份面向当前项目的入门图解，依据 MAA/MaaFramework 官方源码与协议整理。</p>
+</main>
+</body>
+</html>

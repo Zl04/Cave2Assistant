@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "name": "PopupWatchdog",
+  "nodes": [
+    {
+      "name": "ServerError",
+      "result": "ServerError",
+      "recognizer": "ServerErrorDialog",
+      "priority": 10,
+      "maxAttempts": 1,
+      "timeoutMs": 3500
+    },
+    {
+      "name": "RiftGemSelection",
+      "result": "RiftGemSelection",
+      "recognizer": "RiftGemSelection",
+      "priority": 20,
+      "maxAttempts": 1,
+      "timeoutMs": 3500
+    },
+    {
+      "name": "NextFloorDialog",
+      "result": "NextFloorDialog",
+      "recognizer": "NextFloorDialog",
+      "priority": 30,
+      "maxAttempts": 1,
+      "timeoutMs": 3500
+    }
+  ]
+}

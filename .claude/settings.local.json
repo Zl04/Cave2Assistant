@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Warrior.zeng/.codex/**)",
+      "Read(//c/Users/Warrior.zeng/**)",
+      "Bash(sqlite3 --version)",
+      "Bash(sqlite3 /c/Users/Warrior.zeng/.codex/state_5.sqlite .tables)",
+      "Bash(sqlite3 \"/c/Users/Warrior.zeng/.codex/thread_history_1.sqlite\" \".tables\")"
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>frames</key>
+        <dict>
+            <key>ui_minimap_town_map.png</key>
+            <dict>
+                <key>aliases</key>
+                <array/>
+                <key>spriteOffset</key>
+                <string>{0,0}</string>
+                <key>spriteSize</key>
+                <string>{1136,636}</string>
+                <key>spriteSourceSize</key>
+                <string>{1136,636}</string>
+                <key>textureRect</key>
+                <string>{{1,1},{1136,636}}</string>
+                <key>textureRotated</key>
+                <false/>
+            </dict>
+        </dict>
+        <key>metadata</key>
+        <dict>
+            <key>format</key>
+            <integer>3</integer>
+            <key>pixelFormat</key>
+            <string>RGBA8888</string>
+            <key>premultiplyAlpha</key>
+            <false/>
+            <key>realTextureFileName</key>
+            <string>ui_minimap_town_map.pvr.ccz</string>
+            <key>size</key>
+            <string>{1138,638}</string>
+            <key>smartupdate</key>
+            <string>$TexturePacker:SmartUpdate:9f4da34deb526941e027c131d579ff03:76cd35caf850bdce502feab73316f180:80936ab46bab45e75431ddd9f720a578$</string>
+            <key>textureFileName</key>
+            <string>ui_minimap_town_map.pvr.ccz</string>
+        </dict>
+    </dict>
+</plist>

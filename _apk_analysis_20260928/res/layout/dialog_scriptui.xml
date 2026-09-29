@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:gravity="center" android:orientation="vertical" android:background="@color/bg_white_translucent" android:padding="10.0dp" android:layout_width="match_parent" android:layout_height="match_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <LinearLayout android:gravity="center" android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content">
+        <ImageView android:visibility="invisible" android:layout_width="wrap_content" android:layout_height="wrap_content" android:src="@drawable/scriptui_setting" />
+        <TextView android:textAppearance="?android:textAppearanceLarge" android:gravity="center" android:id="@id/textView1" android:layout_width="0.0dp" android:layout_height="wrap_content" android:text="@string/scriptui_uisetting" android:layout_weight="1.0" />
+        <ImageView android:id="@id/scriptui_imageview_setting" android:layout_width="wrap_content" android:layout_height="wrap_content" android:src="@drawable/scriptui_setting" />
+    </LinearLayout>
+    <LinearLayout android:orientation="vertical" android:id="@id/ll_dialog_ui_parent" android:padding="10.0dp" android:layout_width="match_parent" android:layout_height="0.0dp" android:layout_weight="1.0">
+        <ScrollView android:id="@id/scriptui_scrollview" android:layout_width="match_parent" android:layout_height="match_parent">
+            <LinearLayout android:gravity="center" android:orientation="vertical" android:id="@id/scriptui_linearlayout_ui" android:layout_width="match_parent" android:layout_height="wrap_content" />
+        </ScrollView>
+    </LinearLayout>
+    <LinearLayout android:gravity="center_vertical" android:padding="10.0dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+        <Button android:textColor="@color/blue1" android:id="@id/scriptui_button_savesetting" android:background="@drawable/scriptui_button_bg_blue" android:text="@string/scriptui_savesetting" style="@style/scriptui_button" />
+    </LinearLayout>
+</LinearLayout>

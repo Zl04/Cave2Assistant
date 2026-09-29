@@ -1,0 +1,18 @@
+version: 3.0.3
+apkFileName: dk3.7.0-23.12.8.apk
+usesFramework:
+  ids:
+  - 1
+sdkInfo:
+  minSdkVersion: 16
+  targetSdkVersion: 22
+versionInfo:
+  versionCode: 2017011016
+  versionName: 1.5.4
+resourcesInfo:
+  packageId: 127
+  keepRawValues: true
+doNotCompress:
+- jpg
+- png
+- res/raw/eventservice.jarx

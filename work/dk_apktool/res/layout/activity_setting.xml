@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:orientation="vertical" android:background="@color/gray1" android:layout_width="match_parent" android:layout_height="match_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <com.cyjh.elfin.customview.TitleView android:id="@id/titleview_setting" style="@style/titleview" />
+    <Switch android:id="@id/swtich_setting_volume_key_ctrl" android:text="@string/setting_volume_key_ctrl" style="@style/setting_switch" />
+    <View style="@style/setting_splitline" />
+    <Switch android:id="@id/swtich_setting_floatview_ctrl" android:text="@string/setting_floatview_ctrl" style="@style/setting_switch" />
+    <View style="@style/setting_splitline" />
+    <Switch android:id="@id/swtich_setting_waggle_stop" android:text="@string/setting_waggle_stop" style="@style/setting_switch" />
+    <View style="@style/setting_splitline" />
+    <Switch android:id="@id/swtich_setting_call_stop" android:text="@string/setting_call_stop" style="@style/setting_switch" />
+    <View style="@style/setting_splitline" />
+    <Switch android:id="@id/swtich_setting_vibration" android:text="@string/setting_vibration" style="@style/setting_switch" />
+    <View style="@style/setting_splitline" />
+    <View android:layout_marginTop="20.0dp" style="@style/setting_splitline" />
+    <Button android:textSize="16.0sp" android:textColor="@color/gray2" android:gravity="left|center" android:id="@id/btn_setting_scriptlog" android:background="@android:color/white" android:padding="15.0dp" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/setting_scriptlog" android:drawableRight="@drawable/ic_arrow_right" />
+    <View style="@style/setting_splitline" />
+    <Button android:textSize="16.0sp" android:textColor="@color/gray2" android:gravity="left|center" android:id="@id/setting_button_update" android:background="@android:color/white" android:paddingLeft="15.0dp" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/setting_update" />
+    <View style="@style/setting_splitline" />
+    <Button android:textSize="16.0sp" android:textColor="@color/gray2" android:gravity="left|center" android:id="@id/button_setting_feedback" android:background="@android:color/white" android:padding="15.0dp" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/feedback" android:drawableRight="@drawable/ic_arrow_right" />
+    <Button android:textSize="16.0sp" android:textColor="@color/gray2" android:gravity="left|center" android:id="@id/setting_button_exitapp" android:background="@android:color/white" android:paddingLeft="15.0dp" android:visibility="gone" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/scriptui_exitapp" />
+</LinearLayout>

@@ -1,0 +1,457 @@
+.version	5.2
+
+.format	0
+.endianness	LITTLE
+.int_size	4
+.size_t_size	4
+.instruction_size	4
+.number_format	float	8
+
+.function	main
+
+.linedefined	0
+.lastlinedefined	0
+.numparams	0
+.is_vararg	1
+.maxstacksize	2
+.source	null
+
+.upvalue	null	0	true
+
+.constant	k0	"ide9809fe5baa6e58aa0e68890"
+.constant	k1	"ide8afb4e6988e"
+.constant	k2	"main"
+
+eq             0    r0    r0
+forprep       r0    l4
+eq             0    r0    r1
+.label	l4
+forprep       r0   513
+eq             0    r0    r2
+forprep       r0  1025
+pow           r0    r1    r0
+
+.function	main/f0
+
+.linedefined	1
+.lastlinedefined	47
+.numparams	1
+.is_vararg	0
+.maxstacksize	8
+.source	null
+
+.upvalue	null	0	false
+
+.constant	k0	0
+.constant	k1	"LuaAuxLib"
+.constant	k2	"UIP_SetAttribute"
+.constant	k3	"\xe7\xa7\xbb\xe5\x8a\xa8\xe9\x97\xb4\xe9\x9a\x94\xe8\xbe\x93\xe5\x85\xa5\xe6\xa1\x86"
+.constant	k4	"Encode_GetJsonLib"
+.constant	k5	"encode"
+.constant	k6	"\xe5\x88\x9d\xe5\xa7\x8b\xe6\x96\x87\xe6\x9c\xac"
+.constant	k7	"164"
+.constant	k8	1
+.constant	k9	"153"
+.constant	k10	2
+.constant	k11	"152"
+.constant	k12	3
+.constant	k13	"149"
+.constant	k14	4
+.constant	k15	"146"
+.constant	k16	5
+.constant	k17	"143"
+.constant	k18	6
+.constant	k19	"138"
+.constant	k20	7
+.constant	k21	"135"
+.constant	k22	8
+.constant	k23	"128"
+.constant	k24	9
+.constant	k25	"126"
+.constant	k26	10
+.constant	k27	"122"
+.constant	k28	11
+.constant	k29	"120"
+.constant	k30	12
+.constant	k31	"117"
+.constant	k32	13
+.constant	k33	"115"
+.constant	k34	14
+.constant	k35	"113"
+.constant	k36	15
+.constant	k37	"110"
+.constant	k38	16
+.constant	k39	"107"
+.constant	k40	17
+.constant	k41	"105"
+.constant	k42	18
+.constant	k43	"103"
+.constant	k44	19
+.constant	k45	"101"
+.constant	k46	20
+.constant	k47	"98"
+
+call          r1     0     0
+lt             2    r0    r0
+newtable      r0     2   256
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3336
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0   k22 ; k22 = 8
+newtable      r0     2   264
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3338
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0    k8 ; k8 = 1
+newtable      r0     2   266
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3340
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0  r250 ; k0 = 0
+newtable      r0     2   268
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3342
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0  r236 ; k0 = 0
+newtable      r0     2   270
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3344
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0  r222 ; k0 = 0
+newtable      r0     2   272
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3346
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0  r208 ; k0 = 0
+newtable      r0     2   274
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3348
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0  r194 ; k0 = 0
+newtable      r0     2   276
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3350
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0  r180 ; k0 = 0
+newtable      r0     2   278
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3352
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0  r166 ; k0 = 0
+newtable      r0     2   280
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3354
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0  r152 ; k0 = 0
+newtable      r0     2   282
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3356
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0  r138 ; k0 = 0
+newtable      r0     2   284
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3358
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0  r124 ; k0 = 0
+newtable      r0     2   286
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3360
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0  r110 ; k0 = 0
+newtable      r0     2   288
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3362
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0   r96 ; k0 = 0
+newtable      r0     2   290
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3364
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0   r82 ; k0 = 0
+newtable      r0     2   292
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3366
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0   r68 ; k0 = 0
+newtable      r0     2   294
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3368
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0   r54 ; k0 = 0
+newtable      r0     2   296
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3370
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0   r40 ; k0 = 0
+newtable      r0     2   298
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3372
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0   r26 ; k0 = 0
+newtable      r0     2   300
+settable      r0    k0   r11 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3374
+div           r5    r3    r0
+div           r3    r0    r1
+settable      r0    k0   r12 ; k0 = 0
+newtable      r0     2   302
+settable      r0    k0   r10 ; k0 = 0
+return        r3     0 c= 257
+forloop       r3 -129277
+le             4    r0    r3
+return        r5     0 c= 257
+forloop       r5 -128251
+div           r5    r1    r2
+closure       r5 f2821
+setlist       r7     0     1
+tforloop      r7  3376
+div           r5    r3    r0
+div           r3    r0    r1
+pow           r1    r2    r0
+pow           r0    r1    r0
+
+.function	main/f1
+
+.linedefined	48
+.lastlinedefined	52
+.numparams	0
+.is_vararg	0
+.maxstacksize	9
+.source	null
+
+.upvalue	null	0	false
+
+.constant	k0	"LuaAuxLib"
+.constant	k1	"TracePrint"
+.constant	k2	"_48:"
+.constant	k3	"UI_NewLayout"
+.constant	k4	"\xe8\x84\x9a\xe6\x9c\xac\xe8\xae\xbe\xe7\xbd\xae"
+.constant	k5	"_49:"
+.constant	k6	"UI_AddWebView"
+.constant	k7	"web_view"
+.constant	k8	"https://shimo.im/docs/x8q8Yvk8JHtktrrR"
+.constant	k9	"_50:"
+.constant	k10	"UI_Show"
+
+call          r0     0     0
+return        r1     0 c= 256
+forloop       r1 -130302
+le             2    r0    r2
+return        r3     0 c= 256
+forloop       r3 -129276
+le             4    r0    r4
+call          r5     2     0
+div           r3    r5    r0
+div           r1    r0    r1
+return        r1     0 c= 256
+forloop       r1 -130302
+le             2    r0    r5
+return        r3     0 c= 256
+forloop       r3 -129273
+le             4    r0    r4
+le             5    r0    r7
+le             6    r0    r8
+call          r7     1     0
+div           r3    r6    r0
+div           r1    r0    r1
+return        r1     0 c= 256
+forloop       r1 -130302
+le             2    r0    r9
+return        r3     0 c= 256
+forloop       r3 -129269
+le             4    r0    r4
+div           r3    r2    r0
+div           r1    r0    r1
+pow           r0    r2    r0
+pow           r0    r1    r0
+
+.function	main/f2
+
+.linedefined	53
+.lastlinedefined	54
+.numparams	0
+.is_vararg	0
+.maxstacksize	2
+.source	null
+
+pow           r0    r1    r0
+

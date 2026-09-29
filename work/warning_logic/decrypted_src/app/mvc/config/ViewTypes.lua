@@ -1,0 +1,18 @@
+--[[--
+ 视图配置文件
+]]
+local VIEW_TYPE = {}
+VIEW_TYPE.BASE = "BASE"        -- 用于和前面的框架兼容抽离出来的一层
+VIEW_TYPE.SCENE = "SCENE"      -- 地图场景
+VIEW_TYPE.MAIN_UI = "MAIN_UI"   -- 主要UI
+VIEW_TYPE.PANEL = "PANEL"      -- 面板
+VIEW_TYPE.TOP_PANEL = "TOP_PANEL"      -- 面板
+VIEW_TYPE.STATUS = "STATUS"    -- 
+VIEW_TYPE.DIALOG = "DIALOG"
+VIEW_TYPE.LOADING = "LOADING"
+VIEW_TYPE.GUIDE = "GUIDE"
+VIEW_TYPE.TIP = "TIP"
+VIEW_TYPE.MAX = "MAX"     -- 最上层
+VIEW_TYPE.SUB_PANEL = "SUB_PANEL"
+
+return VIEW_TYPE

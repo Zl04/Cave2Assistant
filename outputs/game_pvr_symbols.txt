@@ -1,0 +1,9 @@
+PTR_s_uEncryptedPvrKeyParts_01713d98 @ 01713d98 : f0077d0100000000a88e70010000000020ea670100000000b063290100000000
+PTR_s_bEncryptionKeyIsValid_0171a260 @ 0171a260 : e4f77c0100000000f0e29b0000000000c47ab800000000004cd5af0000000000
+PTR_s_uEncryptionKey_0171cef8 @ 0171cef8 : f0f77c01000000007043af000000000008ac6c0100000000580c9f0000000000
+_ZN7cocos2d8ZipUtils23s_bEncryptionKeyIsValidE @ 017cf7e4 : 
+cocos2d::ZipUtils::s_bEncryptionKeyIsValid @ 017cf7e4 : 
+_ZN7cocos2d8ZipUtils16s_uEncryptionKeyE @ 017cf7f0 : 
+cocos2d::ZipUtils::s_uEncryptionKey @ 017cf7f0 : 
+_ZN7cocos2d8ZipUtils23s_uEncryptedPvrKeyPartsE @ 017d07f0 : 
+cocos2d::ZipUtils::s_uEncryptedPvrKeyParts @ 017d07f0 : 

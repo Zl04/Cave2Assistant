@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout android:gravity="center" android:orientation="vertical" android:background="@color/bg_white" android:layout_width="match_parent" android:layout_height="match_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <TextView android:textSize="18.0sp" android:gravity="left" android:id="@id/textView3" android:background="@color/gray1" android:padding="20.0dp" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/miuiguide_show_dock" android:layout_centerVertical="true" />
+    <TextView android:textAppearance="?android:textAppearanceMedium" android:id="@id/textView1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginBottom="50.0dp" android:text="@string/miuiguide_title" android:layout_above="@id/textView3" android:layout_centerHorizontal="true" />
+    <TextView android:textColor="@color/gray2" android:id="@id/textView2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginBottom="25.0dp" android:text="@string/miuiguide_subtitle" android:layout_above="@id/textView3" android:layout_centerHorizontal="true" />
+    <Button android:textColor="@android:color/white" android:id="@id/dialog_miuiguide_button_open" android:background="@color/button_blue_corner" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginLeft="20.0dp" android:layout_marginTop="30.0dp" android:layout_marginRight="20.0dp" android:text="@string/miuiguide_open" android:layout_below="@id/textView3" android:layout_centerHorizontal="true" />
+    <ImageView android:id="@id/imageView1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10.0dp" android:layout_marginRight="10.0dp" android:src="@drawable/finger" android:layout_alignTop="@id/textView3" android:layout_alignParentRight="true" />
+</RelativeLayout>

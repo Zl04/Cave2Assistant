@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <!-- Build and restore intermediates must stay inside publish/.build so
+         this project never recreates bin/ or obj/ outside the delivery tree. -->
+    <BaseOutputPath>$(MSBuildProjectDirectory)\publish\.build\bin\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)\publish\.build\obj\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildProjectDirectory)\publish\**</DefaultItemExcludes>
+  </PropertyGroup>
+
+
+</Project>

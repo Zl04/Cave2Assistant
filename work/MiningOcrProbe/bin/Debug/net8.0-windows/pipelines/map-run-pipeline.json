@@ -1,0 +1,9 @@
+{
+  "$schema": "https://github.com/MaaAssistantArknights/MaaAssistantArknights/raw/dev-v2/docs/maa_tasks_schema.json",
+  "RunDungeon": {
+    "algorithm": "JustReturn",
+    "action": "DoNothing",
+    "handler": "RunDungeon",
+    "maxTimes": 1
+  }
+}

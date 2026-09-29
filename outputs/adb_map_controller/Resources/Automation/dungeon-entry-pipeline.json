@@ -1,0 +1,102 @@
+{
+  "$schema": "https://github.com/MaaAssistantArknights/MaaAssistantArknights/raw/dev-v2/docs/maa_tasks_schema.json",
+  "DungeonEntry": {
+    "recognition": "DirectHit",
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep",
+    "next": ["EnsureMapOpen"],
+    "maxTimes": 1
+  },
+  "EnsureMapOpen": {
+    "recognition": "DirectHit",
+    "action": "DoNothing",
+    "handler": "MaaAdb",
+    "timeout": 3000,
+    "rate_limit": 300,
+    "next": ["BastanMapOpened", "OpenMapButton"],
+    "on_error": ["EntryOpenMapFailed"],
+    "maxTimes": 1
+  },
+  "BastanMapOpened": {
+    "recognition": "TemplateMatch",
+    "template": ["templates/ui/ui_title_bastan.png"],
+    "roi": [538, 36, 230, 180],
+    "threshold": 0.75,
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep",
+    "next": ["EnterDungeon"],
+    "maxTimes": 1
+  },
+  "OpenMapButton": {
+    "recognition": "TemplateMatch",
+    "template": ["player.png"],
+    "roi": [998, 58, 270, 158],
+    "threshold": 0.65,
+    "action": "Click",
+    "handler": "MaaAdb",
+    "post_delay": 700,
+    "next": ["EnsureMapOpen"],
+    "exceeded_next": ["EntryOpenMapFailed"],
+    "max_hit": 10
+  },
+  "EntryOpenMapFailed": {
+    "recognition": "DirectHit",
+    "action": "Stop",
+    "handler": "MaaAdb"
+  },
+  "EnterDungeon": {
+    "recognition": "DirectHit",
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep",
+    "next": ["SelectMapVariant"],
+    "maxTimes": 1
+  },
+  "SelectMapVariant": {
+    "recognition": "DirectHit",
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep",
+    "next": ["SelectDifficulty"],
+    "maxTimes": 1
+  },
+  "SelectDifficulty": {
+    "recognition": "DirectHit",
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep",
+    "next": ["SelectLayer"],
+    "maxTimes": 1
+  },
+  "SelectLayer": {
+    "recognition": "DirectHit",
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep",
+    "next": ["ChallengeAndEnter"],
+    "maxTimes": 1
+  },
+  "ChallengeAndEnter": {
+    "recognition": "OCR",
+    "text": ["挑战"],
+    "action": "Click",
+    "handler": "MaaAdb",
+    "timeout": 3000,
+    "post_delay": 500,
+    "on_error": ["WaitForMapLoad"],
+    "next": ["ConfirmEnter"],
+    "maxTimes": 1
+  },
+  "ConfirmEnter": {
+    "recognition": "OCR",
+    "text": ["进入地图", "确定", "确认", "进入"],
+    "action": "Click",
+    "handler": "MaaAdb",
+    "timeout": 3000,
+    "next": ["WaitForMapLoad"],
+    "maxTimes": 1
+  },
+  "WaitForMapLoad": {
+    "recognition": "DirectHit",
+    "action": "DoNothing",
+    "handler": "MaaAdb",
+    "post_delay": 1800,
+    "maxTimes": 1
+  }
+}

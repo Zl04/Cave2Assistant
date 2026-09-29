@@ -1,0 +1,21 @@
+{
+  "$schema": "https://github.com/MaaAssistantArknights/MaaAssistantArknights/raw/dev-v2/docs/maa_tasks_schema.json",
+  "MinimapPlayer": {
+    "algorithm": "MatchTemplate",
+    "template": "../icons/player.png",
+    "templThreshold": 0.65,
+    "roi": [998, 58, 282, 170]
+  },
+  "MapTitle": {
+    "algorithm": "MatchTemplate",
+    "template": "../icons/ui_title_bastan.png",
+    "templThreshold": 0.75,
+    "roi": [500, 36, 280, 180]
+  },
+  "ChallengeButton": {
+    "algorithm": "OcrDetect",
+    "text": ["挑战"],
+    "roi": [0, 518, 1280, 202],
+    "fullMatch": false
+  }
+}

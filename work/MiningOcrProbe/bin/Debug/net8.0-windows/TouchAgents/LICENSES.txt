@@ -1,0 +1,13 @@
+Touch agent runtime notices
+
+The files under bin/minitouch are prebuilt minitouch binaries from the
+DeviceFarmer/openstf minitouch project. They are distributed under the
+Apache License 2.0. Source: https://github.com/DeviceFarmer/minitouch
+
+The file under bin/maatouch is the MaaTouch runtime package from
+MaaAssistantArknights/MaaTouch. It is distributed under the Apache License
+2.0. Source: https://github.com/MaaAssistantArknights/MaaTouch
+
+The binaries were obtained from Maa.AgentBinary 1.2.0, whose package README
+identifies these two upstream sources. This notice is kept beside the
+published runtime assets for redistribution and auditability.

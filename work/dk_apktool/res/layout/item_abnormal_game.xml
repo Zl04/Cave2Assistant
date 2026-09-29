@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout android:id="@id/rl_item_abgame_container" android:background="@drawable/item_abgame_list_click" android:paddingTop="@dimen/distance_10" android:paddingBottom="@dimen/distance_10" android:layout_width="match_parent" android:layout_height="wrap_content"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <RelativeLayout android:paddingLeft="@dimen/distance_14" android:paddingRight="@dimen/distance_14" android:layout_width="match_parent" android:layout_height="wrap_content">
+        <ImageView android:id="@id/iv_item_abgame_icon" android:layout_alignParentLeft="true" style="@style/game_img" />
+        <com.cyjh.elfin.customview.GameDownloadView android:id="@id/btn_item_abgame_download" android:clickable="true" android:layout_width="@dimen/distance_50" android:layout_height="wrap_content" android:layout_alignParentRight="true" />
+        <LinearLayout android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginLeft="@dimen/distance_10" android:layout_toRightOf="@id/iv_item_abgame_icon" android:layout_centerInParent="true">
+            <TextView android:id="@id/tv_item_abgame_name" android:layout_weight="1.0" style="@style/game_name" />
+            <TextView android:textSize="@dimen/text_sp12" android:textColor="#cc2c3239" android:ellipsize="end" android:id="@id/tv_item_abgame_desc" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/distance_4" android:maxLines="2" android:lineSpacingMultiplier="1.2" />
+            <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/distance_4">
+                <TextView android:textColor="@color/label_red" android:id="@id/tv_item_abgame_labelone" android:background="@drawable/label_bg_red" android:visibility="invisible" style="@style/game_label_list_item_text" />
+                <TextView android:textColor="@color/label_blue" android:id="@id/tv_item_abgame_labeltwo" android:background="@drawable/label_bg_blue" android:visibility="invisible" style="@style/game_label_list_item_text" />
+                <TextView android:textColor="@color/label_green" android:id="@id/tv_item_abgame_labelthree" android:background="@drawable/label_bg_green" android:visibility="invisible" style="@style/game_label_list_item_text" />
+                <TextView android:textColor="@color/label_purple" android:id="@id/tv_item_abgame_labelfour" android:background="@drawable/label_bg_purple" android:visibility="gone" style="@style/game_label_list_item_text" />
+            </LinearLayout>
+        </LinearLayout>
+    </RelativeLayout>
+</RelativeLayout>

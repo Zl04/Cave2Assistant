@@ -1,0 +1,2228 @@
+===== lines 68280-69040 =====
+68280	.maxstacksize	5
+68281	.source	""
+68282	
+68283	.local	"FileName"	0	13
+68284	.local	"iRet"	3	13
+68285	.local	"sRet"	3	13
+68286	
+68287	.upvalue	"_ENV"	0	false
+68288	.upvalue	"sh"	10	true
+68289	.upvalue	"print"	9	true
+68290	
+68291	.constant	k0	"pcall"
+68292	.constant	k1	true
+68293	.constant	k2	""
+68294	
+68295	.line	23123	return        r1     0 c= 256
+68296	.line	23147	eq             2    r0    r0
+68297	.line	23123	div           r1    r2    r3
+68298	.line	23148	newtable      r0     1   257
+68299	.line	23148	settable      r0    k0    r1 ; k0 = "pcall"
+68300	.line	23149	pow           r2    r2    r0
+68301	.line	23149	settable      r0    k0    r4 ; k0 = "pcall"
+68302	.line	23151	tailcall      r3     2
+68303	.line	23151	lt             4    r2    r0
+68304	.line	23151	div           r3    r2    r1
+68305	.line	23152	le             3    r0    r2
+68306	.line	23152	pow           r3    r2    r0
+68307	.line	23154	pow           r0    r1    r0
+68308	
+68309	.function	main/f289/f0
+68310	
+68311	.linedefined	23123
+68312	.lastlinedefined	23147
+68313	.numparams	0
+68314	.is_vararg	0
+68315	.maxstacksize	12
+68316	.source	""
+68317	
+68318	.local	"fileLength"	1	45
+68319	.local	"strContent"	4	45
+68320	.local	"len"	12	45
+68321	.local	"left"	13	45
+68322	.local	"cnt"	14	45
+68323	.local	"arr"	22	45
+68324	.local	"tmp"	29	41
+68325	.local	"i"	30	41
+68326	
+68327	.upvalue	"sh"	1	false
+68328	.upvalue	"FileName"	0	true
+68329	.upvalue	"_ENV"	0	false
+68330	
+68331	.constant	k0	0
+68332	.constant	k1	"Read"
+68333	.constant	k2	"string"
+68334	.constant	k3	"gsub"
+68335	.constant	k4	"[\r\n]"
+68336	.constant	k5	""
+68337	.constant	k6	192
+68338	.constant	k7	224
+68339	.constant	k8	240
+68340	.constant	k9	248
+68341	.constant	k10	252
+68342	.constant	k11	"byte"
+68343	.constant	k12	1
+68344	
+68345	.line	23124	le             0    r0    r0
+68346	.line	23125	return        r1     0 c= 257
+68347	.line	23125	tailcall      r2     1
+68348	.line	23125	div           r1    r2    r2
+68349	.line	23126	return        r2     2 c= 258
+68350	.line	23126	forloop       r2 -129788
+68351	.line	23126	lt             3    r1    r0
+68352	.line	23126	le             4    r0    r4
+68353	.line	23126	le             5    r0    r5
+68354	.line	23126	div           r2    r4    r2
+68355	.line	23126	lt             1    r2    r0
+68356	.line	23129	settabup      u2    r1    r0
+68357	.line	23130	lt             3    r2    r0
+68358	.line	23131	le             4    r0    r0
+68359	.line	23132	setlist       r5     6     0
+68360	.line	23132	le             6    r0    r0
+68361	.line	23132	le             7    r0    r6
+68362	.line	23132	le             8    r0    r7
+68363	.line	23132	le             9    r0    r8
+68364	.line	23132	le            10    r0    r9
+68365	.line	23132	le            11    r0   r10
+68366	.line	23132	jmp            5 -127998
+68367	.line	23133	newtable      r1     3   256
+68368	.line	23133	settable      r0    k0   r17 ; k0 = 0
+68369	.line	23134	return        r6     2 c= 258
+68370	.line	23134	forloop       r6 -127732
+68371	.line	23134	lt             7    r1    r0
+68372	.line	23134	gettabup      r8    u3    r0
+68373	.line	23134	div           r6    r3    r2
+68374	.line	23135	settabup      u7    r5    r0
+68375	.line	23136	forloop       r8 -128504
+68376	.line	23136	sub           r8    r0    r0
+68377	.line	23136	settable      r0    k0    r6 ; k0 = 0
+68378	.line	23137	forloop       r8 -128504
+68379	.line	23137	add           r0    r8    r6
+68380	.line	23137	settable      r0    k0    r1 ; k0 = 0
+68381	.line	23138	loadk         r3 k1543 ; k1543 out of range
+68382	.line	23138	settable      r0    k0    r1 ; k0 = 0
+68383	.line	23141	loadk         r7 k3852 ; k3852 out of range
+68384	.line	23141	settable      r0  r255  k245 ; k245 out of range
+68385	.line	23143	move          r4    r4 c= 268
+68386	.line	23143	settable      r0  r255  k235 ; k235 out of range
+68387	.line	23145	lt             0    r4    r0
+68388	.line	23146	pow           r0    r2    r0
+68389	.line	23147	pow           r0    r1    r0
+68390	
+68391	.function	main/f290
+68392	
+68393	.linedefined	23156
+68394	.lastlinedefined	23192
+68395	.numparams	0
+68396	.is_vararg	0
+68397	.maxstacksize	14
+68398	.source	""
+68399	
+68400	.local	"ReturnValueVar"	1	111
+68401	.local	"ide4bfa1e681afe694b6e99b863a58"	1	111
+68402	.local	"ide4bfa1e681afe694b6e99b863a59"	3	111
+68403	.local	"(for index)"	17	107
+68404	.local	"(for limit)"	17	107
+68405	.local	"(for step)"	17	107
+68406	.local	"ide4bfa1e681afe694b6e99b863a49"	18	106
+68407	
+68408	.upvalue	"_ENV"	0	false
+68409	
+68410	.constant	k0	514
+68411	.constant	k1	151
+68412	.constant	k2	"ide8a792e889b2e5908d"
+68413	.constant	k3	"zm"
+68414	.constant	k4	"OcrBaiDu"
+68415	.constant	k5	667
+68416	.constant	k6	103
+68417	.constant	k7	707
+68418	.constant	k8	243
+68419	.constant	k9	"ide68993e5bc80e8838ce58c85"
+68420	.constant	k10	0
+68421	.constant	k11	7
+68422	.constant	k12	1
+68423	.constant	k13	4
+68424	.constant	k14	430
+68425	.constant	k15	"LuaAuxLib"
+68426	.constant	k16	"Tap"
+68427	.constant	k17	"Sleep"
+68428	.constant	k18	1111
+68429	.constant	k19	"ide8a792e889b2e8a385e5a487"
+68430	.constant	k20	522
+68431	.constant	k21	782
+68432	.constant	k22	561
+68433	.constant	k23	950
+68434	.constant	k24	333
+68435	.constant	k25	"\xe7\xb1\xb3\xe9\xbe\x99\xe7\x9a\x84\xe7\xbc\xb8\xe4\xb8\xad\xe4\xb9\x8b\xe8\x84\x91"
+68436	.constant	k26	"\xe7\xb1\xb3\xe6\x88\x88\xe7\x9a\x84\xe7\xbc\xb8\xe4\xb8\xad\xe4\xb9\x8b\xe8\x84\x91"
+68437	.constant	k27	"\xe7\xb1\xb3\xe9\xbe\x99\xe7\x9a\x84\xe4\xbb\xa5\xe5\xa4\xaa\xe4\xb9\x8b\xe6\x8b\xb3"
+68438	.constant	k28	"\xe7\xb1\xb3\xe6\x88\x88\xe7\x9a\x84\xe4\xbb\xa5\xe5\xa4\xaa\xe4\xb9\x8b\xe6\x8b\xb3"
+68439	.constant	k29	"\xe7\xb1\xb3\xe9\xbe\x99\xe7\x9a\x84\xe9\x93\x9c\xe8\x82\xa9"
+68440	.constant	k30	"\xe7\xb1\xb3\xe6\x88\x88\xe7\x9a\x84\xe9\x93\x9c\xe8\x82\xa9"
+68441	.constant	k31	"\xe7\xb1\xb3\xe9\xbe\x99\xe7\x9a\x84\xe9\x93\x9c\xe6\x8a\xa4\xe8\x85\xbf"
+68442	.constant	k32	"\xe7\xb1\xb3\xe6\x88\x88\xe7\x9a\x84\xe9\x93\x9c\xe6\x8a\xa4\xe8\x85\xbf"
+68443	.constant	k33	"\xe7\xb1\xb3\xe9\xbe\x99\xe7\x9a\x84\xe6\xb6\xb2\xe5\x8e\x8b\xe4\xb9\x8b\xe6\x9c\x8d"
+68444	.constant	k34	"\xe7\xb1\xb3\xe6\x88\x88\xe7\x9a\x84\xe6\xb6\xb2\xe5\x8e\x8b\xe4\xb9\x8b\xe6\x9c\x8d"
+68445	.constant	k35	"TracePrint"
+68446	.constant	k36	"_186:"
+68447	.constant	k37	"ShowMessage"
+68448	.constant	k38	"tostring"
+68449	.constant	k39	100
+68450	.constant	k40	"ide585b3e997ade8838ce58c85"
+68451	
+68452	.line	23156	call          r0     1     0
+68453	.line	23158	le             1    r0    r0
+68454	.line	23159	call          r2     0     0
+68455	.line	23160	le             2    r0    r1
+68456	.line	23161	return        r3     0 c= 259
+68457	.line	23161	forloop       r3 -129275
+68458	.line	23161	le             4    r0    r5
+68459	.line	23161	le             5    r0    r6
+68460	.line	23161	le             6    r0    r7
+68461	.line	23161	le             7    r0    r8
+68462	.line	23161	div           r3    r5    r2
+68463	.line	23161	forprep       r0  1028
+68464	.line	23162	return        r3     0 c= 265
+68465	.line	23162	div           r3    r1    r1
+68466	.line	23163	le             3    r0   r10
+68467	.line	23163	le             4    r0   r11
+68468	.line	23163	le             5    r0   r12
+68469	.line	23163	not           r3  r256 c= 87
+68470	.line	23164	newtable      r0     6   269
+68471	.line	23164	settable      r0    k0    r1 ; k0 = 514
+68472	.line	23165	move          r2    r2 c= 270
+68473	.line	23166	le             1    r0    r0
+68474	.line	23168	return        r7     0 c= 271
+68475	.line	23168	forloop       r7 -127215
+68476	.line	23168	lt             8    r1    r0
+68477	.line	23168	lt             9    r2    r0
+68478	.line	23168	le            10    r0   r10
+68479	.line	23168	div           r7    r4    r1
+68480	.line	23169	return        r7     0 c= 271
+68481	.line	23169	forloop       r7 -127214
+68482	.line	23169	le             8    r0   r18
+68483	.line	23169	div           r7    r2    r1
+68484	.line	23170	return        r7     0 c= 275
+68485	.line	23170	move          r8    r6 c= 268
+68486	.line	23170	return        r9     0 c= 259
+68487	.line	23170	forloop       r9 -126203
+68488	.line	23170	le            10    r0   r20
+68489	.line	23170	le            11    r0   r21
+68490	.line	23170	le            12    r0   r22
+68491	.line	23170	le            13    r0   r23
+68492	.line	23170	div           r9    r5    r2
+68493	.line	23170	tforloop      r7 -126966
+68494	.line	23171	return        r7     0 c= 271
+68495	.line	23171	forloop       r7 -127214
+68496	.line	23171	le             8    r0   r24
+68497	.line	23171	div           r7    r2    r1
+68498	.line	23172	return        r7     0 c= 275
+68499	.line	23172	move          r8    r6 c= 268
+68500	.line	23172	forloop       r7 -127479
+68501	.line	23172	newtable      r0     7   281
+68502	.line	23172	settable      r0    k0    r2 ; k0 = 514
+68503	.line	23173	return        r7     0 c= 275
+68504	.line	23173	move          r8    r6 c= 268
+68505	.line	23173	tforloop      r7 -126693
+68506	.line	23175	return        r7     0 c= 275
+68507	.line	23175	move          r8    r6 c= 268
+68508	.line	23175	forloop       r7 -127479
+68509	.line	23175	newtable      r0     7   283
+68510	.line	23175	settable      r0    k0    r2 ; k0 = 514
+68511	.line	23176	return        r7     0 c= 275
+68512	.line	23176	move          r8    r6 c= 268
+68513	.line	23176	tforloop      r7 -126691
+68514	.line	23178	return        r7     0 c= 275
+68515	.line	23178	move          r8    r6 c= 268
+68516	.line	23178	forloop       r7 -127479
+68517	.line	23178	newtable      r0     7   285
+68518	.line	23178	settable      r0    k0    r2 ; k0 = 514
+68519	.line	23179	return        r7     0 c= 275
+68520	.line	23179	move          r8    r6 c= 268
+68521	.line	23179	tforloop      r7 -126689
+68522	.line	23181	return        r7     0 c= 275
+68523	.line	23181	move          r8    r6 c= 268
+68524	.line	23181	forloop       r7 -127479
+68525	.line	23181	newtable      r0     7   287
+68526	.line	23181	settable      r0    k0    r2 ; k0 = 514
+68527	.line	23182	return        r7     0 c= 275
+68528	.line	23182	move          r8    r6 c= 268
+68529	.line	23182	tforloop      r7 -126687
+68530	.line	23184	return        r7     0 c= 275
+68531	.line	23184	move          r8    r6 c= 268
+68532	.line	23184	forloop       r7 -127479
+68533	.line	23184	newtable      r0     7   289
+68534	.line	23184	settable      r0    k0    r2 ; k0 = 514
+68535	.line	23185	return        r7     0 c= 275
+68536	.line	23185	move          r8    r6 c= 268
+68537	.line	23185	tforloop      r7 -126685
+68538	.line	23187	return        r7     0 c= 271
+68539	.line	23187	forloop       r7 -127196
+68540	.line	23187	le             8    r0   r36
+68541	.line	23187	lt             9    r6    r0
+68542	.line	23187	return       r10     0 c= 275
+68543	.line	23187	move         r11    r6 c= 268
+68544	.line	23187	forloop      r10 -125940
+68545	.line	23187	div           r7    r4    r1
+68546	.line	23188	return        r7     0 c= 271
+68547	.line	23188	forloop       r7 -127194
+68548	.line	23188	return        r8     0 c= 294
+68549	.line	23188	lt             9    r6    r0
+68550	.line	23188	return       r10     0 c= 275
+68551	.line	23188	move         r11    r6 c= 268
+68552	.line	23188	forloop      r10 -125940
+68553	.line	23188	setupval      r9    u9 c= 10
+68554	.line	23188	div           r8    r2    r2
+68555	.line	23188	call          r9     2     0
+68556	.line	23188	div           r7    r5    r1
+68557	.line	23189	loadk         r1  k807 ; k807 out of range
+68558	.line	23163	unm           r3  r255 c= 422
+68559	.line	23191	return        r3     0 c= 296
+68560	.line	23191	div           r3    r1    r1
+68561	.line	23192	pow           r0    r2    r0
+68562	.line	23192	pow           r0    r1    r0
+68563	
+68564	.function	main/f291
+68565	
+68566	.linedefined	23193
+68567	.lastlinedefined	23200
+68568	.numparams	6
+68569	.is_vararg	0
+68570	.maxstacksize	16
+68571	.source	""
+68572	
+68573	.local	"ide5a49ae782b9e689be3a5831"	0	25
+68574	.local	"ide5a49ae782b9e689be3a5931"	0	25
+68575	.local	"ide5a49ae782b9e689be3a5832"	0	25
+68576	.local	"ide5a49ae782b9e689be3a5932"	0	25
+68577	.local	"ide5a49ae782b9e689be3ae782b9e587bbe889b2"	0	25
+68578	.local	"ide5a49ae782b9e689be3ae5a49ae889b2"	0	25
+68579	.local	"ReturnValueVar"	1	25
+68580	
+68581	.upvalue	"_ENV"	0	false
+68582	
+68583	.constant	k0	"id494e5458"
+68584	.constant	k1	"id494e5459"
+68585	.constant	k2	"LuaAuxLib"
+68586	.constant	k3	"FindMultiColor"
+68587	.constant	k4	0
+68588	.constant	k5	1
+68589	.constant	k6	-1
+68590	
+68591	.line	23193	call          r6     0     0
+68592	.line	23194	return        r7     0 c= 258
+68593	.line	23194	forloop       r7 -127228
+68594	.line	23194	lt             8    r0    r0
+68595	.line	23194	lt             9    r1    r0
+68596	.line	23194	lt            10    r2    r0
+68597	.line	23194	lt            11    r3    r0
+68598	.line	23194	lt            12    r4    r0
+68599	.line	23194	lt            13    r5    r0
+68600	.line	23194	le            14    r0    r4
+68601	.line	23194	le            15    r0    r5
+68602	.line	23194	div           r7    r9    r3
+68603	.line	23194	forprep       r0   521
+68604	.line	23194	forprep       r0   l23
+68605	.line	23195	return        r7     0 c= 256
+68606	.line	23195	self          r0  r262    r7
+68607	.line	23195	settable      r0    k0    r4 ; k0 = "id494e5458"
+68608	.line	23195	return        r7     0 c= 257
+68609	.line	23195	self          r0  r262    r7
+68610	.line	23195	settable      r0    k0    r1 ; k0 = "id494e5458"
+68611	.line	23196	testset       r6    r1     0
+68612	.line	23196	settable      r0    k0    r0 ; k0 = "id494e5458"
+68613	.label	l23
+68614	.line	23198	testset       r6    r0     0
+68615	.line	23200	pow           r6    r2    r0
+68616	.line	23200	pow           r0    r1    r0
+68617	
+68618	.function	main/f292
+68619	
+68620	.linedefined	23201
+68621	.lastlinedefined	23208
+68622	.numparams	5
+68623	.is_vararg	0
+68624	.maxstacksize	7
+68625	.source	""
+68626	
+68627	.local	"ide58cbae59f9fe689be3a5831"	0	14
+68628	.local	"ide58cbae59f9fe689be3a5931"	0	14
+68629	.local	"ide58cbae59f9fe689be3a5832"	0	14
+68630	.local	"ide58cbae59f9fe689be3a5932"	0	14
+68631	.local	"ide58cbae59f9fe689be3ae5a49ae889b2"	0	14
+68632	.local	"ReturnValueVar"	1	14
+68633	
+68634	.upvalue	"_ENV"	0	false
+68635	
+68636	.constant	k0	"id494e5458"
+68637	.constant	k1	-1
+68638	.constant	k2	"id494e5459"
+68639	
+68640	.line	23201	call          r5     0     0
+68641	.line	23202	eq             6    r0    r0
+68642	.line	23202	div           r6    r1    r1
+68643	.line	23203	return        r6     0 c= 256
+68644	.line	23203	self          r0  r257    r6
+68645	.line	23203	settable      r0    k0    r4 ; k0 = "id494e5458"
+68646	.line	23203	return        r6     0 c= 258
+68647	.line	23203	self          r0  r257    r6
+68648	.line	23203	settable      r0    k0    r1 ; k0 = "id494e5458"
+68649	.line	23204	testset       r5    r1     0
+68650	.line	23204	settable      r0    k0    r0 ; k0 = "id494e5458"
+68651	.line	23206	testset       r5    r0     0
+68652	.line	23208	pow           r5    r2    r0
+68653	.line	23208	pow           r0    r1    r0
+68654	
+68655	.function	main/f292/f0
+68656	
+68657	.linedefined	23202
+68658	.lastlinedefined	23202
+68659	.numparams	0
+68660	.is_vararg	0
+68661	.maxstacksize	9
+68662	.source	""
+68663	
+68664	.local	"_ret_val_"	1	16
+68665	
+68666	.upvalue	"_ENV"	0	false
+68667	.upvalue	"ide58cbae59f9fe689be3a5831"	0	true
+68668	.upvalue	"ide58cbae59f9fe689be3a5931"	1	true
+68669	.upvalue	"ide58cbae59f9fe689be3a5832"	2	true
+68670	.upvalue	"ide58cbae59f9fe689be3a5932"	3	true
+68671	.upvalue	"ide58cbae59f9fe689be3ae5a49ae889b2"	4	true
+68672	
+68673	.constant	k0	"id494e5458"
+68674	.constant	k1	"id494e5459"
+68675	.constant	k2	"LuaAuxLib"
+68676	.constant	k3	"FindColor"
+68677	.constant	k4	0
+68678	.constant	k5	1
+68679	
+68680	.line	23202	call          r0     0     0
+68681	.line	23202	return        r1     0 c= 258
+68682	.line	23202	forloop       r1 -130300
+68683	.line	23202	tailcall      r2     1
+68684	.line	23202	tailcall      r3     2
+68685	.line	23202	tailcall      r4     3
+68686	.line	23202	tailcall      r5     4
+68687	.line	23202	tailcall      r6     5
+68688	.line	23202	le             7    r0    r4
+68689	.line	23202	le             8    r0    r5
+68690	.line	23202	div           r1    r8    r4
+68691	.line	23202	lt             0    r3    r0
+68692	.line	23202	forprep       r0   515
+68693	.line	23202	forprep       r0     2
+68694	.line	23202	pow           r0    r2    r0
+68695	.line	23202	pow           r0    r1    r0
+68696	
+68697	.function	main/f293
+68698	
+68699	.linedefined	23209
+68700	.lastlinedefined	23215
+68701	.numparams	1
+68702	.is_vararg	0
+68703	.maxstacksize	5
+68704	.source	""
+68705	
+68706	.local	"ide6af94e889b23a5345"	0	13
+68707	.local	"ReturnValueVar"	1	13
+68708	
+68709	.upvalue	"_ENV"	0	false
+68710	
+68711	.constant	k0	"LuaAuxLib"
+68712	.constant	k1	"CmpColorEx"
+68713	.constant	k2	1
+68714	
+68715	.line	23209	call          r1     0     0
+68716	.line	23210	return        r2     0 c= 256
+68717	.line	23210	forloop       r2 -129790
+68718	.line	23210	lt             3    r0    r0
+68719	.line	23210	le             4    r0    r2
+68720	.line	23210	div           r2    r3    r2
+68721	.line	23210	newtable      r0     2   258
+68722	.line	23210	settable      r0    k0    r1 ; k0 = "LuaAuxLib"
+68723	.line	23211	testset       r1    r1     0
+68724	.line	23211	settable      r0    k0    r0 ; k0 = "LuaAuxLib"
+68725	.line	23213	testset       r1    r0     0
+68726	.line	23215	pow           r1    r2    r0
+68727	.line	23215	pow           r0    r1    r0
+68728	
+68729	.function	main/f294
+68730	
+68731	.linedefined	23216
+68732	.lastlinedefined	23223
+68733	.numparams	5
+68734	.is_vararg	0
+68735	.maxstacksize	7
+68736	.source	""
+68737	
+68738	.local	"ide689bee59bbe3a5831"	0	14
+68739	.local	"ide689bee59bbe3a5931"	0	14
+68740	.local	"ide689bee59bbe3a5832"	0	14
+68741	.local	"ide689bee59bbe3a5932"	0	14
+68742	.local	"ide689bee59bbe3a5345"	0	14
+68743	.local	"ReturnValueVar"	1	14
+68744	
+68745	.upvalue	"_ENV"	0	false
+68746	
+68747	.constant	k0	"id494e5458"
+68748	.constant	k1	-1
+68749	.constant	k2	"id494e5459"
+68750	
+68751	.line	23216	call          r5     0     0
+68752	.line	23217	eq             6    r0    r0
+68753	.line	23217	div           r6    r1    r1
+68754	.line	23218	return        r6     0 c= 256
+68755	.line	23218	self          r0  r257    r6
+68756	.line	23218	settable      r0    k0    r4 ; k0 = "id494e5458"
+68757	.line	23218	return        r6     0 c= 258
+68758	.line	23218	self          r0  r257    r6
+68759	.line	23218	settable      r0    k0    r1 ; k0 = "id494e5458"
+68760	.line	23219	testset       r5    r1     0
+68761	.line	23219	settable      r0    k0    r0 ; k0 = "id494e5458"
+68762	.line	23221	testset       r5    r0     0
+68763	.line	23223	pow           r5    r2    r0
+68764	.line	23223	pow           r0    r1    r0
+68765	
+68766	.function	main/f294/f0
+68767	
+68768	.linedefined	23217
+68769	.lastlinedefined	23217
+68770	.numparams	0
+68771	.is_vararg	0
+68772	.maxstacksize	10
+68773	.source	""
+68774	
+68775	.local	"_ret_val_"	1	17
+68776	
+68777	.upvalue	"_ENV"	0	false
+68778	.upvalue	"ide689bee59bbe3a5831"	0	true
+68779	.upvalue	"ide689bee59bbe3a5931"	1	true
+68780	.upvalue	"ide689bee59bbe3a5832"	2	true
+68781	.upvalue	"ide689bee59bbe3a5932"	3	true
+68782	.upvalue	"ide689bee59bbe3a5345"	4	true
+68783	
+68784	.constant	k0	"id494e5458"
+68785	.constant	k1	"id494e5459"
+68786	.constant	k2	"LuaAuxLib"
+68787	.constant	k3	"FindPicture"
+68788	.constant	k4	"000000"
+68789	.constant	k5	0
+68790	
+68791	.line	23217	call          r0     0     0
+68792	.line	23217	return        r1     0 c= 258
+68793	.line	23217	forloop       r1 -130300
+68794	.line	23217	tailcall      r2     1
+68795	.line	23217	tailcall      r3     2
+68796	.line	23217	tailcall      r4     3
+68797	.line	23217	tailcall      r5     4
+68798	.line	23217	tailcall      r6     5
+68799	.line	23217	le             7    r0    r4
+68800	.line	23217	le             8    r0    r5
+68801	.line	23217	le             9    r0    r5
+68802	.line	23217	div           r1    r9    r4
+68803	.line	23217	lt             0    r3    r0
+68804	.line	23217	forprep       r0   515
+68805	.line	23217	forprep       r0     2
+68806	.line	23217	pow           r0    r2    r0
+68807	.line	23217	pow           r0    r1    r0
+68808	
+68809	.function	main/f295
+68810	
+68811	.linedefined	23224
+68812	.lastlinedefined	23230
+68813	.numparams	5
+68814	.is_vararg	0
+68815	.maxstacksize	11
+68816	.source	""
+68817	
+68818	.local	"ide58892e58aa83a5831"	0	32
+68819	.local	"ide58892e58aa83a5931"	0	32
+68820	.local	"ide58892e58aa83a5832"	0	32
+68821	.local	"ide58892e58aa83a5932"	0	32
+68822	.local	"ide58892e58aa83ae697b6e995bf"	0	32
+68823	
+68824	.upvalue	"_ENV"	0	false
+68825	
+68826	.constant	k0	"LuaAuxLib"
+68827	.constant	k1	"TouchOperation"
+68828	.constant	k2	0
+68829	.constant	k3	"Sleep"
+68830	.constant	k4	333
+68831	.constant	k5	1
+68832	.constant	k6	2
+68833	
+68834	.line	23225	return        r5     0 c= 256
+68835	.line	23225	forloop       r5 -128254
+68836	.line	23225	le             6    r0    r2
+68837	.line	23225	lt             7    r0    r0
+68838	.line	23225	lt             8    r1    r0
+68839	.line	23225	call          r9     0     0
+68840	.line	23225	le            10    r0    r2
+68841	.line	23225	div           r5    r6    r1
+68842	.line	23226	return        r5     0 c= 256
+68843	.line	23226	forloop       r5 -128252
+68844	.line	23226	le             6    r0    r4
+68845	.line	23226	div           r5    r2    r1
+68846	.line	23227	return        r5     0 c= 256
+68847	.line	23227	forloop       r5 -128254
+68848	.line	23227	le             6    r0    r5
+68849	.line	23227	lt             7    r2    r0
+68850	.line	23227	lt             8    r3    r0
+68851	.line	23227	call          r9     1     0
+68852	.line	23227	div           r5    r6    r1
+68853	.line	23228	return        r5     0 c= 256
+68854	.line	23228	forloop       r5 -128252
+68855	.line	23228	lt             6    r4    r0
+68856	.line	23228	div           r5    r2    r1
+68857	.line	23229	return        r5     0 c= 256
+68858	.line	23229	forloop       r5 -128254
+68859	.line	23229	le             6    r0    r6
+68860	.line	23229	le             7    r0    r2
+68861	.line	23229	le             8    r0    r2
+68862	.line	23229	call          r9     0     0
+68863	.line	23229	le            10    r0    r2
+68864	.line	23229	div           r5    r6    r1
+68865	.line	23230	pow           r0    r1    r0
+68866	
+68867	.function	main/f296
+68868	
+68869	.linedefined	23231
+68870	.lastlinedefined	23233
+68871	.numparams	2
+68872	.is_vararg	0
+68873	.maxstacksize	9
+68874	.source	""
+68875	
+68876	.local	"ide58f91e982aee4bbb63ae6a087e9a298"	0	10
+68877	.local	"ide58f91e982aee4bbb63ae58685e5aeb9"	0	10
+68878	
+68879	.upvalue	"_ENV"	0	false
+68880	
+68881	.constant	k0	"LuaAuxLib"
+68882	.constant	k1	"SendSimpleEmail"
+68883	.constant	k2	"smtp.qq.com"
+68884	.constant	k3	"185599477@qq.com"
+68885	.constant	k4	"dmfwcyvzcimobhgi"
+68886	.constant	k5	"57075654@qq.com"
+68887	
+68888	.line	23232	return        r2     0 c= 256
+68889	.line	23232	forloop       r2 -129790
+68890	.line	23232	le             3    r0    r2
+68891	.line	23232	le             4    r0    r3
+68892	.line	23232	le             5    r0    r4
+68893	.line	23232	lt             6    r0    r0
+68894	.line	23232	lt             7    r1    r0
+68895	.line	23232	le             8    r0    r5
+68896	.line	23232	div           r2    r7    r1
+68897	.line	23233	pow           r0    r1    r0
+68898	
+68899	.function	main/f297
+68900	
+68901	.linedefined	23234
+68902	.lastlinedefined	23347
+68903	.numparams	0
+68904	.is_vararg	0
+68905	.maxstacksize	10
+68906	.source	""
+68907	
+68908	.local	"ReturnValueVar"	1	453
+68909	.local	"ide8a792e889b2e4bd8de7bdae3ae79c8be5b08fe59bbee695b0"	1	453
+68910	.local	"ide8a792e889b2e4bd8de7bdae3ae7a7bbe58aa858"	1	453
+68911	.local	"ide8a792e889b2e4bd8de7bdae3ae7a7bbe58aa859"	1	453
+68912	.local	"ide8a792e889b2e4bd8de7bdae3ae9a696e9a286e6bf80e6b4bb"	256	453
+68913	
+68914	.upvalue	"_ENV"	0	false
+68915	
+68916	.constant	k0	"Thread"
+68917	.constant	k1	"SetShareVar"
+68918	.constant	k2	"\xe8\xb7\xaf\xe5\xbe\x84"
+68919	.constant	k3	"\xe6\x9c\x89\xe6\x96\xb9\xe5\x90\x91"
+68920	.constant	k4	0
+68921	.constant	k5	"ide69d80e5a4a7e680aa"
+68922	.constant	k6	"GetShareVar"
+68923	.constant	k7	"\xe6\x9d\x80\xe5\xa4\xa7\xe6\x80\xaa"
+68924	.constant	k8	"ide5b185e4b8ad"
+68925	.constant	k9	"\xe5\xb1\x85\xe4\xb8\xad"
+68926	.constant	k10	"\xe7\x9c\x8b\xe5\xb0\x8f\xe5\x9b\xbe\xe6\x95\xb0"
+68927	.constant	k11	1
+68928	.constant	k12	4
+68929	.constant	k13	"LuaAuxLib"
+68930	.constant	k14	"TouchOperation"
+68931	.constant	k15	362
+68932	.constant	k16	452
+68933	.constant	k17	"Sleep"
+68934	.constant	k18	11
+68935	.constant	k19	262
+68936	.constant	k20	512
+68937	.constant	k21	462
+68938	.constant	k22	2
+68939	.constant	k23	392
+68940	.constant	k24	3
+68941	.constant	k25	"KeepReleaseScreenSnapshot"
+68942	.constant	k26	"ide7bb88e782b958"
+68943	.constant	k27	"File"
+68944	.constant	k28	"ReadLines"
+68945	.constant	k29	"ide69687e4bbb6e5a4b9"
+68946	.constant	k30	"0.txt"
+68947	.constant	k31	"ide7bb88e782b959"
+68948	.constant	k32	"ide696b9e59091e695b0e7bb84"
+68949	.constant	k33	"NewArray"
+68950	.constant	k34	""
+68951	.constant	k35	"ide58f98e9878fe695b0e7bb84"
+68952	.constant	k36	"TracePrint"
+68953	.constant	k37	"_324:"
+68954	.constant	k38	"\xe7\x81\xb5\xe8\xa7\x86"
+68955	.constant	k39	"\xe7\x81\xb5\xe8\xa7\x86\xe6\xac\xa1\xe6\x95\xb0"
+68956	.constant	k40	"-----------------------------------------------------------------"
+68957	.constant	k41	"_325:"
+68958	.constant	k42	"\xe7\xba\xbf\xe7\xa8\x8b\xe5\x90\xaf\xe5\x8a\xa8"
+68959	.constant	k43	"Tap"
+68960	.constant	k44	626
+68961	.constant	k45	1149
+68962	.constant	k46	"_328:"
+68963	.constant	k47	"\xe5\x85\xb3\xe9\x97\xad\xe5\xb0\x8f\xe5\x9c\xb0\xe5\x9b\xbe"
+68964	.constant	k48	111
+68965	.constant	k49	"ide69c89e997a8e697a0e8b7af"
+68966	.constant	k50	"\xe6\x9c\x89\xe9\x97\xa8\xe6\x97\xa0\xe8\xb7\xaf"
+68967	.constant	k51	"\xe9\xa6\x96\xe9\xa2\x86\xe6\xbf\x80\xe6\xb4\xbb"
+68968	.constant	k52	"ReadConfig"
+68969	.constant	k53	"\xe4\xb8\x8b\xe6\xa5\xbc\xe6\x9d\xa1\xe4\xbb\xb6"
+68970	.constant	k54	"ide79baee6a087"
+68971	.constant	k55	"\xe6\x96\xb0\xe8\xb7\xaf"
+68972	.constant	k56	"ShowMessage"
+68973	.constant	k57	"tostring"
+68974	.constant	k58	"\xe6\x9c\x89\xe9\x97\xa8\xe6\x97\xa0\xe8\xb7\xaf,\xe5\xb0\x9d\xe8\xaf\x95\xe6\x89\xbe\xe8\xb7\xaf"
+68975	.constant	k59	"_341:"
+68976	.constant	k60	"\xe6\x9c\x89\xe9\x97\xa8\xe6\x97\xa0\xe8\xb7\xaf\xe7\x82\xb9\xe7\x81\xb5\xe8\xa7\x86"
+68977	.constant	k61	555
+68978	.constant	k62	61
+68979	.constant	k63	735
+68980	.constant	k64	222
+68981	.constant	k65	630
+68982	.constant	k66	1146
+68983	.constant	k67	"ide8a792e889b2e4bd8de7bdae"
+68984	.constant	k68	"ide585a8e59bbee689bee997a8"
+68985	.constant	k69	"_362:"
+68986	.constant	k70	"\xe4\xb8\x8d\xe6\x98\xaf\xe5\xbf\xab\xe9\x80\x9f\xe4\xb8\x8b\xe6\xa5\xbc\xe7\x82\xb9\xe7\x81\xb5\xe8\xa7\x86"
+68987	.constant	k71	627
+68988	.constant	k72	1219
+68989	.constant	k73	"ide689bee8a792e889b2"
+68990	.constant	k74	"ide6b885e7a9bae695b0e7bb84"
+68991	.constant	k75	"id5258"
+68992	.constant	k76	9
+68993	.constant	k77	"id5259"
+68994	.constant	k78	"ide5ad9858"
+68995	.constant	k79	"ide5ad9859"
+68996	.constant	k80	"ide69687e4bbb6e5908d"
+68997	.constant	k81	"ide69687e4bbb6e5908de4ba8c"
+68998	.constant	k82	"ide8b7af"
+68999	.constant	k83	"ide5b7b2e689bee695b0"
+69000	.constant	k84	"ide689be58"
+69001	.constant	k85	"ide689be59"
+69002	.constant	k86	"ide7bb88e782b9e4bd8de7bdae"
+69003	.constant	k87	"ide5be85e689bee8b7af58"
+69004	.constant	k88	"ide5be85e689bee8b7af59"
+69005	.constant	k89	"ide5ad98e585a5e8b5b7e782b9"
+69006	.constant	k90	"ide5b7b2e689bee59d90e6a08758"
+69007	.constant	k91	"ide5b7b2e689bee59d90e6a08759"
+69008	.constant	k92	"ide696b0e8b7afe6aca1e695b0"
+69009	.constant	k93	"ide4b88ae4b8aae8b7afe6a087"
+69010	.constant	k94	"ide696b9e59091"
+69011	.constant	k95	"ide8b7afe5be84"
+69012	.constant	k96	"ide58f98e9878f"
+69013	.constant	k97	"ide99bb7e8bebe"
+69014	
+69015	.line	23234	call          r0     3     0
+69016	.line	23238	return        r4     0 c= 256
+69017	.line	23238	forloop       r4 -128766
+69018	.line	23238	le             5    r0    r2
+69019	.line	23238	call          r6     0     0
+69020	.line	23238	div           r4    r3    r1
+69021	.line	23239	return        r4     0 c= 256
+69022	.line	23239	forloop       r4 -128766
+69023	.line	23239	le             5    r0    r3
+69024	.line	23239	le             6    r0    r4
+69025	.line	23239	div           r4    r3    r1
+69026	.line	23240	return        r4     0 c= 256
+69027	.line	23240	forloop       r4 -128761
+69028	.line	23240	le             5    r0    r7
+69029	.line	23240	div           r4    r2    r2
+69030	.line	23240	forprep       r0  2565
+69031	.line	23241	return        r4     0 c= 261
+69032	.line	23241	newtable      r0     4   260
+69033	.line	23241	settable      r0    k0  r152 ; k0 = "Thread"
+69034	.line	23242	return        r4     0 c= 256
+69035	.line	23242	forloop       r4 -128761
+69036	.line	23242	le             5    r0    r9
+69037	.line	23242	div           r4    r2    r2
+69038	.line	23242	forprep       r0  4101
+69039	.line	23243	return        r4     0 c= 256
+69040	.line	23243	forloop       r4 -128761
+===== lines 70380-71540 =====
+70380	.line	23515	return        r6     0 c= 286
+70381	.line	23515	forloop       r6 -127634
+70382	.line	23515	return        r7     0 c= 265
+70383	.line	23515	return        r8     0 c= 333
+70384	.line	23515	loadk         r7 k3592 ; k3592 out of range
+70385	.line	23515	return        r8     0 c= 268
+70386	.line	23515	return        r9     0 c= 334
+70387	.line	23515	loadk         r8 k4105 ; k4105 out of range
+70388	.line	23515	call          r9     0     0
+70389	.line	23515	div           r6    r4    r2
+70390	.line	23515	lt             5    r6    r0
+70391	.line	23516	return        r6     0 c= 286
+70392	.line	23516	forloop       r6 -127712
+70393	.line	23516	le             7    r0  r110
+70394	.line	23516	return        r8     0 c= 351
+70395	.line	23516	return        r9     0 c= 352
+70396	.line	23516	le            10    r0  r111
+70397	.line	23516	setupval      r9    u9 c= 10
+70398	.line	23516	return       r10     0 c= 265
+70399	.line	23516	return       r11     0 c= 333
+70400	.line	23516	loadk        r10 k5131 ; k5131 out of range
+70401	.line	23516	setupval      r9    u9 c= 10
+70402	.line	23516	return       r10     0 c= 268
+70403	.line	23516	return       r11     0 c= 334
+70404	.line	23516	loadk        r10 k5131 ; k5131 out of range
+70405	.line	23516	lt            11    r5    r0
+70406	.line	23516	div           r6    r6    r1
+70407	.line	23517	return        r6     0 c= 333
+70408	.line	23517	loadk         r6 k3336 ; k3336 out of range
+70409	.line	23517	forprep       r0 39431
+70410	.line	23518	return        r6     0 c= 265
+70411	.line	23518	return        r7     0 c= 333
+70412	.line	23518	loadk         r6 k3079 ; k3079 out of range
+70413	.line	23518	self          r1    r6   k54 ; k54 = 100
+70414	.line	23518	settable      r0    k0   r14 ; k0 = "ide696b9e59091"
+70415	.line	23518	return        r6     0 c= 265
+70416	.line	23518	return        r7     0 c= 333
+70417	.line	23518	loadk         r6 k3079 ; k3079 out of range
+70418	.line	23518	self          r1  r311    r6
+70419	.line	23518	settable      r0    k0    r9 ; k0 = "ide696b9e59091"
+70420	.line	23518	return        r6     0 c= 268
+70421	.line	23518	return        r7     0 c= 334
+70422	.line	23518	loadk         r6 k3079 ; k3079 out of range
+70423	.line	23518	self          r1    r6   k45 ; k45 = 200
+70424	.line	23518	settable      r0    k0    r4 ; k0 = "ide696b9e59091"
+70425	.line	23518	return        r6     0 c= 268
+70426	.line	23518	return        r7     0 c= 334
+70427	.line	23518	loadk         r6 k3079 ; k3079 out of range
+70428	.line	23518	self          r0  r312    r6
+70429	.line	23518	settable      r5  r255  r198
+70430	.line	23519	return        r6     0 c= 256
+70431	.line	23519	move          r6    r6 c= 264
+70432	.line	23519	forprep       r0  l670
+70433	.line	23520	return        r6     0 c= 277
+70434	.line	23520	div           r6    r1    r1
+70435	.line	23521	settable      r5  r255  r192
+70436	.line	23523	return        r6     0 c= 368
+70437	.line	23523	le             7    r0  r113
+70438	.line	23523	div           r6    r2    r1
+70439	.line	23526	return        r5     0 c= 256
+70440	.label	l670
+70441	.line	23526	move          r5    r5 c= 264
+70442	.line	23526	forprep       r0     6
+70443	.line	23527	return        r5     0 c= 277
+70444	.line	23527	div           r5    r1    r1
+70445	.line	23528	pow           r0    r2    r0
+70446	.line	23528	pow           r0    r1    r0
+70447	
+70448	.function	main/f300
+70449	
+70450	.linedefined	23529
+70451	.lastlinedefined	23550
+70452	.numparams	0
+70453	.is_vararg	0
+70454	.maxstacksize	5
+70455	.source	""
+70456	
+70457	.upvalue	"_ENV"	0	false
+70458	
+70459	.constant	k0	"ide689bee997a8"
+70460	.constant	k1	55
+70461	.constant	k2	153
+70462	.constant	k3	657
+70463	.constant	k4	1113
+70464	.constant	k5	true
+70465	.constant	k6	"ide5ae88e997a8"
+70466	.constant	k7	"LuaAuxLib"
+70467	.constant	k8	"ShowMessage"
+70468	.constant	k9	"tostring"
+70469	.constant	k10	"\xe6\x9c\x89\xe9\x97\xa8\xe8\xbf\x9b\xe9\x97\xa8"
+70470	.constant	k11	"TracePrint"
+70471	.constant	k12	"_700:"
+70472	.constant	k13	"ide79baee6a087"
+70473	.constant	k14	"\xe9\x97\xa8"
+70474	.constant	k15	"Thread"
+70475	.constant	k16	"GetShareVar"
+70476	.constant	k17	"\xe7\x81\xb5\xe8\xa7\x86"
+70477	.constant	k18	1
+70478	.constant	k19	"\xe7\x81\xb5\xe8\xa7\x86\xe6\xac\xa1\xe6\x95\xb0"
+70479	.constant	k20	"_707:"
+70480	.constant	k21	"\xe9\x80\x9f\xe4\xb8\x8b\xe6\xb2\xa1\xe6\x9c\x89\xe6\x89\xbe\xe5\x88\xb0\xe9\x97\xa8,\xe7\x82\xb9\xe7\x81\xb5\xe8\xa7\x86"
+70481	.constant	k22	"Sleep"
+70482	.constant	k23	555
+70483	.constant	k24	"Tap"
+70484	.constant	k25	61
+70485	.constant	k26	735
+70486	.constant	k27	0
+70487	.constant	k28	222
+70488	.constant	k29	"SetShareVar"
+70489	.constant	k30	2
+70490	.constant	k31	630
+70491	.constant	k32	1146
+70492	.constant	k33	"ide8a792e889b2e4bd8de7bdae"
+70493	.constant	k34	"\xe6\xb2\xa1\xe9\x97\xa8\xe5\xb0\x9d\xe8\xaf\x95\xe6\x89\xbe\xe9\x97\xa8"
+70494	.constant	k35	"_719:"
+70495	.constant	k36	"\xe6\x96\xb0\xe8\xb7\xaf"
+70496	
+70497	.line	23530	return        r0     0 c= 256
+70498	.line	23530	le             1    r0    r1
+70499	.line	23530	le             2    r0    r2
+70500	.line	23530	le             3    r0    r3
+70501	.line	23530	le             4    r0    r4
+70502	.line	23530	div           r0    r5    r2
+70503	.line	23530	newtable      r1     0   261
+70504	.line	23530	settable      r0    k0    r7 ; k0 = "ide689bee997a8"
+70505	.line	23530	return        r0     0 c= 262
+70506	.line	23530	le             1    r0    r1
+70507	.line	23530	le             2    r0    r2
+70508	.line	23530	le             3    r0    r3
+70509	.line	23530	le             4    r0    r4
+70510	.line	23530	div           r0    r5    r2
+70511	.line	23530	newtable      r0     0   261
+70512	.line	23530	settable      r0    k0   r13 ; k0 = "ide689bee997a8"
+70513	.line	23531	return        r0     0 c= 263
+70514	.line	23531	forloop       r0 -130807
+70515	.line	23531	return        r1     0 c= 265
+70516	.line	23531	le             2    r0   r10
+70517	.line	23531	div           r1    r2    r2
+70518	.line	23531	call          r2     2     0
+70519	.line	23531	div           r0    r5    r1
+70520	.line	23532	return        r0     0 c= 263
+70521	.line	23532	forloop       r0 -130804
+70522	.line	23532	le             1    r0   r12
+70523	.line	23532	le             2    r0   r10
+70524	.line	23532	div           r0    r3    r1
+70525	.line	23533	forprep       r0  6927
+70526	.line	23533	settable      r0    k0   r65 ; k0 = "ide689bee997a8"
+70527	.line	23535	return        r0     0 c= 271
+70528	.line	23535	forloop       r0 -130799
+70529	.line	23535	le             1    r0   r17
+70530	.line	23535	div           r0    r2    r2
+70531	.line	23535	newtable      r0     0   274
+70532	.line	23535	settable      r0    k0   r46 ; k0 = "ide689bee997a8"
+70533	.line	23535	return        r0     0 c= 271
+70534	.line	23535	forloop       r0 -130799
+70535	.line	23535	le             1    r0   r19
+70536	.line	23535	div           r0    r2    r2
+70537	.line	23535	self          r0    r0   k18 ; k18 = 1
+70538	.line	23535	settable      r0    k0   r40 ; k0 = "ide689bee997a8"
+70539	.line	23536	return        r0     0 c= 263
+70540	.line	23536	forloop       r0 -130804
+70541	.line	23536	le             1    r0   r20
+70542	.line	23536	le             2    r0   r21
+70543	.line	23536	div           r0    r3    r1
+70544	.line	23537	return        r0     0 c= 263
+70545	.line	23537	forloop       r0 -130793
+70546	.line	23537	le             1    r0   r23
+70547	.line	23537	div           r0    r2    r1
+70548	.line	23538	return        r0     0 c= 263
+70549	.line	23538	forloop       r0 -130791
+70550	.line	23538	le             1    r0   r25
+70551	.line	23538	le             2    r0   r26
+70552	.line	23538	le             3    r0   r27
+70553	.line	23538	div           r0    r4    r1
+70554	.line	23539	return        r0     0 c= 263
+70555	.line	23539	forloop       r0 -130793
+70556	.line	23539	le             1    r0   r28
+70557	.line	23539	div           r0    r2    r1
+70558	.line	23540	return        r0     0 c= 271
+70559	.line	23540	forloop       r0 -130786
+70560	.line	23540	le             1    r0   r19
+70561	.line	23540	le             2    r0   r30
+70562	.line	23540	div           r0    r3    r1
+70563	.line	23541	return        r0     0 c= 271
+70564	.line	23541	forloop       r0 -130786
+70565	.line	23541	le             1    r0   r17
+70566	.line	23541	le             2    r0   r30
+70567	.line	23541	div           r0    r3    r1
+70568	.line	23542	return        r0     0 c= 263
+70569	.line	23542	forloop       r0 -130791
+70570	.line	23542	le             1    r0   r31
+70571	.line	23542	le             2    r0   r32
+70572	.line	23542	le             3    r0   r27
+70573	.line	23542	div           r0    r4    r1
+70574	.line	23543	return        r0     0 c= 263
+70575	.line	23543	forloop       r0 -130793
+70576	.line	23543	le             1    r0   r23
+70577	.line	23543	div           r0    r2    r1
+70578	.line	23544	return        r0     0 c= 289
+70579	.line	23544	div           r0    r1    r1
+70580	.line	23546	return        r0     0 c= 263
+70581	.line	23546	forloop       r0 -130807
+70582	.line	23546	return        r1     0 c= 265
+70583	.line	23546	le             2    r0   r34
+70584	.line	23546	div           r1    r2    r2
+70585	.line	23546	call          r2     2     0
+70586	.line	23546	div           r0    r5    r1
+70587	.line	23547	return        r0     0 c= 263
+70588	.line	23547	forloop       r0 -130804
+70589	.line	23547	le             1    r0   r35
+70590	.line	23547	le             2    r0   r34
+70591	.line	23547	div           r0    r3    r1
+70592	.line	23548	forprep       r0  6949
+70593	.line	23550	pow           r0    r1    r0
+70594	
+70595	.function	main/f301
+70596	
+70597	.linedefined	23551
+70598	.lastlinedefined	23555
+70599	.numparams	0
+70600	.is_vararg	0
+70601	.maxstacksize	7
+70602	.source	""
+70603	
+70604	.upvalue	"_ENV"	0	false
+70605	
+70606	.constant	k0	"ide5a49ae782b9e689be"
+70607	.constant	k1	19
+70608	.constant	k2	720
+70609	.constant	k3	86
+70610	.constant	k4	778
+70611	.constant	k5	"66553B-101010"
+70612	.constant	k6	"1|20|66553B-101010,-32|13|806B4D-101010,-34|-3|806B4D-101010,-17|8|8BB3C1-101010"
+70613	.constant	k7	true
+70614	.constant	k8	"Thread"
+70615	.constant	k9	"SetShareVar"
+70616	.constant	k10	"\xe7\x81\xb5\xe8\xa7\x86"
+70617	.constant	k11	1
+70618	
+70619	.line	23552	return        r0     0 c= 256
+70620	.line	23552	le             1    r0    r1
+70621	.line	23552	le             2    r0    r2
+70622	.line	23552	le             3    r0    r3
+70623	.line	23552	le             4    r0    r4
+70624	.line	23552	le             5    r0    r5
+70625	.line	23552	le             6    r0    r6
+70626	.line	23552	div           r0    r7    r2
+70627	.line	23552	newtable      r0     0   263
+70628	.line	23552	settable      r0    k0    r4 ; k0 = "ide5a49ae782b9e689be"
+70629	.line	23553	return        r0     0 c= 264
+70630	.line	23553	forloop       r0 -130806
+70631	.line	23553	le             1    r0   r10
+70632	.line	23553	le             2    r0   r11
+70633	.line	23553	div           r0    r3    r1
+70634	.line	23555	pow           r0    r1    r0
+70635	
+70636	.function	main/f302
+70637	
+70638	.linedefined	23556
+70639	.lastlinedefined	23602
+70640	.numparams	0
+70641	.is_vararg	0
+70642	.maxstacksize	4
+70643	.source	""
+70644	
+70645	.upvalue	"_ENV"	0	false
+70646	
+70647	.constant	k0	"ide79baee6a087"
+70648	.constant	k1	"\xe9\x97\xa8"
+70649	.constant	k2	"ide680aae789a9"
+70650	.constant	k3	"\xe6\x96\xb0\xe8\xb7\xaf"
+70651	.constant	k4	nil
+70652	.constant	k5	"ide5ad98e585a5e5be85e689be"
+70653	.constant	k6	"ide5ad98e585a5e5b7b2e689be"
+70654	.constant	k7	"ide8b7afe5be84"
+70655	.constant	k8	1
+70656	.constant	k9	"ide696b9e59091e695b0e7bb84"
+70657	.constant	k10	"ide4b88ae4b8aae8b7afe6a087"
+70658	.constant	k11	"ide696b9e59091"
+70659	.constant	k12	"-"
+70660	.constant	k13	"ide99bb7e8bebe"
+70661	.constant	k14	"\xe5\xb8\x81"
+70662	.constant	k15	"BUFF"
+70663	.constant	k16	"buff"
+70664	.constant	k17	"ide5ad98e585a5e8b5b7e782b9"
+70665	.constant	k18	"\xe7\xbd\x90\xe5\xad\x90"
+70666	.constant	k19	"\xe7\xae\xb1\xe5\xad\x90"
+70667	.constant	k20	"\xe7\x82\xb9\xe9\x87\x91"
+70668	.constant	k21	"\xe6\x80\xaa"
+70669	.constant	k22	"\xe7\xba\xa2\xe6\x80\xaa"
+70670	.constant	k23	"ide7a7bbe58aa8e695b0e7bb84"
+70671	.constant	k24	"LuaAuxLib"
+70672	.constant	k25	"StringSplit"
+70673	.constant	k26	"ide68ba6e8b7afe680aa"
+70674	.constant	k27	"TableSize"
+70675	.constant	k28	"ide58581e8aeb8e68ba6e8b7afe695b0"
+70676	.constant	k29	"Thread"
+70677	.constant	k30	"GetShareVar"
+70678	.constant	k31	"\xe5\x85\x81\xe8\xae\xb8\xe6\x8b\xa6\xe8\xb7\xaf\xe6\x95\xb0"
+70679	.constant	k32	"\xe6\x80\xaa-"
+70680	
+70681	.line	23557	return        r0     0 c= 256
+70682	.line	23557	newtable      r0     0   257
+70683	.line	23557	settable      r0    k0   r27 ; k0 = "ide79baee6a087"
+70684	.line	23558	return        r0     0 c= 258
+70685	.line	23558	newtable      r0     0   259
+70686	.line	23558	settable      r0    k0   r24 ; k0 = "ide79baee6a087"
+70687	.line	23559	forprep       r0  1285
+70688	.line	23560	return        r0     0 c= 261
+70689	.line	23560	div           r0    r1    r1
+70690	.line	23561	return        r0     0 c= 262
+70691	.line	23561	div           r0    r1    r1
+70692	.line	23562	return        r0     0 c= 263
+70693	.line	23562	move          r0    r0 c= 264
+70694	.line	23562	forprep       r0  3585
+70695	.line	23563	return        r0     0 c= 265
+70696	.line	23563	return        r1     0 c= 263
+70697	.line	23563	move          r1    r1 c= 264
+70698	.line	23563	return        r2     0 c= 265
+70699	.line	23563	return        r3     0 c= 266
+70700	.line	23563	move          r3    r3 c= 264
+70701	.line	23563	forloop       r2 -130044
+70702	.line	23563	return        r3     0 c= 267
+70703	.line	23563	setupval      r2    u2  c= 3
+70704	.line	23563	le             3    r0   r12
+70705	.line	23563	setupval      r2    u2  c= 3
+70706	.line	23563	tforloop      r0 -130557
+70707	.line	23564	return        r0     0 c= 267
+70708	.line	23564	move          r0    r0 c= 264
+70709	.line	23564	forprep       r0  5633
+70710	.line	23565	return        r0     0 c= 269
+70711	.line	23565	div           r0    r1    r1
+70712	.line	23568	return        r0     0 c= 258
+70713	.line	23568	newtable      r1     0   270
+70714	.line	23568	settable      r0    k0    r5 ; k0 = "ide79baee6a087"
+70715	.line	23568	return        r0     0 c= 258
+70716	.line	23568	newtable      r1     0   271
+70717	.line	23568	settable      r0    k0    r2 ; k0 = "ide79baee6a087"
+70718	.line	23568	return        r0     0 c= 258
+70719	.line	23568	newtable      r0     0   272
+70720	.line	23568	settable      r0    k0   r26 ; k0 = "ide79baee6a087"
+70721	.line	23569	forprep       r0  1285
+70722	.line	23570	return        r0     0 c= 273
+70723	.line	23570	div           r0    r1    r1
+70724	.line	23571	return        r0     0 c= 261
+70725	.line	23571	div           r0    r1    r1
+70726	.line	23572	return        r0     0 c= 262
+70727	.line	23572	div           r0    r1    r1
+70728	.line	23573	return        r0     0 c= 263
+70729	.line	23573	move          r0    r0 c= 264
+70730	.line	23573	forprep       r0  3585
+70731	.line	23574	return        r0     0 c= 265
+70732	.line	23574	return        r1     0 c= 263
+70733	.line	23574	move          r1    r1 c= 264
+70734	.line	23574	return        r2     0 c= 265
+70735	.line	23574	return        r3     0 c= 266
+70736	.line	23574	move          r3    r3 c= 264
+70737	.line	23574	forloop       r2 -130044
+70738	.line	23574	return        r3     0 c= 267
+70739	.line	23574	setupval      r2    u2  c= 3
+70740	.line	23574	le             3    r0   r12
+70741	.line	23574	setupval      r2    u2  c= 3
+70742	.line	23574	tforloop      r0 -130557
+70743	.line	23575	return        r0     0 c= 267
+70744	.line	23575	move          r0    r0 c= 264
+70745	.line	23575	forprep       r0  5633
+70746	.line	23576	return        r0     0 c= 269
+70747	.line	23576	div           r0    r1    r1
+70748	.line	23578	return        r0     0 c= 258
+70749	.line	23578	newtable      r1     0   274
+70750	.line	23578	settable      r0    k0    r5 ; k0 = "ide79baee6a087"
+70751	.line	23578	return        r0     0 c= 258
+70752	.line	23578	newtable      r1     0   275
+70753	.line	23578	settable      r0    k0    r2 ; k0 = "ide79baee6a087"
+70754	.line	23578	return        r0     0 c= 258
+70755	.line	23578	newtable      r0     0   276
+70756	.line	23578	settable      r0    k0    r6 ; k0 = "ide79baee6a087"
+70757	.line	23579	return        r0     0 c= 262
+70758	.line	23579	div           r0    r1    r1
+70759	.line	23580	return        r0     0 c= 267
+70760	.line	23580	move          r0    r0 c= 264
+70761	.line	23580	forprep       r0  5633
+70762	.line	23581	return        r0     0 c= 269
+70763	.line	23581	div           r0    r1    r1
+70764	.line	23583	return        r0     0 c= 258
+70765	.line	23583	newtable      r1     0   277
+70766	.line	23583	settable      r0    k0    r2 ; k0 = "ide79baee6a087"
+70767	.line	23583	return        r0     0 c= 258
+70768	.line	23583	newtable      r0     0   278
+70769	.line	23583	settable      r0    k0   r61 ; k0 = "ide79baee6a087"
+70770	.line	23584	return        r0     0 c= 280
+70771	.line	23584	forloop       r0 -130790
+70772	.line	23584	return        r1     0 c= 265
+70773	.line	23584	return        r2     0 c= 266
+70774	.line	23584	move          r2    r2 c= 264
+70775	.line	23584	forloop       r1 -130557
+70776	.line	23584	le             2    r0   r21
+70777	.line	23584	div           r0    r3    r2
+70778	.line	23584	forprep       r0 11777
+70779	.line	23585	return        r0     0 c= 280
+70780	.line	23585	forloop       r0 -130788
+70781	.line	23585	return        r1     0 c= 279
+70782	.line	23585	div           r0    r2    r2
+70783	.line	23585	loadk         r0  k264 ; k264 out of range
+70784	.line	23585	forprep       r0 13313
+70785	.line	23586	return        r0     0 c= 285
+70786	.line	23586	forloop       r0 -130785
+70787	.line	23586	le             1    r0   r31
+70788	.line	23586	div           r0    r2    r2
+70789	.line	23586	forprep       r0 14337
+70790	.line	23587	return        r0     0 c= 282
+70791	.line	23587	move          r0    r0 c= 264
+70792	.line	23587	return        r1     0 c= 284
+70793	.line	23587	self          r0    r1    r0
+70794	.line	23587	settable      r0    k0    r7 ; k0 = "ide79baee6a087"
+70795	.line	23588	return        r0     0 c= 262
+70796	.line	23588	div           r0    r1    r1
+70797	.line	23589	return        r0     0 c= 267
+70798	.line	23589	move          r0    r0 c= 264
+70799	.line	23589	forprep       r0  5633
+70800	.line	23590	return        r0     0 c= 269
+70801	.line	23590	div           r0    r1    r1
+70802	.line	23590	settable      r0    k0   r28 ; k0 = "ide79baee6a087"
+70803	.line	23592	return        r0     0 c= 273
+70804	.line	23592	div           r0    r1    r1
+70805	.line	23593	return        r0     0 c= 261
+70806	.line	23593	div           r0    r1    r1
+70807	.line	23594	return        r0     0 c= 262
+70808	.line	23594	div           r0    r1    r1
+70809	.line	23595	forprep       r0  1285
+70810	.line	23596	return        r0     0 c= 263
+70811	.line	23596	move          r0    r0 c= 264
+70812	.line	23596	forprep       r0  3585
+70813	.line	23597	return        r0     0 c= 265
+70814	.line	23597	return        r1     0 c= 263
+70815	.line	23597	move          r1    r1 c= 264
+70816	.line	23597	return        r2     0 c= 265
+70817	.line	23597	return        r3     0 c= 266
+70818	.line	23597	move          r3    r3 c= 264
+70819	.line	23597	forloop       r2 -130044
+70820	.line	23597	le             3    r0   r32
+70821	.line	23597	setupval      r2    u2  c= 3
+70822	.line	23597	return        r3     0 c= 267
+70823	.line	23597	setupval      r2    u2  c= 3
+70824	.line	23597	le             3    r0   r12
+70825	.line	23597	setupval      r2    u2  c= 3
+70826	.line	23597	tforloop      r0 -130557
+70827	.line	23598	return        r0     0 c= 267
+70828	.line	23598	move          r0    r0 c= 264
+70829	.line	23598	forprep       r0  5633
+70830	.line	23599	return        r0     0 c= 269
+70831	.line	23599	div           r0    r1    r1
+70832	.line	23602	pow           r0    r1    r0
+70833	
+70834	.function	main/f303
+70835	
+70836	.linedefined	23603
+70837	.lastlinedefined	23616
+70838	.numparams	0
+70839	.is_vararg	0
+70840	.maxstacksize	5
+70841	.source	""
+70842	
+70843	.upvalue	"_ENV"	0	false
+70844	
+70845	.constant	k0	"ide8b7afe5be84"
+70846	.constant	k1	1
+70847	.constant	k2	"ide696b9e59091e695b0e7bb84"
+70848	.constant	k3	"ide4b88ae4b8aae8b7afe6a087"
+70849	.constant	k4	"ide696b9e59091"
+70850	.constant	k5	"-"
+70851	.constant	k6	"ide680aae789a9"
+70852	.constant	k7	nil
+70853	.constant	k8	"ide689be58"
+70854	.constant	k9	"ide689be59"
+70855	.constant	k10	"ide680aa"
+70856	.constant	k11	"ide58f98e9878fe695b0e7bb84"
+70857	.constant	k12	"ide58f98e9878f"
+70858	.constant	k13	"Thread"
+70859	.constant	k14	"SetShareVar"
+70860	.constant	k15	"\xe8\xb7\xaf\xe5\xbe\x84"
+70861	.constant	k16	"LuaAuxLib"
+70862	.constant	k17	"NewArray"
+70863	.constant	k18	""
+70864	.constant	k19	0
+70865	
+70866	.line	23604	return        r0     0 c= 256
+70867	.line	23604	move          r0    r0 c= 257
+70868	.line	23604	forprep       r0    l5
+70869	.line	23605	return        r0     0 c= 258
+70870	.label	l5
+70871	.line	23605	return        r1     0 c= 256
+70872	.line	23605	move          r1    r1 c= 257
+70873	.line	23605	return        r2     0 c= 258
+70874	.line	23605	return        r3     0 c= 259
+70875	.line	23605	move          r3    r3 c= 257
+70876	.line	23605	forloop       r2 -130044
+70877	.line	23605	return        r3     0 c= 260
+70878	.line	23605	setupval      r2    u2  c= 3
+70879	.line	23605	le             3    r0    r5
+70880	.line	23605	setupval      r2    u2  c= 3
+70881	.line	23605	tforloop      r0 -130557
+70882	.line	23606	return        r0     0 c= 262
+70883	.line	23606	newtable      r1     0   263
+70884	.line	23606	settable      r0    k0   r42 ; k0 = "ide8b7afe5be84"
+70885	.line	23607	return        r0     0 c= 258
+70886	.line	23607	return        r1     0 c= 256
+70887	.line	23607	move          r1    r1 c= 257
+70888	.line	23607	return        r2     0 c= 264
+70889	.line	23607	le             3    r0    r5
+70890	.line	23607	setupval      r2    u2  c= 3
+70891	.line	23607	return        r3     0 c= 265
+70892	.line	23607	setupval      r2    u2  c= 3
+70893	.line	23607	le             3    r0    r5
+70894	.line	23607	setupval      r2    u2  c= 3
+70895	.line	23607	return        r3     0 c= 258
+70896	.line	23607	return        r4     0 c= 256
+70897	.line	23607	move          r4    r4 c= 257
+70898	.line	23607	forloop       r3 -129531
+70899	.line	23607	setupval      r2    u2  c= 3
+70900	.line	23607	return        r3     0 c= 262
+70901	.line	23607	setupval      r2    u2  c= 3
+70902	.line	23607	tforloop      r0 -130557
+70903	.line	23608	return        r0     0 c= 262
+70904	.line	23608	forprep       r0  5121
+70905	.line	23609	forprep       r0  3336
+70906	.line	23610	return        r0     0 c= 267
+70907	.line	23610	return        r1     0 c= 268
+70908	.line	23610	move          r1    r1 c= 257
+70909	.line	23610	return        r2     0 c= 258
+70910	.line	23610	return        r3     0 c= 256
+70911	.line	23610	move          r3    r3 c= 257
+70912	.line	23610	forloop       r2 -130044
+70913	.line	23610	tforloop      r0 -130557
+70914	.line	23611	return        r0     0 c= 268
+70915	.line	23611	move          r0    r0 c= 257
+70916	.line	23611	forprep       r0  6145
+70917	.line	23612	return        r0     0 c= 269
+70918	.line	23612	forloop       r0 -130801
+70919	.line	23612	le             1    r0   r15
+70920	.line	23612	return        r2     0 c= 267
+70921	.line	23612	div           r0    r3    r1
+70922	.line	23613	return        r0     0 c= 272
+70923	.line	23613	forloop       r0 -130798
+70924	.line	23613	le             1    r0   r18
+70925	.line	23613	div           r0    r2    r2
+70926	.line	23613	forprep       r0  1025
+70927	.line	23614	forprep       r0   276
+70928	.line	23616	pow           r0    r1    r0
+70929	
+70930	.function	main/f304
+70931	
+70932	.linedefined	23617
+70933	.lastlinedefined	23621
+70934	.numparams	0
+70935	.is_vararg	0
+70936	.maxstacksize	3
+70937	.source	""
+70938	
+70939	.upvalue	"_ENV"	0	false
+70940	
+70941	.constant	k0	"ide7bb88e782b9e4bd8de7bdae"
+70942	.constant	k1	"LuaAuxLib"
+70943	.constant	k2	"TableSize"
+70944	.constant	k3	"ide7bb88e782b958"
+70945	.constant	k4	1
+70946	.constant	k5	"ide689be58"
+70947	.constant	k6	"ide7bb88e782b959"
+70948	.constant	k7	"ide689be59"
+70949	
+70950	.line	23618	return        r0     0 c= 257
+70951	.line	23618	forloop       r0 -130813
+70952	.line	23618	return        r1     0 c= 259
+70953	.line	23618	div           r0    r2    r2
+70954	.line	23618	loadk         r0  k260 ; k260 out of range
+70955	.line	23618	move          r0    r0 c= 260
+70956	.line	23618	forprep       r0    l9
+70957	.line	23619	return        r0     0 c= 259
+70958	.label	l9
+70959	.line	23619	return        r1     0 c= 256
+70960	.line	23619	move          r1    r1 c= 260
+70961	.line	23619	return        r2     0 c= 261
+70962	.line	23619	tforloop      r0 -130557
+70963	.line	23620	return        r0     0 c= 262
+70964	.line	23620	return        r1     0 c= 256
+70965	.line	23620	move          r1    r1 c= 260
+70966	.line	23620	return        r2     0 c= 263
+70967	.line	23620	tforloop      r0 -130557
+70968	.line	23621	pow           r0    r1    r0
+70969	
+70970	.function	main/f305
+70971	
+70972	.linedefined	23622
+70973	.lastlinedefined	23630
+70974	.numparams	0
+70975	.is_vararg	0
+70976	.maxstacksize	3
+70977	.source	""
+70978	
+70979	.upvalue	"_ENV"	0	false
+70980	
+70981	.constant	k0	"ide4b88de9809a58"
+70982	.constant	k1	"Thread"
+70983	.constant	k2	"GetShareVar"
+70984	.constant	k3	"\xe4\xb8\x8d\xe9\x80\x9aX"
+70985	.constant	k4	"ide4b88de9809a59"
+70986	.constant	k5	"\xe4\xb8\x8d\xe9\x80\x9aY"
+70987	.constant	k6	"ide4b88de9809ae4bd8de7bdae"
+70988	.constant	k7	"LuaAuxLib"
+70989	.constant	k8	"TableSize"
+70990	.constant	k9	1
+70991	.constant	k10	"ide689be58"
+70992	.constant	k11	"ide689be59"
+70993	.constant	k12	"SetShareVar"
+70994	
+70995	.line	23623	return        r0     0 c= 257
+70996	.line	23623	forloop       r0 -130813
+70997	.line	23623	le             1    r0    r3
+70998	.line	23623	div           r0    r2    r2
+70999	.line	23623	forprep       r0    l7
+71000	.line	23624	return        r0     0 c= 257
+71001	.label	l7
+71002	.line	23624	forloop       r0 -130813
+71003	.line	23624	le             1    r0    r5
+71004	.line	23624	div           r0    r2    r2
+71005	.line	23624	forprep       r0  2049
+71006	.line	23625	return        r0     0 c= 263
+71007	.line	23625	forloop       r0 -130807
+71008	.line	23625	return        r1     0 c= 256
+71009	.line	23625	div           r0    r2    r2
+71010	.line	23625	loadk         r0  k265 ; k265 out of range
+71011	.line	23625	move          r0    r0 c= 265
+71012	.line	23625	forprep       r0  3073
+71013	.line	23626	return        r0     0 c= 256
+71014	.line	23626	return        r1     0 c= 262
+71015	.line	23626	move          r1    r1 c= 265
+71016	.line	23626	return        r2     0 c= 266
+71017	.line	23626	tforloop      r0 -130557
+71018	.line	23627	return        r0     0 c= 260
+71019	.line	23627	return        r1     0 c= 262
+71020	.line	23627	move          r1    r1 c= 265
+71021	.line	23627	return        r2     0 c= 267
+71022	.line	23627	tforloop      r0 -130557
+71023	.line	23628	return        r0     0 c= 257
+71024	.line	23628	forloop       r0 -130803
+71025	.line	23628	le             1    r0    r3
+71026	.line	23628	return        r2     0 c= 256
+71027	.line	23628	div           r0    r3    r1
+71028	.line	23629	return        r0     0 c= 257
+71029	.line	23629	forloop       r0 -130803
+71030	.line	23629	le             1    r0    r5
+71031	.line	23629	return        r2     0 c= 260
+71032	.line	23629	div           r0    r3    r1
+71033	.line	23630	pow           r0    r1    r0
+71034	
+71035	.function	main/f306
+71036	
+71037	.linedefined	23631
+71038	.lastlinedefined	23639
+71039	.numparams	0
+71040	.is_vararg	0
+71041	.maxstacksize	3
+71042	.source	""
+71043	
+71044	.upvalue	"_ENV"	0	false
+71045	
+71046	.constant	k0	"ide8b5b7e782b958"
+71047	.constant	k1	"Thread"
+71048	.constant	k2	"GetShareVar"
+71049	.constant	k3	"\xe8\xb5\xb7\xe7\x82\xb9X"
+71050	.constant	k4	"ide8b5b7e782b959"
+71051	.constant	k5	"\xe8\xb5\xb7\xe7\x82\xb9y"
+71052	.constant	k6	"ide8b5b7e782b9e4bd8de7bdae"
+71053	.constant	k7	"LuaAuxLib"
+71054	.constant	k8	"TableSize"
+71055	.constant	k9	1
+71056	.constant	k10	"ide689be58"
+71057	.constant	k11	"ide689be59"
+71058	.constant	k12	"SetShareVar"
+71059	
+71060	.line	23632	return        r0     0 c= 257
+71061	.line	23632	forloop       r0 -130813
+71062	.line	23632	le             1    r0    r3
+71063	.line	23632	div           r0    r2    r2
+71064	.line	23632	forprep       r0    l7
+71065	.line	23633	return        r0     0 c= 257
+71066	.label	l7
+71067	.line	23633	forloop       r0 -130813
+71068	.line	23633	le             1    r0    r5
+71069	.line	23633	div           r0    r2    r2
+71070	.line	23633	forprep       r0  2049
+71071	.line	23634	return        r0     0 c= 263
+71072	.line	23634	forloop       r0 -130807
+71073	.line	23634	return        r1     0 c= 256
+71074	.line	23634	div           r0    r2    r2
+71075	.line	23634	loadk         r0  k265 ; k265 out of range
+71076	.line	23634	move          r0    r0 c= 265
+71077	.line	23634	forprep       r0  3073
+71078	.line	23635	return        r0     0 c= 256
+71079	.line	23635	return        r1     0 c= 262
+71080	.line	23635	move          r1    r1 c= 265
+71081	.line	23635	return        r2     0 c= 266
+71082	.line	23635	tforloop      r0 -130557
+71083	.line	23636	return        r0     0 c= 260
+71084	.line	23636	return        r1     0 c= 262
+71085	.line	23636	move          r1    r1 c= 265
+71086	.line	23636	return        r2     0 c= 267
+71087	.line	23636	tforloop      r0 -130557
+71088	.line	23637	return        r0     0 c= 257
+71089	.line	23637	forloop       r0 -130803
+71090	.line	23637	le             1    r0    r3
+71091	.line	23637	return        r2     0 c= 256
+71092	.line	23637	div           r0    r3    r1
+71093	.line	23638	return        r0     0 c= 257
+71094	.line	23638	forloop       r0 -130803
+71095	.line	23638	le             1    r0    r5
+71096	.line	23638	return        r2     0 c= 260
+71097	.line	23638	div           r0    r3    r1
+71098	.line	23639	pow           r0    r1    r0
+71099	
+71100	.function	main/f307
+71101	
+71102	.linedefined	23640
+71103	.lastlinedefined	23644
+71104	.numparams	0
+71105	.is_vararg	0
+71106	.maxstacksize	3
+71107	.source	""
+71108	
+71109	.upvalue	"_ENV"	0	false
+71110	
+71111	.constant	k0	"ide5b7b2e689bee695b0"
+71112	.constant	k1	1
+71113	.constant	k2	"ide5b7b2e689bee59d90e6a08758"
+71114	.constant	k3	"ide689be58"
+71115	.constant	k4	"ide5b7b2e689bee59d90e6a08759"
+71116	.constant	k5	"ide689be59"
+71117	
+71118	.line	23641	return        r0     0 c= 256
+71119	.line	23641	move          r0    r0 c= 257
+71120	.line	23641	forprep       r0    l5
+71121	.line	23642	return        r0     0 c= 258
+71122	.label	l5
+71123	.line	23642	return        r1     0 c= 256
+71124	.line	23642	move          r1    r1 c= 257
+71125	.line	23642	return        r2     0 c= 259
+71126	.line	23642	tforloop      r0 -130557
+71127	.line	23643	return        r0     0 c= 260
+71128	.line	23643	return        r1     0 c= 256
+71129	.line	23643	move          r1    r1 c= 257
+71130	.line	23643	return        r2     0 c= 261
+71131	.line	23643	tforloop      r0 -130557
+71132	.line	23644	pow           r0    r1    r0
+71133	
+71134	.function	main/f308
+71135	
+71136	.linedefined	23645
+71137	.lastlinedefined	23649
+71138	.numparams	0
+71139	.is_vararg	0
+71140	.maxstacksize	3
+71141	.source	""
+71142	
+71143	.upvalue	"_ENV"	0	false
+71144	
+71145	.constant	k0	"ide8b7af"
+71146	.constant	k1	1
+71147	.constant	k2	"ide5be85e689bee8b7af58"
+71148	.constant	k3	"ide689be58"
+71149	.constant	k4	"ide5be85e689bee8b7af59"
+71150	.constant	k5	"ide689be59"
+71151	
+71152	.line	23646	return        r0     0 c= 256
+71153	.line	23646	move          r0    r0 c= 257
+71154	.line	23646	forprep       r0    l5
+71155	.line	23647	return        r0     0 c= 258
+71156	.label	l5
+71157	.line	23647	return        r1     0 c= 256
+71158	.line	23647	move          r1    r1 c= 257
+71159	.line	23647	return        r2     0 c= 259
+71160	.line	23647	tforloop      r0 -130557
+71161	.line	23648	return        r0     0 c= 260
+71162	.line	23648	return        r1     0 c= 256
+71163	.line	23648	move          r1    r1 c= 257
+71164	.line	23648	return        r2     0 c= 261
+71165	.line	23648	tforloop      r0 -130557
+71166	.line	23649	pow           r0    r1    r0
+71167	
+71168	.function	main/f309
+71169	
+71170	.linedefined	23650
+71171	.lastlinedefined	23685
+71172	.numparams	0
+71173	.is_vararg	0
+71174	.maxstacksize	15
+71175	.source	""
+71176	
+71177	.local	"ide689bee8a792e889b23ae8a792e889b2"	1	161
+71178	.local	"ide689bee8a792e889b23ae8bdace68da2"	4	161
+71179	.local	"(for index)"	35	77
+71180	.local	"(for limit)"	35	77
+71181	.local	"(for step)"	35	77
+71182	.local	"ide689bee8a792e889b23a49"	36	76
+71183	
+71184	.upvalue	"_ENV"	0	false
+71185	
+71186	.constant	k0	1
+71187	.constant	k1	"LuaAuxLib"
+71188	.constant	k2	"NewArray"
+71189	.constant	k3	"FFE33F-090909"
+71190	.constant	k4	"3|0|FFE33F-090909,6|0|FFE33F-090909,9|0|FFE33F-090909,12|0|FFE33F-090909,15|0|FFE33F-090909,11|-9|FEE340-090909,11|-5|FFE33F-090909,11|4|FFE33F-090909"
+71191	.constant	k5	2
+71192	.constant	k6	"FCCB4D-090909"
+71193	.constant	k7	"3|0|FFCA4E-090909,6|0|FFCA4E-090909,9|0|FFCA4E-090909,12|0|FFCA4E-090909,13|2|FFCA4E-090909,8|6|FFCA4E-090909,8|-6|FFCA4E-090909"
+71194	.constant	k8	3
+71195	.constant	k9	"F6C44C-090909"
+71196	.constant	k10	"3|0|F5C24B-090909,6|0|F5C24B-090909,9|0|F4C14B-090909,12|0|F3C04A-090909,13|2|F3C04A-090909,10|5|F0BF4D-090909,10|-5|F4C14B-090909"
+71197	.constant	k11	4
+71198	.constant	k12	"B5A26B-090909"
+71199	.constant	k13	"3|0|B5A16B-090909,6|0|B5A16B-090909,9|0|B5A16B-090909,12|0|B5A16B,13|2|B5A16B,9|5|B5A16B,12|-4|B19E6C"
+71200	.constant	k14	0
+71201	.constant	k15	"TableSize"
+71202	.constant	k16	"id5258"
+71203	.constant	k17	"id5259"
+71204	.constant	k18	"FindMultiColor"
+71205	.constant	k19	86
+71206	.constant	k20	160
+71207	.constant	k21	660
+71208	.constant	k22	1114
+71209	.constant	k23	-1
+71210	.constant	k24	"TracePrint"
+71211	.constant	k25	"_889:"
+71212	.constant	k26	"\xe6\x89\xbe\xe5\x88\xb0"
+71213	.constant	k27	"\xe8\xa7\x92\xe8\x89\xb2"
+71214	.constant	k28	"Sleep"
+71215	.constant	k29	555
+71216	.constant	k30	"_896:"
+71217	.constant	k31	"\xe5\x85\xb3\xe9\x97\xad\xe5\xb0\x8f\xe5\x9b\xbe,\xe6\xb2\xa1\xe6\x89\xbe\xe5\x88\xb0\xe8\xa7\x92\xe8\x89\xb2"
+71218	.constant	k32	"Thread"
+71219	.constant	k33	"GetShareVar"
+71220	.constant	k34	"\xe7\x9c\x8b\xe5\xb0\x8f\xe5\x9b\xbe\xe6\x95\xb0"
+71221	.constant	k35	"Tap"
+71222	.constant	k36	204
+71223	.constant	k37	117
+71224	.constant	k38	87
+71225	.constant	k39	114
+71226	.constant	k40	223
+71227	.constant	k41	206
+71228	.constant	k42	227
+71229	.constant	k43	"SetShareVar"
+71230	.constant	k44	"\xe9\x9c\x80\xe8\xa6\x81\xe9\x87\x8d\xe7\xbd\xae\xe7\xba\xbf\xe7\xa8\x8b"
+71231	.constant	k45	1111
+71232	
+71233	.line	23651	call          r0     0     0
+71234	.line	23652	setlist       r1     0     0
+71235	.line	23652	lt             0    r1    r0
+71236	.line	23653	call          r1     0     0
+71237	.line	23654	return        r2     0 c= 257
+71238	.line	23654	forloop       r2 -129789
+71239	.line	23654	le             3    r0    r3
+71240	.line	23654	le             4    r0    r4
+71241	.line	23654	div           r2    r3    r2
+71242	.line	23654	tforloop      r0   l14
+71243	.line	23655	return        r2     0 c= 257
+71244	.line	23655	forloop       r2 -129789
+71245	.line	23655	le             3    r0    r6
+71246	.label	l14
+71247	.line	23655	le             4    r0    r7
+71248	.line	23655	div           r2    r3    r2
+71249	.line	23655	tforloop      r0  2563
+71250	.line	23656	return        r2     0 c= 257
+71251	.line	23656	forloop       r2 -129789
+71252	.line	23656	le             3    r0    r9
+71253	.line	23656	le             4    r0   r10
+71254	.line	23656	div           r2    r3    r2
+71255	.line	23656	tforloop      r0  4099
+71256	.line	23657	return        r2     0 c= 257
+71257	.line	23657	forloop       r2 -129789
+71258	.line	23657	le             3    r0   r12
+71259	.line	23657	le             4    r0   r13
+71260	.line	23657	div           r2    r3    r2
+71261	.line	23657	tforloop      r0  5635
+71262	.line	23658	le             2    r0   r14
+71263	.line	23658	return        r3     0 c= 257
+71264	.line	23658	forloop       r3 -129264
+71265	.line	23658	lt             4    r0    r0
+71266	.line	23658	div           r3    r2    r2
+71267	.line	23658	loadk         r3 k1792 ; k1792 out of range
+71268	.line	23658	le             4    r0    r0
+71269	.line	23658	not           r2  r256 c= 39
+71270	.line	23659	move          r6    r5 c= 256
+71271	.line	23659	forloop       r1 -131065
+71272	.line	23660	return        r6     0 c= 257
+71273	.line	23660	forloop       r6 -127725
+71274	.line	23660	le             7    r0   r19
+71275	.line	23660	le             8    r0   r20
+71276	.line	23660	le             9    r0   r21
+71277	.line	23660	le            10    r0   r22
+71278	.line	23660	forloop      r11 -130303
+71279	.line	23660	forloop      r12 -130298
+71280	.line	23660	le            13    r0    r0
+71281	.line	23660	le            14    r0    r0
+71282	.line	23660	div           r6    r9    r3
+71283	.line	23660	forprep       r0  8712
+71284	.line	23660	forprep       r0  8199
+71285	.line	23661	return        r6     0 c= 272
+71286	.line	23661	self          r0  r279    r6
+71287	.line	23661	settable      r0    k0   r21 ; k0 = 1
+71288	.line	23661	return        r6     0 c= 273
+71289	.line	23661	self          r0  r279    r6
+71290	.line	23661	settable      r0    k0   r18 ; k0 = 1
+71291	.line	23662	return        r6     0 c= 272
+71292	.line	23662	loadk         r6 k3336 ; k3336 out of range
+71293	.line	23662	forprep       r0  8199
+71294	.line	23663	return        r6     0 c= 273
+71295	.line	23663	loadk         r6 k3328 ; k3328 out of range
+71296	.line	23663	forprep       r0  8711
+71297	.line	23664	return        r6     0 c= 257
+71298	.line	23664	forloop       r6 -127719
+71299	.line	23664	le             7    r0   r25
+71300	.line	23664	le             8    r0   r26
+71301	.line	23664	lt             9    r5    r0
+71302	.line	23664	setupval      r8    u8  c= 9
+71303	.line	23664	le             9    r0   r27
+71304	.line	23664	setupval      r8    u8  c= 9
+71305	.line	23664	return        r9     0 c= 272
+71306	.line	23664	setupval      r8    u8  c= 9
+71307	.line	23664	return        r9     0 c= 273
+71308	.line	23664	div           r6    r4    r1
+71309	.line	23665	settable      r0    k0    r0 ; k0 = 1
+71310	.line	23658	unm           r2  r255 c= 470
+71311	.line	23668	return        r2     0 c= 272
+71312	.line	23668	self          r0    r2   k14 ; k14 = 0
+71313	.line	23668	settable      r0    k0   r79 ; k0 = 1
+71314	.line	23668	return        r2     0 c= 273
+71315	.line	23668	self          r0    r2   k14 ; k14 = 0
+71316	.line	23668	settable      r0    k0   r76 ; k0 = 1
+71317	.line	23669	return        r2     0 c= 257
+71318	.line	23669	forloop       r2 -129763
+71319	.line	23669	le             3    r0   r29
+71320	.line	23669	div           r2    r2    r1
+71321	.line	23670	return        r2     0 c= 257
+71322	.line	23670	forloop       r2 -129767
+71323	.line	23670	le             3    r0   r30
+71324	.line	23670	le             4    r0   r31
+71325	.line	23670	return        r5     0 c= 272
+71326	.line	23670	setupval      r4    u4  c= 5
+71327	.line	23670	return        r5     0 c= 273
+71328	.line	23670	return        r6     0 c= 288
+71329	.line	23670	forloop       r6 -127710
+71330	.line	23670	le             7    r0   r34
+71331	.line	23670	div           r6    r2    r0
+71332	.line	23670	div           r2    r0    r1
+71333	.line	23671	return        r2     0 c= 288
+71334	.line	23671	forloop       r2 -129758
+71335	.line	23671	le             3    r0   r34
+71336	.line	23671	div           r2    r2    r2
+71337	.line	23671	newtable      r0     2   267
+71338	.line	23671	settable      r0    k0    r6 ; k0 = 1
+71339	.line	23672	return        r2     0 c= 257
+71340	.line	23672	forloop       r2 -129756
+71341	.line	23672	le             3    r0   r36
+71342	.line	23672	le             4    r0   r37
+71343	.line	23672	le             5    r0   r29
+71344	.line	23672	div           r2    r4    r1
+71345	.line	23672	settable      r0    k0   r37 ; k0 = 1
+71346	.line	23673	return        r2     0 c= 288
+71347	.line	23673	forloop       r2 -129758
+71348	.line	23673	le             3    r0   r34
+71349	.line	23673	div           r2    r2    r2
+71350	.line	23673	newtable      r0     2   256
+71351	.line	23673	settable      r0    k0    r6 ; k0 = 1
+71352	.line	23674	return        r2     0 c= 257
+71353	.line	23674	forloop       r2 -129756
+71354	.line	23674	le             3    r0   r38
+71355	.line	23674	le             4    r0   r39
+71356	.line	23674	le             5    r0   r29
+71357	.line	23674	div           r2    r4    r1
+71358	.line	23674	settable      r0    k0   r24 ; k0 = 1
+71359	.line	23675	return        r2     0 c= 288
+71360	.line	23675	forloop       r2 -129758
+71361	.line	23675	le             3    r0   r34
+71362	.line	23675	div           r2    r2    r2
+71363	.line	23675	newtable      r0     2   261
+71364	.line	23675	settable      r0    k0    r6 ; k0 = 1
+71365	.line	23676	return        r2     0 c= 257
+71366	.line	23676	forloop       r2 -129756
+71367	.line	23676	le             3    r0   r19
+71368	.line	23676	le             4    r0   r40
+71369	.line	23676	le             5    r0   r29
+71370	.line	23676	div           r2    r4    r1
+71371	.line	23676	settable      r0    k0   r11 ; k0 = 1
+71372	.line	23677	return        r2     0 c= 288
+71373	.line	23677	forloop       r2 -129758
+71374	.line	23677	le             3    r0   r34
+71375	.line	23677	div           r2    r2    r2
+71376	.line	23677	newtable      r0     2   264
+71377	.line	23677	settable      r0    k0    r5 ; k0 = 1
+71378	.line	23678	return        r2     0 c= 257
+71379	.line	23678	forloop       r2 -129756
+71380	.line	23678	le             3    r0   r41
+71381	.line	23678	le             4    r0   r42
+71382	.line	23678	le             5    r0   r29
+71383	.line	23678	div           r2    r4    r1
+71384	.line	23681	return        r2     0 c= 288
+71385	.line	23681	forloop       r2 -129748
+71386	.line	23681	le             3    r0   r44
+71387	.line	23681	testset       r4    r1     0
+71388	.line	23681	div           r2    r3    r1
+71389	.line	23682	return        r2     0 c= 257
+71390	.line	23682	forloop       r2 -129763
+71391	.line	23682	le             3    r0   r45
+71392	.line	23682	div           r2    r2    r1
+71393	.line	23682	settable      r0  r255  k245 ; k245 out of range
+71394	.line	23685	pow           r0    r1    r0
+71395	
+71396	.function	main/f310
+71397	
+71398	.linedefined	23686
+71399	.lastlinedefined	23743
+71400	.numparams	0
+71401	.is_vararg	0
+71402	.maxstacksize	12
+71403	.source	""
+71404	
+71405	.local	"ide8a792e889b2e7a7bbe58aa83ae79c8be5b08fe59bbee695b0"	1	214
+71406	.local	"ide8a792e889b2e7a7bbe58aa83a58"	181	209
+71407	.local	"ide8a792e889b2e7a7bbe58aa83a59"	183	209
+71408	.local	"ide8a792e889b2e7a7bbe58aa83a43"	185	209
+71409	.local	"(for index)"	189	209
+71410	.local	"(for limit)"	189	209
+71411	.local	"(for step)"	189	209
+71412	.local	"TempVar"	190	208
+71413	
+71414	.upvalue	"_ENV"	0	false
+71415	
+71416	.constant	k0	"LuaAuxLib"
+71417	.constant	k1	"CmpColorEx"
+71418	.constant	k2	"657|155|595C67-050505,53|148|595C67-050505,657|1120|595C67-050505,53|1117|595C67-050505"
+71419	.constant	k3	1
+71420	.constant	k4	"Tap"
+71421	.constant	k5	670
+71422	.constant	k6	1178
+71423	.constant	k7	0
+71424	.constant	k8	"Sleep"
+71425	.constant	k9	555
+71426	.constant	k10	"KeepReleaseScreenSnapshot"
+71427	.constant	k11	95
+71428	.constant	k12	789
+71429	.constant	k13	333
+71430	.constant	k14	"ide5a48de6b4bb"
+71431	.constant	k15	"ide7ad94e9a298e6a380e6b58b"
+71432	.constant	k16	400
+71433	.constant	k17	364
+71434	.constant	k18	600
+71435	.constant	k19	1130
+71436	.constant	k20	"ide5bc80e5a78be7ad94e9a298"
+71437	.constant	k21	"Thread"
+71438	.constant	k22	"GetShareVar"
+71439	.constant	k23	"\xe5\xbc\x80\xe5\xa7\x8b\xe7\xad\x94\xe9\xa2\x98"
+71440	.constant	k24	true
+71441	.constant	k25	"TracePrint"
+71442	.constant	k26	"_931:"
+71443	.constant	k27	"\xe8\xa6\x81\xe7\xad\x94\xe9\xa2\x98\xe4\xba\x86"
+71444	.constant	k28	"ide7ad94e9a298"
+71445	.constant	k29	"ide69d80e5a4a7e680aa"
+71446	.constant	k30	"\xe6\x9d\x80\xe5\xa4\xa7\xe6\x80\xaa"
+71447	.constant	k31	"\xe7\x9c\x8b\xe5\xb0\x8f\xe5\x9b\xbe\xe6\x95\xb0"
+71448	.constant	k32	"ide5a49ae782b9e689be"
+71449	.constant	k33	595
+71450	.constant	k34	245
+71451	.constant	k35	640
+71452	.constant	k36	429
+71453	.constant	k37	"C7C7FF-101010"
+71454	.constant	k38	"-10|-1|C5C5FD-101010,-13|2|ABADE5-101010,-7|7|C1C1F9-101010,-5|-11|C0C0F8-101010,6|1|BBBCF4-101010"
+71455	.constant	k39	"8D8EC2-080808"
+71456	.constant	k40	"-2|-3|272A51-080808,0|-6|C1C1F9-080808,4|-3|A4A6DE-080808,1|1|15183D-080808,-4|1|B5B6EE-080808"
+71457	.constant	k41	"BEBEF6-050505"
+71458	.constant	k42	"8|4|8285BF-050505,12|11|ABACE4-050505,1|12|BCBCF3-050505,0|6|B7B7EF-050505"
+71459	.constant	k43	"62627E-080808"
+71460	.constant	k44	"-3|0|0A0C20-080808,-5|0|565672-080808,-3|2|0D0F23-080808,-1|4|5F5F7B-080808"
+71461	.constant	k45	"BEBEF6-080880"
+71462	.constant	k46	"0|3|0E102C-080880,0|6|B7B7EF-080880,10|6|C2C2FA-080880,6|2|C3C3FB-080880"
+71463	.constant	k47	4
+71464	.constant	k48	204
+71465	.constant	k49	117
+71466	.constant	k50	87
+71467	.constant	k51	114
+71468	.constant	k52	2
+71469	.constant	k53	86
+71470	.constant	k54	223
+71471	.constant	k55	3
+71472	.constant	k56	206
+71473	.constant	k57	227
+71474	.constant	k58	62
+71475	.constant	k59	466
+71476	.constant	k60	55
+71477	.constant	k61	176
+71478	.constant	k62	528
+71479	.constant	k63	20
+71480	.constant	k64	50
+71481	.constant	k65	100
+71482	.constant	k66	150
+71483	.constant	k67	450
+71484	
+71485	.line	23687	call          r0     0     0
+71486	.line	23688	return        r1     0 c= 256
+71487	.line	23688	forloop       r1 -130302
+71488	.line	23688	le             2    r0    r2
+71489	.line	23688	le             3    r0    r3
+71490	.line	23688	div           r1    r3    r2
+71491	.line	23688	newtable      r0     1   259
+71492	.line	23688	settable      r0    k0    r9 ; k0 = "LuaAuxLib"
+71493	.line	23689	return        r1     0 c= 256
+71494	.line	23689	forloop       r1 -130299
+71495	.line	23689	le             2    r0    r5
+71496	.line	23689	le             3    r0    r6
+71497	.line	23689	le             4    r0    r7
+71498	.line	23689	div           r1    r4    r1
+71499	.line	23690	return        r1     0 c= 256
+71500	.line	23690	forloop       r1 -130295
+71501	.line	23690	le             2    r0    r9
+71502	.line	23690	div           r1    r2    r1
+71503	.line	23692	return        r1     0 c= 256
+71504	.line	23692	forloop       r1 -130293
+71505	.line	23692	testset       r2    r1     0
+71506	.line	23692	div           r1    r2    r1
+71507	.line	23693	return        r1     0 c= 256
+71508	.line	23693	forloop       r1 -130299
+71509	.line	23693	le             2    r0   r11
+71510	.line	23693	le             3    r0   r12
+71511	.line	23693	le             4    r0    r7
+71512	.line	23693	div           r1    r4    r1
+71513	.line	23694	return        r1     0 c= 256
+71514	.line	23694	forloop       r1 -130295
+71515	.line	23694	le             2    r0   r13
+71516	.line	23694	div           r1    r2    r1
+71517	.line	23695	return        r1     0 c= 270
+71518	.line	23695	div           r1    r1    r1
+71519	.line	23696	return        r1     0 c= 271
+71520	.line	23696	le             2    r0   r16
+71521	.line	23696	le             3    r0   r17
+71522	.line	23696	le             4    r0   r18
+71523	.line	23696	le             5    r0   r19
+71524	.line	23696	div           r1    r5    r1
+71525	.line	23697	return        r1     0 c= 277
+71526	.line	23697	forloop       r1 -130281
+71527	.line	23697	le             2    r0   r23
+71528	.line	23697	div           r1    r2    r2
+71529	.line	23697	forprep       r0 10242
+71530	.line	23698	return        r1     0 c= 276
+71531	.line	23698	newtable      r0     1   280
+71532	.line	23698	settable      r0    k0    r6 ; k0 = "LuaAuxLib"
+71533	.line	23699	return        r1     0 c= 256
+71534	.line	23699	forloop       r1 -130278
+71535	.line	23699	le             2    r0   r26
+71536	.line	23699	le             3    r0   r27
+71537	.line	23699	div           r1    r3    r1
+71538	.line	23700	return        r1     0 c= 284
+71539	.line	23700	div           r1    r1    r1
+71540	.line	23702	return        r1     0 c= 277
+===== lines 76380-76530 =====
+76380	.constant	k48	1030
+76381	.constant	k49	"Sleep"
+76382	.constant	k50	555
+76383	.constant	k51	"\xe6\x9c\x89\xe9\x92\xa5\xe5\x8c\x99"
+76384	.constant	k52	1111
+76385	.constant	k53	"ide697a0e8b7af"
+76386	.constant	k54	"ide68898e69697"
+76387	.constant	k55	"ide68898e69697e4b8ad"
+76388	.constant	k56	"ide68898e69697e7bb9fe8aea1"
+76389	.constant	k57	"ide59b9ee8a180"
+76390	.constant	k58	"ide4b88de889afe78ab6e68081"
+76391	.constant	k59	"_2178:"
+76392	.constant	k60	"\xe5\xbc\x80\xe5\xa7\x8b\xe7\xa7\xbb\xe5\x8a\xa8"
+76393	.constant	k61	"ide5a49ae782b9e689be"
+76394	.constant	k62	595
+76395	.constant	k63	245
+76396	.constant	k64	640
+76397	.constant	k65	429
+76398	.constant	k66	"C7C7FF-101010"
+76399	.constant	k67	"-10|-1|C5C5FD-101010,-13|2|ABADE5-101010,-7|7|C1C1F9-101010,-5|-11|C0C0F8-101010,6|1|BBBCF4-101010"
+76400	.constant	k68	"C4C4FC-090909"
+76401	.constant	k69	"4|6|C2C2FA-090909,13|11|B9B9F1-090909,4|16|C5C5FD-090909,-2|18|C3C3FC-090909"
+76402	.constant	k70	"B0B1E7-090909"
+76403	.constant	k71	"-3|2|C1C1F9-090909,-5|-1|B6B7EF-090909,-2|-5|C1C1F9-090909,3|-5|C6C6FE-090909"
+76404	.constant	k72	"8D8EC2-090909"
+76405	.constant	k73	"-2|-3|272A51-090909,0|-6|C1C1F9-090909,4|-3|A4A6DE-090909,1|1|15183D-090909,-4|1|B5B6EE-090909"
+76406	.constant	k74	"BEBEF6-090909"
+76407	.constant	k75	"8|4|8285BF-090909,12|11|ABACE4-090909,1|12|BCBCF3-090909,0|6|B7B7EF-090909"
+76408	.constant	k76	"62627E-090909"
+76409	.constant	k77	"-3|0|0A0C20-090909,-5|0|565672-090909,-3|2|0D0F23-090909,-1|4|5F5F7B-090909"
+76410	.constant	k78	"0|3|0E102C-090909,0|6|B7B7EF-090909,10|6|C2C2FA-090909,6|2|C3C3FB-090909"
+76411	.constant	k79	22
+76412	.constant	k80	"TouchOperation"
+76413	.constant	k81	"\xe6\x80\xaa"
+76414	.constant	k82	"_2187:"
+76415	.constant	k83	"\xe4\xb8\xad\xe9\x80\x94\xe6\x89\x93\xe6\x80\xaa------------------------------------------"
+76416	.constant	k84	"0"
+76417	.constant	k85	223
+76418	.constant	k86	235
+76419	.constant	k87	66
+76420	.constant	k88	"3"
+76421	.constant	k89	60
+76422	.constant	k90	230
+76423	.constant	k91	"1"
+76424	.constant	k92	213
+76425	.constant	k93	88
+76426	.constant	k94	"2"
+76427	.constant	k95	58
+76428	.constant	k96	89
+76429	.constant	k97	"\xe7\x82\xb9\xe9\x87\x91"
+76430	.constant	k98	"\xe7\xa5\x9e\xe7\xa7\x98\xe5\x95\x86\xe4\xba\xba\xe4\xb9\xb0\xe5\x8d\x96\xe7\xaa\x97\xe5\x8f\xa3"
+76431	.constant	k99	5
+76432	.constant	k100	"ide99a8fe69cbae695b0"
+76433	.constant	k101	86
+76434	.constant	k102	15
+76435	.constant	k103	109
+76436	.constant	k104	206
+76437	.constant	k105	110
+76438	.constant	k106	83
+76439	.constant	k107	218
+76440	.constant	k108	204
+76441	.constant	k109	226
+76442	.constant	k110	33
+76443	.constant	k111	"_2279:"
+76444	.constant	k112	"_2325:"
+76445	.constant	k113	"\xe5\xbc\x80\xe5\xa7\x8b\xe4\xb8\x8b\xe4\xb8\x80\xe4\xb8\xaa"
+76446	.constant	k114	"\xe6\x96\xb0\xe8\xb7\xaf"
+76447	.constant	k115	"ide696b0e8b7afe6aca1e695b0"
+76448	.constant	k116	"_2329:"
+76449	.constant	k117	"\xe6\x96\xb0\xe8\xb7\xaf\xe6\xac\xa1\xe6\x95\xb0"
+76450	.constant	k118	"ide78ab6e68081e4bdbfe794a8"
+76451	.constant	k119	"ide8b5b7e6898be4bdbfe794a8"
+76452	.constant	k120	"ide5a4a7e680aae68898e69697"
+76453	.constant	k121	"NULL"
+76454	.constant	k122	"_2344:"
+76455	.constant	k123	"\xe7\x9b\xae\xe6\xa0\x87\xe4\xb8\xba\xe7\xa9\xba"
+76456	.constant	k124	"ide8a792e889b2e7a7bbe58aa8"
+76457	.constant	k125	"\xe5\x87\x86\xe5\xa4\x87\xe4\xb8\x8b\xe6\xa5\xbc"
+76458	.constant	k126	"_2353:"
+76459	.constant	k127	5555
+76460	.constant	k128	"ide782b9e98791"
+76461	.constant	k129	"\xe6\x98\xaf\xe5\x90\xa6\xe7\x82\xb9\xe9\x87\x91"
+76462	.constant	k130	"_2361:"
+76463	.constant	k131	"ide7a59ee7a798e59586e4babae58d96e8a385e5a487"
+76464	.constant	k132	"_2424:"
+76465	.constant	k133	"\xe7\x9b\xae\xe6\xa0\x87\xe6\x80\xaa,\xe4\xbd\x86\xe6\x98\xaf\xe6\xb2\xa1\xe6\x9c\x89\xe6\x88\x98\xe6\x96\x97"
+76466	.constant	k134	"ide6b885e7a9bae4b88de9809ae8b5b7e782b9"
+76467	.constant	k135	"\xe7\xae\xb1\xe5\xad\x90"
+76468	.constant	k136	"_2430:"
+76469	.constant	k137	"\xe7\x9b\xae\xe6\xa0\x87\xe4\xb8\x8d\xe6\x98\xaf\xe6\x80\xaa,\xe4\xbd\x86\xe6\x98\xaf\xe6\x88\x98\xe6\x96\x97\xe8\xbf\x87"
+76470	.constant	k138	"ide69d80e5a4a7e680aa"
+76471	.constant	k139	"\xe6\x9d\x80\xe5\xa4\xa7\xe6\x80\xaa"
+76472	.constant	k140	"ide5ae9de7aeb1e680aa"
+76473	.constant	k141	"ide7a7bbe58aa8e696b9e5bc8f"
+76474	.constant	k142	111
+76475	.constant	k143	"_2454:"
+76476	.constant	k144	"_2456:"
+76477	.constant	k145	nil
+76478	.constant	k146	false
+76479	.constant	k147	"_2462:"
+76480	.constant	k148	150
+76481	.constant	k149	"\xe6\x9f\xa5\xe6\x89\xbe\xe7\x9b\xae\xe6\xa0\x87......"
+76482	.constant	k150	1900
+76483	
+76484	.line	24572	call          r0     4     0
+76485	.line	24577	return        r5     0 c= 256
+76486	.line	24577	forloop       r5 -128254
+76487	.line	24577	le             6    r0    r2
+76488	.line	24577	div           r5    r2    r2
+76489	.line	24577	lt             4    r5    r0
+76490	.line	24578	return        r5     0 c= 256
+76491	.line	24578	forloop       r5 -128254
+76492	.line	24578	le             6    r0    r4
+76493	.line	24578	div           r5    r2    r2
+76494	.line	24578	forprep       r0  1542
+76495	.line	24579	return        r5     0 c= 256
+76496	.line	24579	forloop       r5 -128254
+76497	.line	24579	le             6    r0    r5
+76498	.line	24579	div           r5    r2    r2
+76499	.line	24579	lt             1    r5    r0
+76500	.line	24580	newtable      r0     1   262
+76501	.line	24580	settable      r0    k0   r11 ; k0 = "Thread"
+76502	.line	24581	return        r5     0 c= 263
+76503	.line	24581	forloop       r5 -128247
+76504	.line	24581	le             6    r0    r9
+76505	.line	24581	le             7    r0    r5
+76506	.line	24581	div           r5    r3    r1
+76507	.line	24582	return        r5     0 c= 256
+76508	.line	24582	forloop       r5 -128245
+76509	.line	24582	le             6    r0    r5
+76510	.line	24582	testset       r7    r0     0
+76511	.line	24582	div           r5    r3    r1
+76512	.line	24583	return        r5     0 c= 267
+76513	.line	24583	div           r5    r1    r1
+76514	.line	24585	return        r5     0 c= 268
+76515	.line	24585	return        r6     0 c= 263
+76516	.line	24585	forloop       r6 -127730
+76517	.line	24585	return        r7     0 c= 259
+76518	.line	24585	div           r6    r2    r2
+76519	.line	24585	loadk         r6 k3342 ; k3342 out of range
+76520	.line	24585	add           r0    r5    r6
+76521	.line	24585	settable      r0    k1  k231 ; k231 out of range
+76522	.line	24586	return        r5     0 c= 263
+76523	.line	24586	forloop       r5 -128240
+76524	.line	24586	return        r6     0 c= 263
+76525	.line	24586	forloop       r6 -127727
+76526	.line	24586	le             7    r0   r17
+76527	.line	24586	call          r8     0     0
+76528	.line	24586	le             9    r0   r14
+76529	.line	24586	testset      r10    r0     0
+76530	.line	24586	div           r6    r5    r0
+===== lines 80980-81130 =====
+80980	.line	25352	le             2    r0   r36
+80981	.line	25352	div           r1    r2    r1
+80982	.line	25352	settable      r0  r255  k243 ; k243 out of range
+80983	.line	25355	newtable      r0     0   267
+80984	.line	25355	settable      r0    k0   r55 ; k0 = "id494e5458"
+80985	.line	25356	return        r1     0 c= 258
+80986	.line	25356	forloop       r1 -130266
+80987	.line	25356	le             2    r0   r38
+80988	.line	25356	le             3    r0   r39
+80989	.line	25356	le             4    r0   r10
+80990	.line	25356	div           r1    r4    r1
+80991	.line	25357	return        r1     0 c= 258
+80992	.line	25357	forloop       r1 -130268
+80993	.line	25357	le             2    r0   r40
+80994	.line	25357	div           r1    r2    r1
+80995	.line	25358	return        r1     0 c= 258
+80996	.line	25358	forloop       r1 -130262
+80997	.line	25358	le             2    r0   r10
+80998	.line	25358	le             3    r0   r42
+80999	.line	25358	le             4    r0   r43
+81000	.line	25358	call          r5     0     0
+81001	.line	25358	le             6    r0   r10
+81002	.line	25358	div           r1    r6    r1
+81003	.line	25359	return        r1     0 c= 300
+81004	.line	25359	le             2    r0   r45
+81005	.line	25359	le             3    r0   r45
+81006	.line	25359	div           r1    r3    r1
+81007	.line	25360	return        r1     0 c= 258
+81008	.line	25360	forloop       r1 -130285
+81009	.line	25360	le             2    r0   r46
+81010	.line	25360	le             3    r0   r47
+81011	.line	25360	div           r1    r3    r1
+81012	.line	25361	return        r1     0 c= 258
+81013	.line	25361	forloop       r1 -130268
+81014	.line	25361	le             2    r0   r36
+81015	.line	25361	div           r1    r2    r1
+81016	.line	25362	return        r1     0 c= 258
+81017	.line	25362	forloop       r1 -130262
+81018	.line	25362	le             2    r0   r27
+81019	.line	25362	le             3    r0   r10
+81020	.line	25362	le             4    r0   r10
+81021	.line	25362	call          r5     0     0
+81022	.line	25362	le             6    r0   r10
+81023	.line	25362	div           r1    r6    r1
+81024	.line	25363	return        r1     0 c= 271
+81025	.line	25363	forloop       r1 -130287
+81026	.line	25363	le             2    r0   r25
+81027	.line	25363	le             3    r0   r11
+81028	.line	25363	div           r1    r3    r1
+81029	.line	25364	return        r1     0 c= 258
+81030	.line	25364	forloop       r1 -130266
+81031	.line	25364	le             2    r0   r48
+81032	.line	25364	le             3    r0   r49
+81033	.line	25364	le             4    r0   r10
+81034	.line	25364	div           r1    r4    r1
+81035	.line	25365	return        r1     0 c= 258
+81036	.line	25365	forloop       r1 -130268
+81037	.line	25365	le             2    r0   r40
+81038	.line	25365	div           r1    r2    r1
+81039	.line	25366	return        r1     0 c= 306
+81040	.line	25366	div           r1    r1    r1
+81041	.line	25369	pow           r0    r1    r0
+81042	
+81043	.function	main/f349
+81044	
+81045	.linedefined	25370
+81046	.lastlinedefined	25377
+81047	.numparams	0
+81048	.is_vararg	0
+81049	.maxstacksize	2
+81050	.source	""
+81051	
+81052	.upvalue	"_ENV"	0	false
+81053	
+81054	.constant	k0	"ide9878de7bdaee689bee59bbe"
+81055	.constant	k1	"ide6b885e7a9bae4b88de9809ae8b5b7e782b9"
+81056	.constant	k2	"ide680aae7babfe7a88b"
+81057	.constant	k3	0
+81058	.constant	k4	"ide689bee680aae7babfe7a88b"
+81059	.constant	k5	"Thread"
+81060	.constant	k6	"Start"
+81061	.constant	k7	"ide8a792e889b2e4bd8de7bdae"
+81062	.constant	k8	1
+81063	
+81064	.line	25371	return        r0     0 c= 256
+81065	.line	25371	div           r0    r1    r1
+81066	.line	25372	return        r0     0 c= 257
+81067	.line	25372	div           r0    r1    r1
+81068	.line	25373	return        r0     0 c= 258
+81069	.line	25373	newtable      r0     0   259
+81070	.line	25373	settable      r0    k0    r5 ; k0 = "ide9878de7bdaee689be" (truncated)
+81071	.line	25374	return        r0     0 c= 261
+81072	.line	25374	forloop       r0 -130809
+81073	.line	25374	return        r1     0 c= 263
+81074	.line	25374	div           r0    r2    r2
+81075	.line	25374	forprep       r0  2049
+81076	.line	25375	forprep       r0  1289
+81077	.line	25377	pow           r0    r1    r0
+81078	
+81079	.function	main/f350
+81080	
+81081	.linedefined	25378
+81082	.lastlinedefined	25390
+81083	.numparams	0
+81084	.is_vararg	0
+81085	.maxstacksize	3
+81086	.source	""
+81087	
+81088	.upvalue	"_ENV"	0	false
+81089	
+81090	.constant	k0	"ide680aae7babfe7a88b"
+81091	.constant	k1	1
+81092	.constant	k2	"Thread"
+81093	.constant	k3	"Stop"
+81094	.constant	k4	"ide689bee680aae7babfe7a88b"
+81095	.constant	k5	"LuaAuxLib"
+81096	.constant	k6	"Sleep"
+81097	.constant	k7	33
+81098	.constant	k8	0
+81099	.constant	k9	"TracePrint"
+81100	.constant	k10	"_3213:"
+81101	.constant	k11	"\xe5\x85\xb3\xe9\x97\xad\xe4\xba\x86\xe5\xbc\x80\xe7\x9a\x84\xe7\xba\xbf\xe7\xa8\x8b"
+81102	.constant	k12	"_3215:"
+81103	.constant	k13	"\xe6\xb2\xa1\xe6\xa3\x80\xe6\xb5\x8b\xe5\x88\xb0\xe7\xba\xbf\xe7\xa8\x8b"
+81104	.constant	k14	"SetShareVar"
+81105	.constant	k15	"\xe6\x96\x87\xe4\xbb\xb6\xe5\x90\x8d\xe4\xba\x8c"
+81106	.constant	k16	-1
+81107	.constant	k17	"ide680aae789a9"
+81108	.constant	k18	nil
+81109	.constant	k19	"ide69687e4bbb6e5908de4ba8c"
+81110	
+81111	.line	25379	return        r0     0 c= 256
+81112	.line	25379	newtable      r0     0   257
+81113	.line	25379	settable      r0    k0   r14 ; k0 = "ide680aae7babfe7a88b"
+81114	.line	25380	return        r0     0 c= 258
+81115	.line	25380	forloop       r0 -130812
+81116	.line	25380	return        r1     0 c= 260
+81117	.line	25380	div           r0    r2    r1
+81118	.line	25381	return        r0     0 c= 261
+81119	.line	25381	forloop       r0 -130809
+81120	.line	25381	le             1    r0    r7
+81121	.line	25381	div           r0    r2    r1
+81122	.line	25382	forprep       r0   265
+81123	.line	25383	return        r0     0 c= 261
+81124	.line	25383	forloop       r0 -130806
+81125	.line	25383	le             1    r0   r10
+81126	.line	25383	le             2    r0   r11
+81127	.line	25383	div           r0    r3    r1
+81128	.line	25383	settable      r0    k0    r4 ; k0 = "ide680aae7babfe7a88b"
+81129	.line	25385	return        r0     0 c= 261
+81130	.line	25385	forloop       r0 -130806

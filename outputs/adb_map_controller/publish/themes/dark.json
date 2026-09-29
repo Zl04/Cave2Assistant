@@ -1,0 +1,41 @@
+{
+  "id": "dark",
+  "type": "dark",
+  "colors": {
+    "window.background": "#1E1E1E",
+    "foreground": "#D4D4D4",
+    "foreground.muted": "#9D9D9D",
+    "foreground.disabled": "#6A6A6A",
+    "accent.foreground": "#3794FF",
+    "status.success": "#89D185",
+    "status.warning": "#CCA700",
+    "border": "#454545",
+    "focus.border": "#007FD4",
+    "selection.background": "#264F78",
+
+    "surface.background": "#252526",
+    "surface.alternativeBackground": "#2D2D30",
+    "surface.hoverBackground": "#2A2D2E",
+    "input.background": "#3C3C3C",
+
+    "button.secondary.background": "#3A3D41",
+    "button.primary.background": "#0E639C",
+    "button.success.background": "#16825D",
+    "button.warning.background": "#806000",
+    "button.danger.background": "#A1260D",
+    "button.info.background": "#1D5D9B",
+    "button.utility.background": "#5A4A78",
+    "button.foreground": "#FFFFFF",
+
+    "map.background": "#1E1E1E",
+    "map.unreachable": "#5A2A2A",
+    "map.explored": "#3A3D41",
+    "map.unexplored": "#252526",
+    "map.route": "#569CD6",
+    "map.player": "#4FC1FF",
+    "map.overlay.background": "#252526E6",
+    "map.overlay.border": "#007ACC",
+    "map.overlay.foreground": "#D4D4D4",
+    "map.town.foreground": "#89D185"
+  }
+}

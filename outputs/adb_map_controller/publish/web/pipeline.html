@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MAA Pipeline 监控</title>
+  <style>
+    :root { color-scheme: dark; --bg:#10151d; --panel:#18212d; --line:#2a3949; --text:#e5edf5; --muted:#93a4b7; --green:#59d494; --blue:#74b9ff; --yellow:#ffd166; --red:#ff7675; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:linear-gradient(135deg,#0e141c,#172332); color:var(--text); font:14px/1.45 "Segoe UI","Microsoft YaHei",sans-serif; }
+    header { padding:22px 28px 16px; border-bottom:1px solid var(--line); background:#121a24cc; position:sticky; top:0; z-index:2; backdrop-filter:blur(10px); }
+    h1 { margin:0 0 5px; font-size:22px; }
+    .subtle { color:var(--muted); }
+    main { max-width:1500px; margin:0 auto; padding:20px 28px 40px; }
+    .cards { display:grid; grid-template-columns:repeat(4,minmax(150px,1fr)); gap:12px; margin-bottom:18px; }
+    .card, .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; box-shadow:0 8px 24px #0002; }
+    .card { padding:14px 16px; }
+    .label { color:var(--muted); font-size:12px; text-transform:uppercase; }
+    .value { margin-top:5px; font-size:18px; font-weight:600; word-break:break-all; }
+    .layout { display:grid; grid-template-columns:330px minmax(0,1fr); gap:16px; align-items:start; }
+    .panel-title { padding:13px 15px; border-bottom:1px solid var(--line); font-weight:600; }
+    .runs { max-height:650px; overflow:auto; }
+    .run { display:block; width:100%; text-align:left; padding:12px 15px; color:var(--text); background:transparent; border:0; border-bottom:1px solid #263442; cursor:pointer; }
+    .run:hover, .run.active { background:#213246; }
+    .run-name { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .run-meta { color:var(--muted); font-size:12px; margin-top:3px; }
+    .toolbar { padding:12px 15px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; border-bottom:1px solid var(--line); }
+    button { border:1px solid #46627e; color:var(--text); background:#263c53; padding:7px 11px; border-radius:6px; cursor:pointer; }
+    button:hover { background:#31516f; }
+    .event-wrap { overflow:auto; max-height:650px; }
+    table { width:100%; border-collapse:collapse; min-width:900px; }
+    th, td { text-align:left; padding:9px 10px; border-bottom:1px solid #263442; vertical-align:top; }
+    th { color:var(--muted); font-size:12px; position:sticky; top:0; background:#18212d; }
+    td.mono { font-family:Consolas,monospace; font-size:12px; }
+    .ok { color:var(--green); } .running { color:var(--blue); } .warn { color:var(--yellow); } .error { color:var(--red); }
+    .empty { padding:28px 15px; color:var(--muted); text-align:center; }
+    @media (max-width:900px) { main { padding:14px; } .cards { grid-template-columns:repeat(2,1fr); } .layout { grid-template-columns:1fr; } .runs { max-height:260px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MAA Pipeline 监控</h1>
+    <div class="subtle">本地只读页面 · 数据来自主程序的实时 Trace 和 pipeline-traces 目录</div>
+  </header>
+  <main>
+    <section class="cards">
+      <div class="card"><div class="label">运行状态</div><div id="status" class="value">读取中…</div></div>
+      <div class="card"><div class="label">Run ID</div><div id="runId" class="value">-</div></div>
+      <div class="card"><div class="label">当前节点</div><div id="task" class="value">-</div></div>
+      <div class="card"><div class="label">事件数量</div><div id="eventCount" class="value">0</div></div>
+    </section>
+    <section class="layout">
+      <div class="panel">
+        <div class="panel-title">历史运行</div>
+        <div id="runs" class="runs"><div class="empty">读取中…</div></div>
+      </div>
+      <div class="panel">
+        <div class="toolbar">
+          <strong id="viewTitle">实时运行</strong>
+          <span class="subtle" id="updatedAt"></span>
+          <button id="liveButton" type="button">回到实时</button>
+          <button id="refreshButton" type="button">刷新</button>
+        </div>
+        <div class="event-wrap">
+          <table>
+            <thead><tr><th>#</th><th>事件</th><th>任务</th><th>命中</th><th>动作</th><th>详情</th><th>耗时</th><th>错误</th></tr></thead>
+            <tbody id="events"><tr><td colspan="8" class="empty">读取中…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script>
+    let selectedFile = null;
+    let lastRuns = [];
+    const $ = id => document.getElementById(id);
+    const text = value => value === null || value === undefined || value === '' ? '-' : String(value);
+    const escapeHtml = value => text(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    function eventClass(kind) {
+      if (!kind) return '';
+      if (/Completed|Recognized|Started/.test(kind)) return 'ok';
+      if (/Failed|Canceled|Stopped/.test(kind)) return 'error';
+      if (/Retry|Limit/.test(kind)) return 'warn';
+      return '';
+    }
+    function renderEvents(events) {
+      const body = $('events');
+      if (!events || !events.length) { body.innerHTML = '<tr><td colspan="8" class="empty">暂无事件</td></tr>'; return; }
+      body.innerHTML = events.map((e, i) =>
+        '<tr><td class="mono">' + (i + 1) + '</td>' +
+        '<td class="' + eventClass(e.kind) + '">' + escapeHtml(e.kind) + '</td>' +
+        '<td>' + escapeHtml(e.taskName || e.taskChain) + '</td>' +
+        '<td>' + escapeHtml(e.matched) + '</td>' +
+        '<td>' + escapeHtml(e.action) + '</td>' +
+        '<td>' + escapeHtml(e.detail) + '</td>' +
+        '<td class="mono">' + escapeHtml(e.duration) + '</td>' +
+        '<td class="error">' + escapeHtml(e.error) + '</td></tr>'
+      ).join('');
+    }
+    function renderLive(data) {
+      const last = data.events && data.events.length ? data.events[data.events.length - 1] : null;
+      $('status').textContent = data.running ? '运行中' : (last ? (last.kind || '已结束') : '空闲');
+      $('status').className = 'value ' + (data.running ? 'running' : (last && /Failed|Canceled|Stopped/.test(last.kind) ? 'error' : 'ok'));
+      $('runId').textContent = text(data.runId);
+      $('task').textContent = text(last && (last.taskName || last.taskChain));
+      $('eventCount').textContent = data.events ? data.events.length : 0;
+      if (!selectedFile) { $('viewTitle').textContent = data.running ? '实时运行' : '最近实时记录'; renderEvents(data.events); }
+      $('updatedAt').textContent = data.lastEventAt ? new Date(data.lastEventAt).toLocaleString() : '';
+    }
+    function renderRuns(runs) {
+      lastRuns = runs || [];
+      const host = $('runs');
+      if (!lastRuns.length) { host.innerHTML = '<div class="empty">暂无历史 Trace</div>'; return; }
+      host.innerHTML = lastRuns.map(r =>
+        '<button class="run ' + (selectedFile === r.fileName ? 'active' : '') + '" data-file="' + escapeHtml(r.fileName) + '">' +
+        '<div class="run-name">' + escapeHtml(r.fileName) + '</div>' +
+        '<div class="run-meta">' + escapeHtml(new Date(r.modifiedAt).toLocaleString()) + ' · ' + escapeHtml(r.status) + ' · ' + escapeHtml(r.eventCount) + ' 事件</div></button>'
+      ).join('');
+      host.querySelectorAll('.run').forEach(button => button.addEventListener('click', () => loadRun(button.dataset.file)));
+    }
+    async function loadRun(file) {
+      if (!file) return;
+      const response = await fetch('/api/runs/' + encodeURIComponent(file));
+      if (!response.ok) return;
+      selectedFile = file;
+      $('viewTitle').textContent = file;
+      renderEvents(await response.json());
+      renderRuns(lastRuns);
+    }
+    async function refreshRuns() { renderRuns(await (await fetch('/api/runs')).json()); }
+    async function refreshLive() {
+      try { renderLive(await (await fetch('/api/live', { cache:'no-store' })).json()); }
+      catch { $('status').textContent = '连接失败'; $('status').className = 'value error'; }
+    }
+    $('liveButton').addEventListener('click', () => { selectedFile = null; refreshLive(); renderRuns(lastRuns); });
+    $('refreshButton').addEventListener('click', () => { refreshRuns(); refreshLive(); });
+    refreshRuns(); refreshLive();
+    setInterval(refreshLive, 1000); setInterval(refreshRuns, 3000);
+  </script>
+</body>
+</html>

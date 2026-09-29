@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "dgSpecHash": "PBQXCJMfm7s=",
+  "success": true,
+  "projectFilePath": "F:\\贪婪洞窟\\work\\MiningOcrProbe\\MiningOcrProbe.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Warrior.zeng\\.nuget\\packages\\newtonsoft.json\\13.0.4\\newtonsoft.json.13.0.4.nupkg.sha512",
+    "C:\\Users\\Warrior.zeng\\.nuget\\packages\\opencvsharp4\\4.10.0.20240616\\opencvsharp4.4.10.0.20240616.nupkg.sha512",
+    "C:\\Users\\Warrior.zeng\\.nuget\\packages\\opencvsharp4.runtime.win\\4.10.0.20240616\\opencvsharp4.runtime.win.4.10.0.20240616.nupkg.sha512",
+    "C:\\Users\\Warrior.zeng\\.nuget\\packages\\paddleocrruntime_x64\\4.5.3\\paddleocrruntime_x64.4.5.3.nupkg.sha512",
+    "C:\\Users\\Warrior.zeng\\.nuget\\packages\\paddleocrsdk\\4.5.3\\paddleocrsdk.4.5.3.nupkg.sha512",
+    "C:\\Users\\Warrior.zeng\\.nuget\\packages\\system.memory\\4.5.5\\system.memory.4.5.5.nupkg.sha512",
+    "C:\\Users\\Warrior.zeng\\.nuget\\packages\\system.runtime.compilerservices.unsafe\\6.0.0\\system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512",
+    "C:\\Users\\Warrior.zeng\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.25\\microsoft.netcore.app.ref.8.0.25.nupkg.sha512",
+    "C:\\Users\\Warrior.zeng\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.25\\microsoft.windowsdesktop.app.ref.8.0.25.nupkg.sha512",
+    "C:\\Users\\Warrior.zeng\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.25\\microsoft.aspnetcore.app.ref.8.0.25.nupkg.sha512",
+    "C:\\Users\\Warrior.zeng\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\8.0.25\\microsoft.netcore.app.host.win-x64.8.0.25.nupkg.sha512"
+  ],
+  "logs": []
+}

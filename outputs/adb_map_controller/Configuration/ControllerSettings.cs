@@ -23,6 +23,8 @@ public sealed class ControllerSettings
     public decimal MiningTileWidth { get; set; } = 200;
     public decimal MiningTileHeight { get; set; } = 100;
     public decimal MiningInterval { get; set; } = 3000;
+    public bool Mining { get; set; }
+    public bool CardMining { get; set; }
     public decimal SingleCellPulseHold { get; set; } = 50;
     // 正值：在预期格前释放。负值：在到达预期格后释放。
     public decimal MovementReleaseLead { get; set; } = 30;

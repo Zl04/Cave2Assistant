@@ -37,6 +37,8 @@ public sealed partial class MainForm : Form
         BorderStyle = BorderStyle.FixedSingle, Tag = ThemeRole.Input };
     readonly ToolStripDropDown bonusPriorityPopup = new() { AutoClose = true, AutoSize = false, Padding = new Padding(3) };
     readonly Button bonusPriorityToggle = Btn("加成优先级", ThemeRole.SecondaryButton);
+    readonly CheckBox mining = Box("挖矿");
+    readonly CheckBox cardMining = Box("卡矿（自动匹配）");
     readonly CheckBox cardLayer = Box("卡层（自动匹配）");
     readonly CheckBox attackBoss = Box("攻击Boss"), monsters = Box("全清小怪"), elites = Box("清除精英"), chests = Box("箱子"), pots = Box("罐子"), bones = Box("石堆"), gold = Box("金币"), runes = Box("符文/点金台"), chambers = Box("密室");
     readonly TextBox log = new ThemedTextBox { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Tag = ThemeRole.Log };
@@ -106,6 +108,7 @@ public sealed partial class MainForm : Form
     bool pulseFallbackNavigation;
     bool shortcutDeferredByTargets;
     bool targetFloorStopped;
+    int floorMiningCompletedLevel = -1;
     // 游戏原始单位/秒；游戏会将其除以 1000，得到每个地图格的单位数。
     double currentMoveSpeed = 1000;
     int clickNavigationVersion;
@@ -191,7 +194,7 @@ public sealed partial class MainForm : Form
         var options = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 9, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
         options.Controls.AddRange([new Label { Text = "目标（钥匙必选）：", AutoSize = true }, attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, bonusPriorityToggle]);
         var floorStop = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
-        floorStop.Controls.AddRange([new Label { Text = "指定层停住：", AutoSize = true }, targetStopFloor, new Label { Text = "层（0=关闭，完成所选目标后自动停住）", AutoSize = true }, cardLayer]);
+        floorStop.Controls.AddRange([new Label { Text = "指定层停住：", AutoSize = true }, targetStopFloor, new Label { Text = "层（0=关闭，完成所选目标后自动停住）", AutoSize = true }, mining, cardMining, cardLayer]);
         var entryOptions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
         entryOptions.Controls.AddRange([new Label { Text = "自动进图：", AutoSize = true }, entryMapChoice, entryChoice, entryDifficulty, new Label { Text = "入口识别：内置图标或当前地图场景模板", AutoSize = true, Padding = new(4, 5, 0, 0), Tag = ThemeRole.WarningText }]);
         var timing = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 7, 10, 5), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
@@ -257,7 +260,7 @@ public sealed partial class MainForm : Form
             if (runCts is null && activeEntry is null && uiOperations.Count == 0)
                 await RefreshMap(false, lockDeviceSelection: false);
         }; Shown += async (_, _) => await RunUi(async () => { await Scan(); await RefreshMap(); if (!closing) refreshTimer.Start(); });
-        foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, cardLayer, entryMapChoice, entryChoice, entryDifficulty })
+        foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, mining, cardMining, cardLayer, entryMapChoice, entryChoice, entryDifficulty })
             control.Validated += (_, _) => SaveSettings();
         foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers })
         {
@@ -267,6 +270,8 @@ public sealed partial class MainForm : Form
         foreach (var control in new Control[] { targetStopFloor })
             control.Validated += (_, _) => targetFloorStopped = false;
         targetStopFloor.ValueChanged += (_, _) => targetFloorStopped = false;
+        mining.CheckedChanged += (_, _) => targetFloorStopped = false;
+        cardMining.CheckedChanged += (_, _) => targetFloorStopped = false;
         cardLayer.CheckedChanged += (_, _) => targetFloorStopped = false;
         try
         {
@@ -394,6 +399,7 @@ public sealed partial class MainForm : Form
         SetValue(singleCellPulseHold, s.SingleCellPulseHold); SetValue(movementReleaseLead, s.MovementReleaseLead);
         SetValue(interactionHold, s.InteractionHold); SetValue(stallTimeout, s.StallTimeout); SetValue(newFloorStartDelay, s.NewFloorStartDelay); SetValue(routeRecoveryAttempts, s.RouteRecoveryAttempts);
         SetValue(targetStopFloor, s.TargetStopFloor); cardLayer.Checked = s.CardLayer;
+        mining.Checked = s.Mining; cardMining.Checked = s.CardMining;
         SetValue(miningTileWidth, s.MiningTileWidth); SetValue(miningTileHeight, s.MiningTileHeight); SetValue(miningInterval, s.MiningInterval);
         var savedMapId = s.EntryMapId;
         var savedEntryId = s.EntryId;
@@ -426,6 +432,7 @@ public sealed partial class MainForm : Form
             MiningTileWidth = miningTileWidth.Value, MiningTileHeight = miningTileHeight.Value, MiningInterval = miningInterval.Value,
             InteractionHold = interactionHold.Value, StallTimeout = stallTimeout.Value, NewFloorStartDelay = newFloorStartDelay.Value, RouteRecoveryAttempts = routeRecoveryAttempts.Value,
             TargetStopFloor = (int)targetStopFloor.Value, CardLayer = cardLayer.Checked,
+            Mining = mining.Checked, CardMining = cardMining.Checked,
             EntryMapId = SelectedEntryMap.Id, EntryId = Math.Max(1, entryChoice.SelectedIndex + 1),
             EntryDifficulty = (DungeonDifficulty)Math.Clamp(entryDifficulty.SelectedIndex, (int)DungeonDifficulty.Normal, (int)DungeonDifficulty.Nightmare),
             EntryEliteMode = entryDifficulty.SelectedIndex == (int)DungeonDifficulty.Elite,
@@ -440,6 +447,7 @@ public sealed partial class MainForm : Form
         confirmedCompletedTargets.Clear(); expectedTaskRoadChanges.Clear();
         observedLevel = -1; currentMoveSpeed = 1000; lastAcceptedPlayerCell = null;
         floorPhase = FloorPhase.Explore; portalCandidate = null; targetFloorStopped = false;
+        floorMiningCompletedLevel = -1;
         portalJumps.Clear(); portalUnlocks.Clear();
         attemptedRoomPortals.Clear(); pendingRoomPortal = null; roomPortalOrigin = null; roomPortalInteractionAt = 0;
         ClearRiftGemSelectionState();
@@ -1000,7 +1008,10 @@ public sealed partial class MainForm : Form
     bool IsTargetStopFloor(MapDump map)
     {
         var manualTargetReached = targetStopFloor.Value > 0 && map.Level == (int)targetStopFloor.Value;
-        var cardTarget = cardLayer.Checked ? CardFloorPolicy.Resolve(map) : null;
+        // 卡矿在未启用挖矿时退化为卡层：到达自动匹配的最高层后，
+        // 即使“卡层”本身未勾选，也不能继续进入下一层。
+        var cardTarget = (cardLayer.Checked || (cardMining.Checked && !mining.Checked))
+            ? CardFloorPolicy.Resolve(map) : null;
         // 两种设置彼此独立：只开一个时使用对应条件；同时开启时，
         // 任一目标层都复用同一套“完成所选目标后停住”流程。
         var cardTargetReached = cardTarget is { } target && map.Level == target;
@@ -1011,10 +1022,22 @@ public sealed partial class MainForm : Form
     {
         if (!IsTargetStopFloor(map)) return false;
         if (map.InBattle) return false;
+        // 挖矿优先于卡层：到达停层位置时，先把本层应执行的挖矿做完。
+        if (ShouldMineBeforeFloorTransition(map)) return false;
         // 指定层复用普通“目标”选项；未勾选的可选目标不阻止停住，
         // 钥匙仍由 TargetPolicy 强制视为目标。锁定中的 Boss 也必须保留，
         // 防止封印尚未打开时误判为目标已完成。
         return SelectedTargets(map, Options(), includeLockedBoss: true).Count == 0;
+    }
+
+    bool IsCardMiningFloor(MapDump map)
+        => cardMining.Checked && CardFloorPolicy.Resolve(map) is { } target && map.Level == target;
+
+    bool ShouldMineBeforeFloorTransition(MapDump map)
+    {
+        if (!mining.Checked || floorMiningCompletedLevel == map.Level) return false;
+        // 卡矿优先级高于普通挖矿：只有自动匹配的最高层允许使用道具。
+        return !cardMining.Checked || IsCardMiningFloor(map);
     }
 
     async Task<bool> TryStopAtTargetFloor()
@@ -1085,6 +1108,7 @@ public sealed partial class MainForm : Form
         {
             CancelPortalChoiceCoroutine();
             observedLevel = map.Level; floorPhase = FloorPhase.WaitingFloorLoad; floorChangedAt = Environment.TickCount64;
+            floorMiningCompletedLevel = -1;
             routeRecoveryUsed = 0;
             blocked.Clear(); lastBlockedAttempt = null; unchangedCount = 0;
             lastAcceptedPlayerCell = null;
@@ -1280,7 +1304,7 @@ public sealed partial class MainForm : Form
         return true;
     }
 
-    async Task<bool> TryUseNextFloorShortcut()
+    async Task<bool> TryUseNextFloorShortcut(CancellationToken token)
     {
         // 右侧快捷入口是另一种传送门入口。玩家到达传送门前它就可能出现，
         // 因此优先级必须高于常规路线规划。转场对话框正在处理时绝不能探测它，
@@ -1293,13 +1317,6 @@ public sealed partial class MainForm : Form
 
         var map = currentMap;
         if (map is null) return false;
-        if (IsTargetStopFloor(map) && !TargetFloorStopReady(map))
-        {
-            if (!shortcutDeferredByTargets)
-                Log($"检测到右侧‘前往下层’入口，但指定层停止条件尚未满足，暂不点击");
-            shortcutDeferredByTargets = true;
-            return false;
-        }
         var options = Options();
         var allPending = ActiveTargets(map, options);
         var pending = ReachableActiveTargets(map, options);
@@ -1316,6 +1333,18 @@ public sealed partial class MainForm : Form
         {
             if (!shortcutDeferredByTargets)
                 Log($"检测到右侧‘前往下层’入口，但仍有 {pendingCount} 个已勾选目标未完成，暂不点击");
+            shortcutDeferredByTargets = true;
+            return false;
+        }
+        shortcutDeferredByTargets = false;
+
+        // 快捷入口出现时也要先执行换层前的挖矿，尤其是没有显式传送门路线的楼型。
+        // 放在目标门控之后，保证“完成目标后再挖矿”的顺序不被打乱。
+        if (await TryMineBeforeFloorTransition(token, transitionAvailable: true)) return true;
+        if (IsTargetStopFloor(map) && !TargetFloorStopReady(map))
+        {
+            if (!shortcutDeferredByTargets)
+                Log($"检测到右侧‘前往下层’入口，但指定层停止条件尚未满足，暂不点击");
             shortcutDeferredByTargets = true;
             return false;
         }
@@ -2039,6 +2068,7 @@ public sealed partial class MainForm : Form
         // 停层标记只属于上一次运行。停止后玩家可能已手动重新进图，
         // 每次开始都必须刷新地图，再按当前楼层和剩余目标判断是否停住。
         targetFloorStopped = false;
+        floorMiningCompletedLevel = -1;
         using var linkedOwner = CancellationTokenSource.CreateLinkedTokenSource(pipelineToken);
         var owner = linkedOwner;
         runCts = owner;
@@ -2203,10 +2233,12 @@ public sealed partial class MainForm : Form
                     State($"等待新层加载 {(newFloorStartDelay.Value / 1000):0.##} 秒");
                     await Task.Delay(80, owner.Token); continue;
                 }
+                if (floorPhase == FloorPhase.GoToPortal && await TryMineBeforeFloorTransition(owner.Token))
+                    continue;
                 if (await TryStopAtTargetFloor()) break;
                 // 已满足的楼层门控优先于探索。快捷入口会自行检查活动目标/Boss，
                 // 即使当前地图仍有迷雾，也允许继续前进。
-                if (await TryUseNextFloorShortcut())
+                if (await TryUseNextFloorShortcut(owner.Token))
                 {
                     await Task.Delay(80, owner.Token);
                     continue;
@@ -2379,7 +2411,7 @@ public sealed partial class MainForm : Form
                     }
                     // 探索规划失败时，不能在右侧下一层快捷入口出现前终止运行。
                     // 这是探索已经没有剩余路线时的回退逻辑。
-                    if (await TryUseNextFloorShortcut())
+                    if (await TryUseNextFloorShortcut(owner.Token))
                     {
                         await Task.Delay(80, owner.Token);
                         continue;
@@ -2690,6 +2722,7 @@ public sealed partial class MainForm : Form
         confirmedCompletedTargets.Clear(); expectedTaskRoadChanges.Clear(); pulseFallbackNavigation = false;
         shortcutDeferredByTargets = false;
         targetFloorStopped = false;
+        floorMiningCompletedLevel = -1;
         attemptedRoomPortals.Clear(); pendingRoomPortal = null; roomPortalOrigin = null; roomPortalInteractionAt = 0;
         portalJumps.Clear(); portalUnlocks.Clear();
         mapPanel.Route = route; mapPanel.Invalidate(); State("急停"); Log("急停：已停止移动并清除换层流程");

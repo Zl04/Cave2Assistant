@@ -103,7 +103,8 @@ public sealed class PopupWatchdog
                     var requiredFrames = PopupDetectionPolicy.RequiredConsecutiveFrames(popup);
                     if (candidateFrames >= requiredFrames &&
                         interrupt.Request(popup, pipelineResult.NextFloorDialog,
-                            pipelineResult.GreedySelectionReturnOnly))
+                            pipelineResult.GreedySelectionReturnOnly,
+                            pipelineResult.GreedySelectionReturnCards))
                     {
                         // 取消移动只是可选的交接动作。没有活动分片时仍保留中断，
                         // 由所属运行循环在下一轮消费待处理弹窗。

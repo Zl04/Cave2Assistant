@@ -564,26 +564,6 @@ public sealed class AdbClient : IDisposable
         return PopupRecognition.IsGreedySelectionTitle(title);
     }
 
-    /// <summary>
-    /// 从一张截图中识别三种下一层覆盖层，顺序与游戏流程一致：贪婪三选一、
-    /// 预警确认，以及不带红色警告文字的普通确认变体。
-    /// </summary>
-    public async Task<NextFloorDialogKind> DetectNextFloorDialog()
-    {
-        using var bitmap = await CaptureScreenAsync("无法截图设备屏幕");
-        var title = await ReadPopupTitleTextAsync(bitmap);
-        var body = await ReadScreenTextAsync(bitmap, (.20, .80, .20, .70), "换层弹窗");
-        return DetectNextFloorDialog(bitmap, title, body);
-    }
-
-    internal Task<NextFloorDialogKind> DetectNextFloorDialog(Bitmap bitmap)
-        => DetectNextFloorDialog(bitmap, CancellationToken.None);
-
-    internal async Task<NextFloorDialogKind> DetectNextFloorDialog(
-        Bitmap bitmap,
-        CancellationToken token)
-        => await DetectNextFloorDialog(bitmap, token, null);
-
     internal async Task<NextFloorDialogKind> DetectNextFloorDialog(
         Bitmap bitmap,
         CancellationToken token,
@@ -681,9 +661,10 @@ public sealed class AdbClient : IDisposable
                     nextFloorDialogBody = body;
                 })
             .RunAsync(frame, token);
+        var isGreedySelection = nextFloorDialog == NextFloorDialogKind.GreedySelection;
         return new PopupUiPipelineResult(pipeline, nextFloorDialog, fullFrameText, nextFloorDialogBody,
-            nextFloorDialog == NextFloorDialogKind.GreedySelection &&
-            PopupRecognition.IsGreedySelectionReturnOnly(nextFloorDialogBody));
+            isGreedySelection && PopupRecognition.IsGreedySelectionReturnOnly(nextFloorDialogBody),
+            isGreedySelection ? PopupRecognition.FindGreedySelectionReturnCards(frame) : Array.Empty<int>());
     }
 
     internal async Task<PopupUiPipelineResult> RunPopupUiPipelineAsync(
@@ -700,9 +681,10 @@ public sealed class AdbClient : IDisposable
                     nextFloorDialogBody = body;
                 })
             .RunAsync(frame, frameId, token);
+        var isGreedySelection = nextFloorDialog == NextFloorDialogKind.GreedySelection;
         return new PopupUiPipelineResult(pipeline, nextFloorDialog, fullFrameText, nextFloorDialogBody,
-            nextFloorDialog == NextFloorDialogKind.GreedySelection &&
-            PopupRecognition.IsGreedySelectionReturnOnly(nextFloorDialogBody));
+            isGreedySelection && PopupRecognition.IsGreedySelectionReturnOnly(nextFloorDialogBody),
+            isGreedySelection ? PopupRecognition.FindGreedySelectionReturnCards(frame) : Array.Empty<int>());
     }
 
     internal async Task<string> ReadPopupFrameTextAsync(Bitmap frame, CancellationToken token = default)

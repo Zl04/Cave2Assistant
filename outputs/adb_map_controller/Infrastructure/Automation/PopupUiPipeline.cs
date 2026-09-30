@@ -17,7 +17,8 @@ internal sealed record PopupUiPipelineResult(
     NextFloorDialogKind NextFloorDialog,
     string? FullFrameText,
     string? NextFloorDialogBodyText,
-    bool GreedySelectionReturnOnly)
+    bool GreedySelectionReturnOnly,
+    IReadOnlyList<int> GreedySelectionReturnCards)
 {
     public MovementPopupKind Value => Pipeline.Value;
     public string? NodeName => Pipeline.NodeName;

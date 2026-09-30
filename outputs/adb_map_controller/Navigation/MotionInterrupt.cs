@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace AdbMapController;
 
@@ -49,6 +50,7 @@ public sealed class MotionInterruptState
     MovementPopupKind popupKind;
     NextFloorDialogKind nextFloorDialogKind;
     bool greedySelectionReturnOnly;
+    IReadOnlyList<int> greedySelectionReturnCards = Array.Empty<int>();
 
     public MovementPopupKind PopupKind
     {
@@ -65,21 +67,27 @@ public sealed class MotionInterruptState
         get { lock (gate) return greedySelectionReturnOnly; }
     }
 
+    public IReadOnlyList<int> GreedySelectionReturnCards
+    {
+        get { lock (gate) return greedySelectionReturnCards; }
+    }
+
     public MotionInterruptReason Reason
     {
         get { lock (gate) return popupKind == MovementPopupKind.None ? MotionInterruptReason.None : MotionInterruptReason.Popup; }
     }
 
     public bool Request(MovementPopupKind kind)
-        => Request(kind, NextFloorDialogKind.None, false);
+        => Request(kind, NextFloorDialogKind.None, false, null);
 
     public bool Request(MovementPopupKind kind, NextFloorDialogKind nextFloorDialog)
-        => Request(kind, nextFloorDialog, false);
+        => Request(kind, nextFloorDialog, false, null);
 
     public bool Request(
         MovementPopupKind kind,
         NextFloorDialogKind nextFloorDialog,
-        bool greedySelectionReturnOnly)
+        bool greedySelectionReturnOnly,
+        IReadOnlyList<int>? greedySelectionReturnCards = null)
     {
         if (kind == MovementPopupKind.None) return false;
         lock (gate)
@@ -87,6 +95,9 @@ public sealed class MotionInterruptState
             if (popupKind != MovementPopupKind.None) return false;
             nextFloorDialogKind = nextFloorDialog;
             this.greedySelectionReturnOnly = greedySelectionReturnOnly;
+            this.greedySelectionReturnCards = greedySelectionReturnCards is null
+                ? Array.Empty<int>()
+                : Array.AsReadOnly(new List<int>(greedySelectionReturnCards).ToArray());
             popupKind = kind;
             return true;
         }
@@ -99,6 +110,7 @@ public sealed class MotionInterruptState
             popupKind = MovementPopupKind.None;
             nextFloorDialogKind = NextFloorDialogKind.None;
             greedySelectionReturnOnly = false;
+            greedySelectionReturnCards = Array.Empty<int>();
         }
     }
 }

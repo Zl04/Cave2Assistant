@@ -87,6 +87,7 @@ public sealed partial class MainForm : Form
     bool runeSelectionVisible;
     NextFloorDialogKind pendingNextFloorDialog;
     bool pendingGreedySelectionReturnOnly;
+    IReadOnlyList<int> pendingGreedySelectionReturnCards = Array.Empty<int>();
     bool serverErrorDialogVisible;
     volatile bool popupHandling;
     // 启动预检和移动 watchdog 不能同时抢占截图/OCR 管线。
@@ -127,7 +128,10 @@ public sealed partial class MainForm : Form
         FlatStyle = FlatStyle.Flat,
         Tag = role,
     };
-    static readonly string[] BonusKinds = ["增益效果", "魔法材料", "回复药剂", "道具"];
+    static readonly string[] BonusKinds = [
+        "增益效果", "魔法材料", "回复药剂", "道具",
+        "物资", "锻造材料", "附魔材料"
+    ];
     // 换层弹窗有入场动画，不能在一次截图失败后直接按三选一坐标盲点。
     // 每轮按固定顺序检查三类换层界面，全部未识别时短暂等待后持续重试。
     const int PortalDialogRetryDelayMs = 160;
@@ -456,6 +460,7 @@ public sealed partial class MainForm : Form
         serverErrorDialogVisible = false;
         pendingNextFloorDialog = NextFloorDialogKind.None;
         pendingGreedySelectionReturnOnly = false;
+        pendingGreedySelectionReturnCards = Array.Empty<int>();
         mapPanel.Invalidate();
     }
 
@@ -722,6 +727,7 @@ public sealed partial class MainForm : Form
                 {
                     pendingNextFloorDialog = nextFloorDialog;
                     pendingGreedySelectionReturnOnly = popupPipeline?.GreedySelectionReturnOnly ?? false;
+                    pendingGreedySelectionReturnCards = popupPipeline?.GreedySelectionReturnCards ?? Array.Empty<int>();
                     floorPhase = FloorPhase.SelectBonus;
                     portalInteractionAt = portalInteractionAt > 0 ? portalInteractionAt : Environment.TickCount64;
                     portalDialogPausedMs = 0;
@@ -1020,6 +1026,9 @@ public sealed partial class MainForm : Form
         return manualTargetReached || cardTargetReached;
     }
 
+    bool ShouldReturnFromGreedySelection(MapDump map)
+        => IsTargetStopFloor(map);
+
     bool TargetFloorStopReady(MapDump map)
     {
         if (!IsTargetStopFloor(map)) return false;
@@ -1045,6 +1054,10 @@ public sealed partial class MainForm : Form
     async Task<bool> TryStopAtTargetFloor()
     {
         if (targetFloorStopped || currentMap is null || !TargetFloorStopReady(currentMap)) return false;
+
+        // 到达指定层后，要让传送门弹出“贪婪抉择”，由选择流程点击回城卡。
+        // 如果这里直接停住，回城卡永远不会出现。
+        if (ShouldReturnFromGreedySelection(currentMap)) return false;
 
         var level = currentMap.Level;
         await touch.EmergencyRelease();
@@ -1835,6 +1848,7 @@ public sealed partial class MainForm : Form
             // 重新截图识别，否则转场动画会把已确认的弹窗变成超时。
             pendingNextFloorDialog = motionInterrupt.NextFloorDialogKind;
             pendingGreedySelectionReturnOnly = motionInterrupt.GreedySelectionReturnOnly;
+            pendingGreedySelectionReturnCards = motionInterrupt.GreedySelectionReturnCards;
             floorPhase = FloorPhase.SelectBonus;
             portalInteractionAt = portalInteractionAt > 0 ? portalInteractionAt : Environment.TickCount64;
             portalDialogPausedMs = 0;
@@ -2181,8 +2195,14 @@ public sealed partial class MainForm : Form
                 // 当该读取确认已到达规划的任务停靠点时，直接使用该结果，
                 // 不必在发送交互前再次进行完整的地图/弹窗刷新。
                 // 下面的交互分支仍会执行自己的最终释放和坐标检查。
-                if (skipRefreshForConfirmedTaskStop) skipRefreshForConfirmedTaskStop = false;
-                else await RefreshMap(false);
+                if (skipRefreshForConfirmedTaskStop)
+                {
+                    skipRefreshForConfirmedTaskStop = false;
+                }
+                else
+                {
+                    await RefreshMap(false);
+                }
                 if (serverErrorDialogVisible || owner.IsCancellationRequested) break;
                 // 看门狗在宝石选择锁存期间暂停探测；由主循环复用同一套
                 // OCR/弹窗管线确认它已关闭，避免点击后永久停留在宝石状态。
@@ -2555,8 +2575,10 @@ public sealed partial class MainForm : Form
             // 后两类虽然外观文本不同，但动作都是点击绿色对勾。
             var dialog = pendingNextFloorDialog;
             var greedySelectionReturnOnly = pendingGreedySelectionReturnOnly;
+            var greedySelectionReturnCards = pendingGreedySelectionReturnCards;
             pendingNextFloorDialog = NextFloorDialogKind.None;
             pendingGreedySelectionReturnOnly = false;
+            pendingGreedySelectionReturnCards = Array.Empty<int>();
             if (dialog == NextFloorDialogKind.None)
             {
                 // SelectBonus 会暂停 PopupWatchdog，因此必须使用与看门狗
@@ -2582,9 +2604,19 @@ public sealed partial class MainForm : Form
                     ? probe.NextFloorDialog
                     : NextFloorDialogKind.None;
                 greedySelectionReturnOnly = probe.GreedySelectionReturnOnly;
+                greedySelectionReturnCards = probe.GreedySelectionReturnCards;
             }
             if (dialog is NextFloorDialogKind.WarningConfirm or NextFloorDialogKind.PlainConfirm)
             {
+                if (currentMap is not null && ShouldReturnFromGreedySelection(currentMap))
+                {
+                    var releaseTask = touch.EmergencyRelease();
+                    yield return releaseTask;
+                    Log("指定层未出现贪婪抉择回城卡，未确认进入下一层");
+                    State("指定层等待贪婪抉择回城选项");
+                    runCts?.Cancel();
+                    yield break;
+                }
                 var tapTask = adb.TapScreen(0.591, 0.639);
                 yield return tapTask;
                 Log(dialog == NextFloorDialogKind.WarningConfirm
@@ -2597,13 +2629,45 @@ public sealed partial class MainForm : Form
             }
             if (dialog == NextFloorDialogKind.GreedySelection)
             {
+                var returnAtTargetFloor = currentMap is not null && ShouldReturnFromGreedySelection(currentMap);
+                if (returnAtTargetFloor && !greedySelectionReturnOnly && greedySelectionReturnCards.Count == 0)
+                {
+                    // 看门狗锁存的帧可能正好处于入场动画；重新取一帧只为补充
+                    // 三张卡片中哪些是红色“回城”卡，不改变选择流程。
+                    var cardProbeTask = adb.ProbeMovementPopupAsync(token);
+                    yield return cardProbeTask;
+                    var cardProbe = cardProbeTask.GetAwaiter().GetResult();
+                    if (cardProbe.NextFloorDialog == NextFloorDialogKind.GreedySelection)
+                    {
+                        greedySelectionReturnOnly = cardProbe.GreedySelectionReturnOnly;
+                        greedySelectionReturnCards = cardProbe.GreedySelectionReturnCards;
+                    }
+                }
+                if (returnAtTargetFloor && !greedySelectionReturnOnly && greedySelectionReturnCards.Count == 0)
+                {
+                    Log("指定层已检测到贪婪抉择，但暂未识别回城卡，等待重试");
+                    yield return new WaitForMilliseconds(PortalDialogRetryDelayMs);
+                    continue;
+                }
+
                 var preferred = bonusPriority.Items.Count == 0 ? "增益效果" : bonusPriority.Items[0]?.ToString() ?? "增益效果";
-                var cardIndex = preferred switch { "回复药剂" => 1, "道具" or "魔法材料" => 2, _ => 0 };
+                var cardIndex = returnAtTargetFloor
+                    ? (greedySelectionReturnCards.Count > 0 ? greedySelectionReturnCards[0] : 0)
+                    : preferred switch
+                    {
+                        "回复药剂" => 1,
+                        "道具" or "魔法材料" or "物资" or "锻造材料" or "附魔材料" => 2,
+                        _ => 0
+                    };
                 var selectTask = adb.TapScreen(cardIndex switch { 1 => 0.50, 2 => 0.6875, _ => 0.3125 }, 0.657);
                 yield return selectTask;
-                if (greedySelectionReturnOnly)
+                var selectedReturnCard = greedySelectionReturnOnly ||
+                    (returnAtTargetFloor && greedySelectionReturnCards.Contains(cardIndex));
+                if (selectedReturnCard)
                 {
-                    Log($"弹窗按钮点击已发送：{preferred}，已选择‘安全回城’");
+                    Log(returnAtTargetFloor
+                        ? $"弹窗按钮点击已发送：第 {cardIndex + 1} 张回城卡，已选择‘安全回城’"
+                        : $"弹窗按钮点击已发送：{preferred}，已选择‘安全回城’");
                     State("已选择安全回城，等待返回城镇");
                     runCts?.Cancel();
                     yield break;
@@ -2728,6 +2792,7 @@ public sealed partial class MainForm : Form
         routeSession.Clear();
         pendingNextFloorDialog = NextFloorDialogKind.None;
         pendingGreedySelectionReturnOnly = false;
+        pendingGreedySelectionReturnCards = Array.Empty<int>();
         blocked.Clear(); lastBlockedAttempt = null; unchangedCount = 0;
         confirmedCompletedTargets.Clear(); expectedTaskRoadChanges.Clear(); pulseFallbackNavigation = false;
         shortcutDeferredByTargets = false;

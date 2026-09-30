@@ -109,6 +109,7 @@ public sealed partial class MainForm : Form
     bool shortcutDeferredByTargets;
     bool targetFloorStopped;
     int floorMiningCompletedLevel = -1;
+    int floorMiningSkippedLevel = -1;
     // 游戏原始单位/秒；游戏会将其除以 1000，得到每个地图格的单位数。
     double currentMoveSpeed = 1000;
     int clickNavigationVersion;
@@ -448,6 +449,7 @@ public sealed partial class MainForm : Form
         observedLevel = -1; currentMoveSpeed = 1000; lastAcceptedPlayerCell = null;
         floorPhase = FloorPhase.Explore; portalCandidate = null; targetFloorStopped = false;
         floorMiningCompletedLevel = -1;
+        floorMiningSkippedLevel = -1;
         portalJumps.Clear(); portalUnlocks.Clear();
         attemptedRoomPortals.Clear(); pendingRoomPortal = null; roomPortalOrigin = null; roomPortalInteractionAt = 0;
         ClearRiftGemSelectionState();
@@ -1035,7 +1037,7 @@ public sealed partial class MainForm : Form
 
     bool ShouldMineBeforeFloorTransition(MapDump map)
     {
-        if (!mining.Checked || floorMiningCompletedLevel == map.Level) return false;
+        if (!mining.Checked || floorMiningCompletedLevel == map.Level || floorMiningSkippedLevel == map.Level) return false;
         // 卡矿优先级高于普通挖矿：只有自动匹配的最高层允许使用道具。
         return !cardMining.Checked || IsCardMiningFloor(map);
     }
@@ -1109,6 +1111,7 @@ public sealed partial class MainForm : Form
             CancelPortalChoiceCoroutine();
             observedLevel = map.Level; floorPhase = FloorPhase.WaitingFloorLoad; floorChangedAt = Environment.TickCount64;
             floorMiningCompletedLevel = -1;
+            floorMiningSkippedLevel = -1;
             routeRecoveryUsed = 0;
             blocked.Clear(); lastBlockedAttempt = null; unchangedCount = 0;
             lastAcceptedPlayerCell = null;
@@ -2069,6 +2072,7 @@ public sealed partial class MainForm : Form
         // 每次开始都必须刷新地图，再按当前楼层和剩余目标判断是否停住。
         targetFloorStopped = false;
         floorMiningCompletedLevel = -1;
+        floorMiningSkippedLevel = -1;
         using var linkedOwner = CancellationTokenSource.CreateLinkedTokenSource(pipelineToken);
         var owner = linkedOwner;
         runCts = owner;
@@ -2233,8 +2237,6 @@ public sealed partial class MainForm : Form
                     State($"等待新层加载 {(newFloorStartDelay.Value / 1000):0.##} 秒");
                     await Task.Delay(80, owner.Token); continue;
                 }
-                if (floorPhase == FloorPhase.GoToPortal && await TryMineBeforeFloorTransition(owner.Token))
-                    continue;
                 if (await TryStopAtTargetFloor()) break;
                 // 已满足的楼层门控优先于探索。快捷入口会自行检查活动目标/Boss，
                 // 即使当前地图仍有迷雾，也允许继续前进。
@@ -2323,6 +2325,14 @@ public sealed partial class MainForm : Form
                     }
                     else if (PortalRouting.IsPortalKind(plannedTask.Target.Kind))
                     {
+                        // 到达楼层传送门后，必须在任何换层动作前完成挖矿判断。
+                        // 这里既覆盖传送门交互，也覆盖同一位置出现的右侧快捷入口，
+                        // 防止先触发“前往下一层”弹窗后才进入挖矿流程。
+                        if (await TryMineBeforeFloorTransition(owner.Token, transitionAvailable: true))
+                        {
+                            await Task.Delay(20, owner.Token);
+                            continue;
+                        }
                         // 常规循环会在路线执行前检查目标楼层，但此传送门任务是路线停止后
                         // 到达的第二条转场路径。在任何传送门交互前立即重新检查，
                         // 避免快捷入口绕过楼层停止设置。
@@ -2723,6 +2733,7 @@ public sealed partial class MainForm : Form
         shortcutDeferredByTargets = false;
         targetFloorStopped = false;
         floorMiningCompletedLevel = -1;
+        floorMiningSkippedLevel = -1;
         attemptedRoomPortals.Clear(); pendingRoomPortal = null; roomPortalOrigin = null; roomPortalInteractionAt = 0;
         portalJumps.Clear(); portalUnlocks.Clear();
         mapPanel.Route = route; mapPanel.Invalidate(); State("急停"); Log("急停：已停止移动并清除换层流程");

@@ -32,14 +32,13 @@ public sealed partial class MainForm
         await RunMovement(MineCore, startupProbePaused: true);
     }
 
+    enum MiningPassResult { Completed, Failed }
+
     async Task MineCore()
     {
         using var owner = new CancellationTokenSource();
         runCts = owner;
         touch.MovementCancellation = owner.Token;
-        var mined = 0;
-        var recovery = 0;
-        var selectionMayBeOpen = false;
         try
         {
             State("挖矿：检查地图和弹窗");
@@ -47,41 +46,69 @@ public sealed partial class MainForm
             startupPreparing = false;
             owner.Token.ThrowIfCancellationRequested();
             if (!ready || currentMap is null) { State("挖矿：地图未就绪"); return; }
-            var initial = currentMap;
             blocked.Clear();
+            await MineFloorCore(owner.Token, currentMap);
+        }
+        catch (OperationCanceledException) when (owner.IsCancellationRequested)
+        { State("挖矿已暂停"); }
+        finally
+        {
+            startupPreparing = false;
+            try { await touch.TouchUp(); }
+            finally
+            {
+                ClearMiningRoute();
+                if (ReferenceEquals(runCts, owner)) runCts = null;
+            }
+        }
+    }
+
+    async Task<MiningPassResult> MineFloorCore(CancellationToken token, MapDump initial)
+    {
+        var mined = 0;
+        var recovery = 0;
+        var selectionMayBeOpen = false;
+        try
+        {
             while (true)
             {
-                owner.Token.ThrowIfCancellationRequested();
+                token.ThrowIfCancellationRequested();
                 if (!await RefreshMap(false, waitForLock: true))
-                { State("挖矿：地图读取失败，已停止"); return; }
-                owner.Token.ThrowIfCancellationRequested();
+                { State("挖矿：地图读取失败，已停止"); return MiningPassResult.Failed; }
+                token.ThrowIfCancellationRequested();
                 var map = currentMap!;
                 if (serverErrorDialogVisible || runeSelectionVisible ||
                     motionInterrupt.Reason == MotionInterruptReason.Popup || floorPhase == FloorPhase.SelectBonus)
-                { State("挖矿：检测到弹窗，已停止"); return; }
+                { State("挖矿：检测到弹窗，已停止"); return MiningPassResult.Failed; }
                 if (!SameMiningMap(initial, map) || map.SceneType == 1 || map.IsDead)
-                { State("挖矿：地图已切换、位于城镇或人物死亡，已停止"); return; }
+                { State("挖矿：地图已切换、位于城镇或人物死亡，已停止"); return MiningPassResult.Failed; }
                 if (map.InBattle)
                 {
                     await touch.EmergencyRelease();
                     State("挖矿：等待战斗结束");
-                    await Task.Delay(120, owner.Token);
+                    await Task.Delay(120, token);
                     continue;
                 }
 
-                var toolStatus = await adb.ReadMiningToolStatusAsync(owner.Token);
+                var toolStatus = await adb.ReadMiningToolStatusAsync(token);
+                if (toolStatus.Quantity is 0)
+                {
+                    Log($"挖矿道具已用完：已挖 {mined} 格");
+                    State($"挖矿完成：道具已用完，已挖 {mined} 格");
+                    return MiningPassResult.Completed;
+                }
                 if (MiningToolGuard.StopReason(toolStatus) is { } toolStopReason)
                 {
                     Log($"挖矿道具检查停止：图标={(toolStatus.IconPresent ? "已放置" : "未放置")}，数量={(toolStatus.Quantity?.ToString() ?? "未识别")}");
                     State(toolStopReason);
-                    return;
+                    return MiningPassResult.Failed;
                 }
 
                 var plan = MiningPlanner.Plan(map, blocked);
                 if (plan is null)
                 {
                     State($"挖矿结束：没有可达的挖矿位置，已挖 {mined} 格");
-                    return;
+                    return MiningPassResult.Completed;
                 }
                 route = plan.Movement.Route;
                 plannedInteractions = plan.Movement.Interactions;
@@ -91,51 +118,51 @@ public sealed partial class MainForm
                 var fight = plannedInteractions.FirstOrDefault(task => task.Stop == player);
                 if (fight != default)
                 {
-                    if (await FightWhileHolding(fight, owner.Token))
-                    { State("挖矿：战斗交互被弹窗中断，已停止"); return; }
+                    if (await FightWhileHolding(fight, token))
+                    { State("挖矿：战斗交互被弹窗中断，已停止"); return MiningPassResult.Failed; }
                     continue;
                 }
                 if (player != plan.Stop)
                 {
                     State($"挖矿：移动至 {plan.Stop}，目标墙体 {plan.Wall}");
-                    var result = await ExecuteRouteSlice(owner.Token);
+                    var result = await ExecuteRouteSlice(token);
                     if (result.InterruptedByPopup)
-                    { State("挖矿：移动被弹窗中断，已停止"); return; }
+                    { State("挖矿：移动被弹窗中断，已停止"); return MiningPassResult.Failed; }
                     if (result.RequiresReplan && ++recovery > (int)routeRecoveryAttempts.Value)
-                    { State("挖矿：移动连续失败，已停止"); return; }
+                    { State("挖矿：移动连续失败，已停止"); return MiningPassResult.Failed; }
                     if (!result.RequiresReplan) recovery = 0;
                     continue;
                 }
 
                 await touch.TouchUp();
                 // 等待松开和镜头跟随后再读取人物位置，避免沿用移动前的点击偏差。
-                await Task.Delay(200, owner.Token);
+                await Task.Delay(200, token);
                 if (!await RefreshMap(false, waitForLock: true))
-                { State("挖矿：点击前地图读取失败"); return; }
-                owner.Token.ThrowIfCancellationRequested();
+                { State("挖矿：点击前地图读取失败"); return MiningPassResult.Failed; }
+                token.ThrowIfCancellationRequested();
                 if (!CanMineNow(initial, player, plan.Wall)) continue;
                 var point = MiningScreenCoordinates.Wall(player, plan.Wall,
                     (double)miningTileWidth.Value, (double)miningTileHeight.Value);
                 var confirmed = false;
-                var interrupted = await RunMovementSlice(owner.Token, async token =>
+                var interrupted = await RunMovementSlice(token, async sliceToken =>
                 {
-                    token.ThrowIfCancellationRequested();
+                    sliceToken.ThrowIfCancellationRequested();
                     var tool = MiningScreenCoordinates.ToolSlot;
                     selectionMayBeOpen = true;
                     await adb.TapScreen(tool.X, tool.Y);
-                    await Task.Delay(250, token);
+                    await Task.Delay(250, sliceToken);
                     // 道具面板打开后再次复核坐标。失败时停止，不在未知界面继续移动。
                     if (!await RefreshMap(false, waitForLock: true)) return;
-                    token.ThrowIfCancellationRequested();
+                    sliceToken.ThrowIfCancellationRequested();
                     if (!CanMineNow(initial, player, plan.Wall)) return;
                     await adb.TapScreen(point.X, point.Y);
                     Log($"挖矿点击：人物 {player}，墙体 {plan.Wall}，屏幕比例 ({point.X:F4}, {point.Y:F4})");
                     var deadline = Environment.TickCount64 + 5000;
                     while (Environment.TickCount64 < deadline)
                     {
-                        await Task.Delay(150, token);
+                        await Task.Delay(150, sliceToken);
                         var refreshed = await RefreshMap(false, waitForLock: true);
-                        token.ThrowIfCancellationRequested();
+                        sliceToken.ThrowIfCancellationRequested();
                         if (!refreshed) continue;
                         if (!SameMiningMap(initial, currentMap!)) return;
                         if (currentMap!.ByCell.TryGetValue(plan.Wall, out var tile) && tile.Ground)
@@ -145,29 +172,53 @@ public sealed partial class MainForm
                 if (interrupted || !confirmed)
                 {
                     State("挖矿未确认，已停止：请检查道具数量、冷却或点击校准");
-                    return;
+                    return MiningPassResult.Failed;
                 }
                 mined++;
                 recovery = 0;
                 ClearMiningRoute();
                 State($"挖矿成功 {mined} 格，等待道具冷却");
                 Log($"已确认墙体 {plan.Wall} 变为道路");
-                await Task.Delay((int)miningInterval.Value, owner.Token);
+                await Task.Delay((int)miningInterval.Value, token);
             }
         }
-        catch (OperationCanceledException) when (owner.IsCancellationRequested)
-        { State($"挖矿已暂停，已挖 {mined} 格"); }
         finally
         {
-            startupPreparing = false;
-            try { await touch.TouchUp(); }
-            finally
-            {
-                ClearMiningRoute();
-                if (ReferenceEquals(runCts, owner)) runCts = null;
-                if (selectionMayBeOpen) Log("挖矿选择界面可能仍然打开；请先在游戏中取消道具选择，再继续其它操作。");
-            }
+            if (selectionMayBeOpen) Log("挖矿选择界面可能仍然打开；请先在游戏中取消道具选择，再继续其它操作。");
         }
+    }
+
+    async Task<bool> TryMineBeforeFloorTransition(CancellationToken token, bool transitionAvailable = false)
+    {
+        if (currentMap is null || currentMap.InBattle || currentMap.IsDead) return false;
+        if (!transitionAvailable && floorPhase != FloorPhase.GoToPortal) return false;
+        var initial = currentMap;
+        if (!ShouldMineBeforeFloorTransition(initial)) return false;
+
+        // 导航阶段的临时封锁只用于恢复路线；进入“用完道具”的专用阶段时，
+        // 重新从完整可走区域寻找矿墙，避免某次导航失败让本层提前结束挖矿。
+        blocked.Clear();
+        lastBlockedAttempt = null;
+        unchangedCount = 0;
+        Log($"换层前开始挖矿：当前 {initial.Level} 层{(cardMining.Checked ? "（卡矿目标层）" : "")}");
+        var result = await MineFloorCore(token, initial);
+        ClearMiningRoute();
+        if (result == MiningPassResult.Completed)
+        {
+            floorMiningCompletedLevel = initial.Level;
+            State($"第 {initial.Level} 层挖矿完成，继续跑图");
+        }
+        else
+        {
+            // 道具检测可能被当前弹窗遮挡。挖矿只是换层前的附加阶段，
+            // 失败时放弃本层这次挖矿，不得取消外层跑图任务；换层后自动允许再次尝试，
+            // 用户也可以在弹窗关闭后用手动“挖矿”按钮重新启动。
+            floorMiningSkippedLevel = initial.Level;
+            try { await touch.EmergencyRelease(); } catch (Exception ex) { Error(ex); }
+            Log($"第 {initial.Level} 层本次挖矿失败，已放弃挖矿并继续跑图");
+            State("本次挖矿失败，已放弃，继续跑图");
+        }
+        return true;
     }
 
     bool CanMineNow(MapDump initial, Cell player, Cell wall)

@@ -28,7 +28,7 @@ public static class CardFloorPolicy
 
         var normalized = mapName?.Trim() ?? "";
         if (caveMode is HeroTimeGate) return 30;
-        if (caveMode is NormalTimeGate || normalized.Contains("时光之门", StringComparison.Ordinal)) return 180;
+        if (caveMode is NormalTimeGate) return 180;
 
         var maximum = caveMode switch
         {
@@ -36,14 +36,7 @@ public static class CardFloorPolicy
             DistortedSpace => 70,
             ElementalInferno => 50,
             VoidRift => 20,
-            _ => normalized switch
-            {
-                var name when name.Contains("沙之眼", StringComparison.Ordinal) => 30,
-                var name when name.Contains("扭曲空间", StringComparison.Ordinal) => 70,
-                var name when name.Contains("元素炼狱", StringComparison.Ordinal) => 50,
-                var name when name.Contains("虚空秘境", StringComparison.Ordinal) => 20,
-                _ => 0,
-            },
+            _ => 0,
         };
         if (maximum == 0) return null;
 

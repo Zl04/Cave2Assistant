@@ -14,12 +14,9 @@ using System.Threading.Tasks;
 
 namespace AdbMapController;
 
-public sealed class AdbClient : IDisposable
+public sealed class AdbClient : IPlayerStatusSource, IDisposable
 {
     const string Root = "/data/user/0/com.avalon.caveonline.cn.huawei/files/CaveOnline";
-    const string TestPanelCommandPath = Root + "/codex_test_panel.command";
-    const string TestPanelCommandTempPath = TestPanelCommandPath + ".tmp";
-    const string TestPanelResultPath = Root + "/codex_test_panel.result";
     static readonly JsonSerializerOptions JsonOptions = CreateOptions();
     static JsonSerializerOptions CreateOptions()
     {
@@ -27,7 +24,12 @@ public sealed class AdbClient : IDisposable
         options.Converters.Add(new FlexibleIntConverter());
         return options;
     }
-    string serial = "emulator-5556";
+    const string TestPanelCommandPath = Root + "/codex_test_panel.command";
+    const string TestPanelCommandTempPath = TestPanelCommandPath + ".tmp";
+    const string TestPanelResultPath = Root + "/codex_test_panel.result";
+    readonly AdbCommandTransport transport = new();
+    readonly AdbScreenCapture screenCapture = new();
+    readonly AssistantController assistant;
     Process? rootShell;
     IAndroidTouchBackend? touchBackend;
     readonly SemaphoreSlim rootShellLock = new(1, 1);
@@ -58,14 +60,16 @@ public sealed class AdbClient : IDisposable
     internal NextFloorDialogKind LastNextFloorDialogKind { get; private set; }
     public string Serial
     {
-        get => serial;
+        get => transport.Serial;
         set
         {
-            if (serial == value) return;
-            serial = value;
+            if (transport.Serial == value) return;
+            transport.Serial = value;
             ResetDeviceSession();
         }
     }
+
+    public AdbClient() => assistant = new AssistantController(transport);
 
     async Task<string> ReadPaddleTextAsync(Bitmap image, CancellationToken token = default)
         => (await paddleOcr.RecognizeAsync(image, token)).Text.Trim();

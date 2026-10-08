@@ -1,5 +1,7 @@
 # 洞窟地图 ADB 控制器重构计划
 
+> 第二阶段核验（2026-10-08）：下文“已完成”和旧Regression/发布声明仅保留为历史上下文。当前源码编译失败；刷新丢弃JSON诊断、MapSnapshot持有可变Map引用、AdbClient并非仅ADB传输，都与部分旧描述不同。以 [REFACTOR_BASELINE.md](REFACTOR_BASELINE.md) 实测及 [REFACTOR_BACKLOG.md](REFACTOR_BACKLOG.md) 的独立单元为新准入标准；不自动执行生产重构。
+
 目标：在保持现有地图识别、路线规划、方向键控制和换层行为不变的前提下，降低状态耦合，提升诊断能力和设备适配性。
 
 ## 阶段 0：数据契约稳定化（已完成）
@@ -74,6 +76,16 @@
 3. 每阶段完成后执行 `dotnet test` 和 `dotnet publish`。
 4. 发布目录固定为 `outputs/adb_map_controller/publish`。
 5. 发现需要修改 Lua 协议或外部资源格式时，先单独评估，不混入当前阶段。
+
+## 阶段 9：组合根、执行 seam 与运行状态收敛（已完成）
+
+- 增加 `ControllerRuntime`/`ApplicationPaths`，将 ADB、触摸、Web 监控和发布资源路径从窗体构造中移出。
+- 将静态 `SettingsStore` 替换为 `ISettingsStore` 与 `JsonSettingsStore` adapter，保留原有配置兼容和失败语义。
+- 将 `RouteExecutor` 的大量窗体委托替换为两个设备端口和显式 `RouteExecutionContext`，生产和测试使用不同 adapter。
+- 增加 `DungeonSession`，集中持有设备/地下城生命周期状态以及重置、急停语义。
+- 增加 `OperationTracker`，统一用户异步操作的跟踪和关闭等待。
+- 将 2800 行 `MainForm` 按用例拆分为可导航的 partial 文件，并在 `docs/ARCHITECTURE.md` 固化依赖方向与扩展规则。
+- 建立 xUnit 回归项目，覆盖设置兼容、路线端口、会话重置和操作生命周期。
 
 ## 阶段 7：任务 Pipeline 外壳（已完成，保留兼容层）
 

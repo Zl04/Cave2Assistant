@@ -45,9 +45,9 @@ public sealed partial class MainForm
             var ready = await RefreshMap(true, waitForLock: true, onMapReady: ClearMiningRoute);
             startupPreparing = false;
             owner.Token.ThrowIfCancellationRequested();
-            if (!ready || currentMap is null) { State("挖矿：地图未就绪"); return; }
-            blocked.Clear();
-            await MineFloorCore(owner.Token, currentMap);
+            if (!ready || dungeon.Map is null) { State("挖矿：地图未就绪"); return; }
+            dungeon.Blocked.Clear();
+            await MineFloorCore(owner.Token, dungeon.Map);
         }
         catch (OperationCanceledException) when (owner.IsCancellationRequested)
         { State("挖矿已暂停"); }
@@ -76,9 +76,9 @@ public sealed partial class MainForm
                 if (!await RefreshMap(false, waitForLock: true))
                 { State("挖矿：地图读取失败，已停止"); return MiningPassResult.Failed; }
                 token.ThrowIfCancellationRequested();
-                var map = currentMap!;
+                var map = dungeon.Map!;
                 if (serverErrorDialogVisible || runeSelectionVisible ||
-                    motionInterrupt.Reason == MotionInterruptReason.Popup || floorPhase == FloorPhase.SelectBonus)
+                    dungeon.MotionInterrupt.Reason == MotionInterruptReason.Popup || floorPhase == FloorPhase.SelectBonus)
                 { State("挖矿：检测到弹窗，已停止"); return MiningPassResult.Failed; }
                 if (!SameMiningMap(initial, map) || map.SceneType == 1 || map.IsDead)
                 { State("挖矿：地图已切换、位于城镇或人物死亡，已停止"); return MiningPassResult.Failed; }
@@ -104,7 +104,7 @@ public sealed partial class MainForm
                     return MiningPassResult.Failed;
                 }
 
-                var plan = MiningPlanner.Plan(map, blocked);
+                var plan = MiningPlanner.Plan(map, dungeon.Blocked);
                 if (plan is null)
                 {
                     State($"挖矿结束：没有可达的挖矿位置，已挖 {mined} 格");
@@ -164,8 +164,8 @@ public sealed partial class MainForm
                         var refreshed = await RefreshMap(false, waitForLock: true);
                         sliceToken.ThrowIfCancellationRequested();
                         if (!refreshed) continue;
-                        if (!SameMiningMap(initial, currentMap!)) return;
-                        if (currentMap!.ByCell.TryGetValue(plan.Wall, out var tile) && tile.Ground)
+                        if (!SameMiningMap(initial, dungeon.Map!)) return;
+                        if (dungeon.Map!.ByCell.TryGetValue(plan.Wall, out var tile) && tile.Ground)
                         { confirmed = true; selectionMayBeOpen = false; return; }
                     }
                 });
@@ -190,22 +190,22 @@ public sealed partial class MainForm
 
     async Task<bool> TryMineBeforeFloorTransition(CancellationToken token, bool transitionAvailable = false)
     {
-        if (currentMap is null || currentMap.InBattle || currentMap.IsDead) return false;
+        if (dungeon.Map is null || dungeon.Map.InBattle || dungeon.Map.IsDead) return false;
         if (!transitionAvailable && floorPhase != FloorPhase.GoToPortal) return false;
-        var initial = currentMap;
+        var initial = dungeon.Map;
         if (!ShouldMineBeforeFloorTransition(initial)) return false;
 
         // 导航阶段的临时封锁只用于恢复路线；进入“用完道具”的专用阶段时，
         // 重新从完整可走区域寻找矿墙，避免某次导航失败让本层提前结束挖矿。
-        blocked.Clear();
-        lastBlockedAttempt = null;
-        unchangedCount = 0;
+        dungeon.Blocked.Clear();
+        dungeon.LastBlockedAttempt = null;
+        dungeon.UnchangedCount = 0;
         Log($"换层前开始挖矿：当前 {initial.Level} 层{(cardMining.Checked ? "（卡矿目标层）" : "")}");
         var result = await MineFloorCore(token, initial);
         ClearMiningRoute();
         if (result == MiningPassResult.Completed)
         {
-            floorMiningCompletedLevel = initial.Level;
+            dungeon.FloorMiningCompletedLevel = initial.Level;
             State($"第 {initial.Level} 层挖矿完成，继续跑图");
         }
         else
@@ -213,7 +213,7 @@ public sealed partial class MainForm
             // 道具检测可能被当前弹窗遮挡。挖矿只是换层前的附加阶段，
             // 失败时放弃本层这次挖矿，不得取消外层跑图任务；换层后自动允许再次尝试，
             // 用户也可以在弹窗关闭后用手动“挖矿”按钮重新启动。
-            floorMiningSkippedLevel = initial.Level;
+            dungeon.FloorMiningSkippedLevel = initial.Level;
             try { await touch.EmergencyRelease(); } catch (Exception ex) { Error(ex); }
             Log($"第 {initial.Level} 层本次挖矿失败，已放弃挖矿并继续跑图");
             State("本次挖矿失败，已放弃，继续跑图");
@@ -222,9 +222,9 @@ public sealed partial class MainForm
     }
 
     bool CanMineNow(MapDump initial, Cell player, Cell wall)
-        => currentMap is { InBattle: false, IsDead: false } map && SameMiningMap(initial, map) &&
+        => dungeon.Map is { InBattle: false, IsDead: false } map && SameMiningMap(initial, map) &&
             !serverErrorDialogVisible && !runeSelectionVisible && floorPhase != FloorPhase.SelectBonus &&
-            motionInterrupt.Reason == MotionInterruptReason.None &&
+            dungeon.MotionInterrupt.Reason == MotionInterruptReason.None &&
             new Cell(map.Player.X, map.Player.Y) == player &&
             MiningPlanner.IsWall(map, wall) && MiningPlanner.InRange(player, wall);
 
@@ -234,10 +234,10 @@ public sealed partial class MainForm
 
     void ClearMiningRoute()
     {
-        routeSession.OptionsSignature = null;
-        routeSession.PlannedNavigationHash = null;
-        routeSession.Walkability.Clear();
-        routeSession.PlannedRoadMonsters.Clear();
+        dungeon.Route.OptionsSignature = null;
+        dungeon.Route.PlannedNavigationHash = null;
+        dungeon.Route.Walkability.Clear();
+        dungeon.Route.PlannedRoadMonsters.Clear();
         route = []; plannedInteractions = []; plannedTargetUniverse.Clear();
         mapPanel.Route = route; mapPanel.Invalidate();
     }

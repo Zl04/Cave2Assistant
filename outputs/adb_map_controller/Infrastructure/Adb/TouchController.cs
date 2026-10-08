@@ -8,7 +8,7 @@ namespace AdbMapController;
 /// 面向应用的触摸边界。移动代码依赖这个小型契约，而不必了解 ADB 如何按住、脉冲或释放接触点。
 /// AdbClient 提供底层 ADB 传输。
 /// </summary>
-public sealed class TouchController : IDisposable
+public sealed class TouchController : IMovementInput, IDisposable
 {
     readonly AdbClient adb;
     readonly SemaphoreSlim lifecycle = new(1, 1);

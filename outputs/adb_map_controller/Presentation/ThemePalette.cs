@@ -6,13 +6,6 @@ using System.Windows.Forms;
 
 namespace AdbMapController;
 
-public enum ThemeMode
-{
-    Light,
-    Dark,
-    System,
-}
-
 public enum ThemeRole
 {
     Default,

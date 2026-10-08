@@ -1,10 +1,15 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace AdbMapController;
+
+public enum ThemeMode
+{
+    Light,
+    Dark,
+    System,
+}
 
 public sealed class ControllerSettings
 {
@@ -44,33 +49,4 @@ public sealed class ControllerSettings
     public bool EntryEliteMode { get; set; }
     public List<string> BonusPriority { get; set; } = [];
     public string Device { get; set; } = "";
-}
-
-public static class SettingsStore
-{
-    static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-
-    public static ControllerSettings? Load(string path)
-    {
-        try
-        {
-            if (!File.Exists(path)) return null;
-            return JsonSerializer.Deserialize<ControllerSettings>(File.ReadAllText(path));
-        }
-        catch { return null; }
-    }
-
-    public static void Save(string path, ControllerSettings settings)
-    {
-        var temp = path + ".tmp";
-        try
-        {
-            File.WriteAllText(temp, JsonSerializer.Serialize(settings, JsonOptions));
-            File.Move(temp, path, true);
-        }
-        catch
-        {
-            try { if (File.Exists(temp)) File.Delete(temp); } catch { }
-        }
-    }
 }

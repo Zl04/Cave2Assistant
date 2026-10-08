@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <!-- Characterization fallback, NOT a production build. Link the real sources;
+       do not copy or patch them to hide the broken AdbClient migration. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2"><PrivateAssets>all</PrivateAssets></PackageReference>
+    <Compile Include="..\..\Domain\*.cs" Link="Production\Domain\%(Filename)%(Extension)" />
+    <Compile Include="..\..\Navigation\*.cs" Link="Production\Navigation\%(Filename)%(Extension)" />
+    <Compile Include="..\..\Application\DungeonSession.cs;..\..\Application\OperationTracker.cs" Link="Production\Application\%(Filename)%(Extension)" />
+    <Compile Include="..\..\Configuration\*.cs" Link="Production\Configuration\%(Filename)%(Extension)" />
+    <Compile Include="..\..\Infrastructure\Automation\TaskPipeline.cs;..\..\Infrastructure\Automation\MaaPipeline.cs;..\..\Infrastructure\Automation\UiPipeline.cs" Link="Production\Automation\%(Filename)%(Extension)" />
+    <Compile Include="..\..\Infrastructure\Automation\PopupDetectionPolicy.cs" Link="Production\Automation\PopupDetectionPolicy.cs" />
+    <Compile Include="..\GlobalUsings.cs;..\RouteExecutorTests.cs;..\DungeonSessionTests.cs;..\OperationTrackerTests.cs" Link="ExistingTests\%(Filename)%(Extension)" />
+    <None Update="Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

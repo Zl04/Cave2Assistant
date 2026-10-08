@@ -1,0 +1,43 @@
+sequenceDiagram
+    actor User as 用户
+    participant UI as MainForm
+    participant ADB as AdbClient
+    participant Lua as Lua助手/游戏进程
+    participant Domain as MapDump/PlayerStatus
+    participant Planner as Planner
+    participant Exec as RouteExecutor
+    participant Watch as PopupWatchdog
+    participant Trace as PipelineTrace/Web
+
+    User->>UI: 扫描/连接/开始
+    UI->>ADB: Devices() / ConnectAsync()
+    ADB->>Lua: adb shell + root shell
+    Lua-->>ADB: codex_map_dump.json / codex_player_status.json
+    ADB-->>UI: MapDump + PlayerStatus
+    UI->>Domain: 反序列化、探索状态规范化、快照/hash
+    UI->>Planner: PlanFull / PlanExploration / PlanToPortal
+    Planner-->>UI: route + interactions + target universe
+    UI->>Exec: ExecuteDetailed(context, token)
+    Exec->>ADB: TouchDown / ChangeDirection / Pulse / TouchUp
+    loop 每个移动分段
+        Exec->>ADB: ReadPlayer()
+        ADB->>Lua: 读取人物状态 JSON
+        Lua-->>ADB: 坐标/序列号/速度/迷雾
+        ADB-->>Exec: PlayerStatus
+    end
+    par 独立弹窗监控
+        Watch->>ADB: 截图 + UI Pipeline/OCR
+        ADB-->>Watch: PopupKind
+        Watch-->>UI: 取消当前分片并锁存弹窗
+    and Pipeline 诊断
+        UI->>Trace: trace event
+        Trace-->>Trace: pipeline-traces/*.json
+    end
+    alt 弹窗或坐标复核失败
+        UI->>Domain: 更新 MotionInterrupt / FloorState
+        UI->>Planner: 从权威位置重新规划
+    else 到达交互点
+        UI->>ADB: 方向交互/点击/弹窗处理
+        ADB->>Lua: 写命令文件或触摸输入
+        Lua-->>UI: 下一帧地图状态
+    end

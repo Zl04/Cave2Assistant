@@ -19,6 +19,7 @@ internal static class Program
             CrashLog.Write("Unobserved task exception", e.Exception);
 
         MainForm? form = null;
+        ControllerRuntime? runtime = null;
         var reporting = false;
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += async (_, e) =>
@@ -40,11 +41,17 @@ internal static class Program
             PaddleOcrRuntime.Initialize();
             OpenCvRuntime.Initialize();
             ApplicationConfiguration.Initialize();
-            form = new MainForm();
+            runtime = new ControllerRuntime(AppContext.BaseDirectory);
+            var settings = new JsonSettingsStore(runtime.Paths.Settings);
+            form = new MainForm(runtime, settings);
             Application.Run(form);
         }
         catch (Exception ex) { ShowFailure(ex, CrashLog.Write("Application entry point", ex)); }
-        finally { form?.Dispose(); }
+        finally
+        {
+            form?.Dispose();
+            if (runtime is not null) runtime.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
     }
 
     static void ShowFailure(Exception exception, string? path) => MessageBox.Show(

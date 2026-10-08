@@ -1,0 +1,41 @@
+flowchart LR
+    P[Program.cs<br/>组合根与全局异常边界]
+    UI[Presentation<br/>MainForm partial / MapPanel / MiniMap / Theme]
+    APP[Application<br/>ControllerRuntime / DungeonSession / OperationTracker]
+    DOM[Domain<br/>MapDump / RoleInfo / RouteSession / PortalGraph / Policy]
+    NAV[Navigation<br/>Planner / RouteExecutor / FloorStateMachine / PortalRouting]
+    ADB[Infrastructure.AdB<br/>AdbClient / Transport / ScreenCapture / Touch]
+    AUTO[Infrastructure.Automation<br/>MAA Pipeline / UI Pipeline / OpenCV / OCR]
+    PATCH[Infrastructure.Patching<br/>LuaAssistantPatcher / AssistantController]
+    WEB[Infrastructure.Web<br/>PipelineWebServer / pipeline-traces]
+    CFG[Configuration<br/>ControllerSettings / JsonSettingsStore]
+    GAME[(Android 游戏 + Lua 助手)]
+    FILES[(JSON / 图片 / Pipeline 资源)]
+
+    P --> UI
+    P --> APP
+    UI --> APP
+    UI --> NAV
+    UI --> ADB
+    UI --> AUTO
+    UI --> CFG
+    APP --> ADB
+    APP --> WEB
+    NAV --> DOM
+    ADB --> DOM
+    ADB --> GAME
+    AUTO --> ADB
+    AUTO --> FILES
+    CFG --> FILES
+    PATCH --> ADB
+    PATCH --> GAME
+    WEB --> FILES
+    DOM -. "逻辑反向依赖：RouteSession 持有 Planner 类型" .-> NAV
+
+    classDef entry fill:#274c77,color:#fff,stroke:#18324f;
+    classDef layer fill:#e8f1fa,color:#172b4d,stroke:#7aa6d8;
+    classDef io fill:#fff2cc,color:#513f00,stroke:#d6b656;
+    classDef risk fill:#f8d7da,color:#5f1018,stroke:#c85b66;
+    class P entry;
+    class UI,APP,DOM,NAV,CFG layer;
+    class ADB,AUTO,PATCH,WEB,GAME,FILES io;

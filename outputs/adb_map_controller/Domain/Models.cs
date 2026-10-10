@@ -17,7 +17,12 @@ public readonly record struct Cell(int X, int Y);
 public static class JsonDiagnostics
 {
     static readonly ConcurrentQueue<string> Errors = new();
-    public static void Record(string field, string detail) => Errors.Enqueue($"{field}: {detail}");
+    public static void Record(string field, string detail)
+    {
+        var text = $"{field}: {detail}";
+        Errors.Enqueue(text.Length <= 512 ? text : text[..512]);
+        while (Errors.Count > 128) Errors.TryDequeue(out _);
+    }
     public static IReadOnlyList<string> Drain()
     {
         var result = new List<string>();
@@ -240,6 +245,7 @@ public sealed class MapDump
     public int Width { get; set; }
     public int Height { get; set; }
     public int Level { get; set; }
+    public int TownMapId { get; set; }
     // SceneType=1 是城镇地图路径（MapTownView）。保留 CaveMode 供未来地图变体使用，
     // 也用于诊断转场。
     public int SceneType { get; set; } = -1;

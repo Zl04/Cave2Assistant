@@ -16,11 +16,13 @@ public sealed record ApplicationPaths(string Root)
 /// </summary>
 public sealed class ControllerRuntime : IAsyncDisposable
 {
-    int disposed;
+    readonly object disposalGate = new();
+    Task? disposal;
     public AdbClient Adb { get; }
     public TouchController Touch { get; }
     public PipelineWebServer PipelineMonitor { get; }
     public ApplicationPaths Paths { get; }
+    public NonCriticalDiagnostics Diagnostics { get; } = new();
 
     public ControllerRuntime(string baseDirectory)
     {
@@ -29,14 +31,20 @@ public sealed class ControllerRuntime : IAsyncDisposable
         Touch = new TouchController(Adb);
         PipelineMonitor = new PipelineWebServer(
             Path.Combine(Paths.Root, "pipeline-traces"),
-            Paths.Web);
+            Paths.Web, Diagnostics.Snapshot);
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref disposed, 1) != 0) return;
-        Touch.Dispose();
-        Adb.Dispose();
-        await PipelineMonitor.DisposeAsync();
+        lock (disposalGate) return new ValueTask(disposal ??= DisposeCoreAsync());
+    }
+
+    async Task DisposeCoreAsync()
+    {
+        var errors = new List<Exception>();
+        try { Touch.Dispose(); } catch (Exception error) { errors.Add(error); }
+        try { Adb.Dispose(); } catch (Exception error) { errors.Add(error); }
+        try { await PipelineMonitor.DisposeAsync(); } catch (Exception error) { errors.Add(error); }
+        if (errors.Count > 0) throw new AggregateException("Controller resources failed to close.", errors);
     }
 }

@@ -20,11 +20,16 @@ public sealed class FloorStateMachine
     public bool Transition(FloorPhase phase)
     {
         if (phase == Current) return true;
-        if (!CanTransition(Current, phase)) invalidTransitions.Enqueue($"{Current}->{phase}");
+        if (!CanTransition(Current, phase))
+        {
+            invalidTransitions.Enqueue($"{Current}->{phase}");
+            while (invalidTransitions.Count > 128) invalidTransitions.TryDequeue(out _);
+        }
         Current = phase;
         return true;
     }
     public void Set(FloorPhase phase) => Current = phase;
+    public void Reset() { Current = FloorPhase.Explore; invalidTransitions.Clear(); }
     static bool CanTransition(FloorPhase from, FloorPhase to) => from switch
     {
         FloorPhase.Explore => to is FloorPhase.CollectWarning or FloorPhase.ConfirmPortal or FloorPhase.GoToPortal or FloorPhase.WaitingFloorLoad,

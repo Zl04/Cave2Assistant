@@ -8,8 +8,7 @@ public enum MovementPopupKind
     None,
     ServerError,
     RiftGemSelection,
-    NextFloorDialog,
-    LootConfirm
+    NextFloorDialog
 }
 
 public enum NextFloorDialogKind

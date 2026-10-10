@@ -38,10 +38,10 @@ public sealed partial class MainForm
     }
     async Task OpenTestPanel()
     {
-        if (string.IsNullOrWhiteSpace(devices.Text)) { Log("打开测试面板失败：尚未选择设备"); return; }
+        if (string.IsNullOrWhiteSpace(devices.Text)) { Warn("打开测试面板失败：尚未选择设备"); return; }
         if (activeMovement is { IsCompleted: false } || activeEntry is { IsCompleted: false })
         {
-            Log("打开测试面板失败：请先暂停或停止自动运行");
+            Warn("打开测试面板失败：请先暂停或停止自动运行");
             MessageBox.Show("请先暂停或停止自动运行，再打开测试面板。", "打开测试面板", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
@@ -51,13 +51,13 @@ public sealed partial class MainForm
             var status = await adb.GetAssistantStatus(AssistantFile("MiniMapDrawer.template.lua"));
             if (!status.Installed)
             {
-                Log("打开测试面板失败：地图助手未安装");
+                Warn("打开测试面板失败：地图助手未安装");
                 MessageBox.Show("请先安装地图助手并重启游戏。", "打开测试面板", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             if (!status.TestPanelSupported)
             {
-                Log("打开测试面板失败：当前设备上的助手版本不支持，请重新安装助手并重启游戏");
+                Warn("打开测试面板失败：当前设备上的助手版本不支持，请重新安装助手并重启游戏");
                 MessageBox.Show("当前设备上的助手版本不支持该功能，请重新安装助手并重启游戏。", "打开测试面板", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }

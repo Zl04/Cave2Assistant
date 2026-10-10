@@ -80,9 +80,7 @@ public sealed partial class MainForm
 
     async Task NavigateToMapCellCore(Cell target, int requestVersion)
     {
-        var owner = new CancellationTokenSource();
-        runCts = owner;
-        touch.MovementCancellation = owner.Token;
+        var owner = operations.MovementToken;
         try
         {
             var startup = Stopwatch.StartNew();
@@ -91,14 +89,14 @@ public sealed partial class MainForm
             var ready = await RefreshMap(true, waitForLock: true, onMapReady: () =>
             {
                 var planning = Stopwatch.StartNew();
-                initialPlan = Planner.PlanToTarget(dungeon.Map!, target, monsters.Checked, dungeon.Blocked);
+                initialPlan = Planner.PlanToTarget(dungeon.Map!, target, Options().Monsters, dungeon.Blocked);
                 route = initialPlan.Route; plannedInteractions = initialPlan.Interactions;
                 plannedTargetUniverse = initialPlan.TargetUniverse;
                 mapPanel.Route = route; mapPanel.Invalidate();
                 Log($"点击导航规划就绪 {startup.ElapsedMilliseconds} ms，其中路径规划 {planning.ElapsedMilliseconds} ms");
                 State("路线已规划，等待弹窗检查完成");
             });
-            owner.Token.ThrowIfCancellationRequested();
+            owner.ThrowIfCancellationRequested();
             if (serverErrorDialogVisible) return;
             if (!ready || dungeon.Map is null) { State("地图未就绪"); return; }
             Log($"点击导航启动检查完成 {startup.ElapsedMilliseconds} ms");
@@ -117,12 +115,12 @@ public sealed partial class MainForm
             {
                 if (useInitialSnapshot) useInitialSnapshot = false;
                 else await RefreshMap(false, waitForLock: true);
-                owner.Token.ThrowIfCancellationRequested();
+                owner.ThrowIfCancellationRequested();
                 if (serverErrorDialogVisible) return;
                 if (runeSelectionVisible)
                 {
                     initialPlan = null;
-                    await HandleRiftGemSelection(owner.Token);
+                    await HandleRiftGemSelection(owner);
                     continue;
                 }
                 if (dungeon.Map is null) { State("地图未就绪"); return; }
@@ -131,7 +129,7 @@ public sealed partial class MainForm
                     initialPlan = null;
                     await touch.EmergencyRelease();
                     State("战斗中，已停止移动");
-                    await Task.Delay(120, owner.Token);
+                    await Task.Delay(120, owner);
                     continue;
                 }
 
@@ -145,7 +143,7 @@ public sealed partial class MainForm
                     return;
                 }
 
-                var plan = initialPlan ?? Planner.PlanToTarget(dungeon.Map, target, monsters.Checked, dungeon.Blocked);
+                var plan = initialPlan ?? Planner.PlanToTarget(dungeon.Map, target, Options().Monsters, dungeon.Blocked);
                 initialPlan = null;
                 route = plan.Route;
                 plannedInteractions = plan.Interactions;
@@ -155,7 +153,7 @@ public sealed partial class MainForm
                 if (!string.IsNullOrWhiteSpace(plan.FailureReason))
                 {
                     State(plan.FailureReason);
-                    Log($"地图点击导航失败：{target}，{plan.FailureReason}");
+                    Warn($"地图点击导航失败：{target}，{plan.FailureReason}");
                     return;
                 }
 
@@ -166,11 +164,11 @@ public sealed partial class MainForm
                     var delta = new Cell(task.Target.Cell.X - player.X, task.Target.Cell.Y - player.Y);
                     State($"点击导航交互 {task.Target.Kind}，方向 {delta.X},{delta.Y}");
                     var popupInterrupted = IsCombatInteraction(task.Target.Kind)
-                        ? await FightWhileHolding(task, owner.Token)
-                        : await SendInteraction((delta, task.Target.Kind), owner.Token);
+                        ? await FightWhileHolding(task, owner)
+                        : await SendInteraction((delta, task.Target.Kind), owner);
                     if (popupInterrupted)
                     {
-                        await HandleMovementPopupInterrupt(owner.Token);
+                        await HandleMovementPopupInterrupt(owner);
                         continue;
                     }
                     if (task.Target.Cell == target && !IsCombatInteraction(task.Target.Kind))
@@ -179,7 +177,7 @@ public sealed partial class MainForm
                         Log($"地图点击导航完成：已交互 {task.Target.Kind} {target}");
                         return;
                     }
-                    await Task.Delay(80, owner.Token);
+                    await Task.Delay(80, owner);
                     continue;
                 }
 
@@ -189,17 +187,17 @@ public sealed partial class MainForm
                     return;
                 }
                 State($"自动导航至 {target}，剩余 {route.Count - 1} 步");
-                var routeResult = await ExecuteRouteSlice(owner.Token);
+                var routeResult = await ExecuteRouteSlice(owner);
                 if (routeResult.InterruptedByPopup)
                 {
-                    await HandleMovementPopupInterrupt(owner.Token);
+                    await HandleMovementPopupInterrupt(owner);
                     continue;
                 }
                 if (routeResult.RequiresReplan)
                 {
-                // RouteExecutor 已拒绝该路线，且没有发送另一条移动指令。
-                // 在下一次点击导航迭代前刷新权威玩家位置并丢弃失败的规划；
-                // 下一次会从该位置构建新路线。
+                    // RouteExecutor 已拒绝该路线，且没有发送另一条移动指令。
+                    // 在下一次点击导航迭代前刷新权威玩家位置并丢弃失败的规划；
+                    // 下一次会从该位置构建新路线。
                     await RefreshMap(false, waitForLock: true);
                     route = [];
                     plannedInteractions = [];
@@ -207,7 +205,7 @@ public sealed partial class MainForm
                     mapPanel.Route = route;
                     mapPanel.Invalidate();
                 }
-                await Task.Delay(20, owner.Token);
+                await Task.Delay(20, owner);
             }
         }
         catch (OperationCanceledException) { }
@@ -215,8 +213,6 @@ public sealed partial class MainForm
         {
             coroutines.StopAll(); portalChoiceCoroutine = null;
             try { await touch.TouchUp(); } catch (Exception ex) { Error(ex); }
-            if (ReferenceEquals(runCts, owner)) runCts = null;
-            owner.Dispose();
         }
     }
 
@@ -237,53 +233,11 @@ public sealed partial class MainForm
         };
     }
 
-    bool CancelCurrentMovementSlice()
-    {
-        lock (movementSliceGate)
-        {
-            if (currentMovementSlice is null) return false;
-            try { currentMovementSlice.Cancel(); return true; }
-            catch (ObjectDisposedException) { return false; }
-        }
-    }
+    Task<RouteExecutionResult> ExecuteRouteSlice(CancellationToken ownerToken)
+        => movementExecution.ExecuteRouteAsync(routeExecutor, CreateRouteExecutionContext(), ownerToken);
 
-    void SetCurrentMovementSlice(CancellationTokenSource? slice)
-    {
-        lock (movementSliceGate) currentMovementSlice = slice;
-    }
-
-    async Task<RouteExecutionResult> ExecuteRouteSlice(CancellationToken ownerToken)
-    {
-        using var slice = CancellationTokenSource.CreateLinkedTokenSource(ownerToken);
-        SetCurrentMovementSlice(slice);
-        try
-        {
-            var result = await routeExecutor.ExecuteDetailed(CreateRouteExecutionContext(), slice.Token, () => dungeon.MotionInterrupt.Reason);
-            SetCurrentMovementSlice(null);
-            return dungeon.MotionInterrupt.Reason == MotionInterruptReason.Popup
-                ? new RouteExecutionResult(RouteExecutionStatus.InterruptedByPopup)
-                : result;
-        }
-        finally { SetCurrentMovementSlice(null); }
-    }
-
-    async Task<bool> RunMovementSlice(CancellationToken ownerToken, Func<CancellationToken, Task> action)
-    {
-        using var slice = CancellationTokenSource.CreateLinkedTokenSource(ownerToken);
-        SetCurrentMovementSlice(slice);
-        try
-        {
-            await action(slice.Token);
-            SetCurrentMovementSlice(null);
-            if (dungeon.MotionInterrupt.Reason == MotionInterruptReason.Popup) return true;
-            return false;
-        }
-        catch (OperationCanceledException) when (dungeon.MotionInterrupt.Reason == MotionInterruptReason.Popup)
-        {
-            return true;
-        }
-        finally { SetCurrentMovementSlice(null); }
-    }
+    Task<bool> RunMovementSlice(CancellationToken ownerToken, Func<CancellationToken, Task> action)
+        => movementExecution.ExecuteInteractionAsync(action, ownerToken);
 
     async Task HandleMovementPopupInterrupt(CancellationToken ownerToken)
     {
@@ -293,46 +247,46 @@ public sealed partial class MainForm
             var kind = dungeon.MotionInterrupt.PopupKind;
             if (kind == MovementPopupKind.None) return;
 
-        await touch.EmergencyRelease();
-        Log($"检测到弹窗：{kind}，已释放触摸并暂停当前路线");
-        route = [];
-        plannedInteractions = [];
-        plannedTargetUniverse.Clear();
-        mapPanel.Route = route;
-        mapPanel.Invalidate();
+            await touch.EmergencyRelease();
+            Log($"检测到弹窗：{kind}，已释放触摸并暂停当前路线");
+            route = [];
+            plannedInteractions = [];
+            plannedTargetUniverse.Clear();
+            mapPanel.Route = route;
+            mapPanel.Invalidate();
 
-        if (kind == MovementPopupKind.ServerError)
-        {
-            serverErrorDialogVisible = true;
-            runCts?.Cancel();
-            State("服务器连接异常，已停止运行");
-            return;
-        }
+            if (kind == MovementPopupKind.ServerError)
+            {
+                serverErrorDialogVisible = true;
+                operations.Cancel(ControllerOperationKind.Movement);
+                State("服务器连接异常，已停止运行");
+                return;
+            }
 
-        if (kind == MovementPopupKind.RiftGemSelection)
-        {
-            // 看门狗已经通过共享管线完成标题识别；这里仅锁存状态，
-            // 由主循环执行点击并确认覆盖层关闭。
-            LatchRiftGemSelection();
-        }
-        else if (kind == MovementPopupKind.NextFloorDialog)
-        {
-            // 共享管线已经在同一帧给出了具体子类型。不要丢掉它后再
-            // 重新截图识别，否则转场动画会把已确认的弹窗变成超时。
-            pendingNextFloorDialog = dungeon.MotionInterrupt.NextFloorDialogKind;
-            pendingGreedySelectionReturnOnly = dungeon.MotionInterrupt.GreedySelectionReturnOnly;
-            pendingGreedySelectionReturnCards = dungeon.MotionInterrupt.GreedySelectionReturnCards;
-            floorPhase = FloorPhase.SelectBonus;
-            portalInteractionAt = portalInteractionAt > 0 ? portalInteractionAt : Environment.TickCount64;
-            portalDialogPausedMs = 0;
-            State("检测到换层弹窗，暂停移动等待处理");
-        }
-        // 会拦截触摸的覆盖层打断移动后，刷新非弹窗状态。
-        // 这样下一次规划能获得权威的玩家/地图快照；上面的弹窗专用标志
-        // 则能在地图导出暂时过期时保留正确的处理分支。
-        await RefreshMap(false, waitForLock: true);
-        if (!ownerToken.IsCancellationRequested && !serverErrorDialogVisible)
-            State("弹窗已接管，等待处理完成后继续");
+            if (kind == MovementPopupKind.RiftGemSelection)
+            {
+                // 看门狗已经通过共享管线完成标题识别；这里仅锁存状态，
+                // 由主循环执行点击并确认覆盖层关闭。
+                LatchRiftGemSelection();
+            }
+            else if (kind == MovementPopupKind.NextFloorDialog)
+            {
+                // 共享管线已经在同一帧给出了具体子类型。不要丢掉它后再
+                // 重新截图识别，否则转场动画会把已确认的弹窗变成超时。
+                pendingNextFloorDialog = dungeon.MotionInterrupt.NextFloorDialogKind;
+                pendingGreedySelectionReturnOnly = dungeon.MotionInterrupt.GreedySelectionReturnOnly;
+                pendingGreedySelectionReturnCards = dungeon.MotionInterrupt.GreedySelectionReturnCards;
+                floorPhase = FloorPhase.SelectBonus;
+                portalInteractionAt = portalInteractionAt > 0 ? portalInteractionAt : Environment.TickCount64;
+                portalDialogPausedMs = 0;
+                State("检测到换层弹窗，暂停移动等待处理");
+            }
+            // 会拦截触摸的覆盖层打断移动后，刷新非弹窗状态。
+            // 这样下一次规划能获得权威的玩家/地图快照；上面的弹窗专用标志
+            // 则能在地图导出暂时过期时保留正确的处理分支。
+            await RefreshMap(false, waitForLock: true);
+            if (!ownerToken.IsCancellationRequested && !serverErrorDialogVisible)
+                State("弹窗已接管，等待处理完成后继续");
         }
         finally
         {
@@ -344,26 +298,29 @@ public sealed partial class MainForm
     async Task RunMovement(Func<Task> action, bool startupProbePaused = false)
     {
         if (closing || stopping || scanning || activeMovement is { IsCompleted: false } || activeEntry is { IsCompleted: false }) return;
-        if (startupProbePaused) startupPreparing = true;
-        devices.Enabled = false;
-        dungeon.MotionInterrupt.Clear();
-        using var watchdogCts = new CancellationTokenSource();
-        var watchdog = new PopupWatchdog(adb, touch, dungeon.MotionInterrupt, PopupProbeEnabled, CancelCurrentMovementSlice,
-            popup => Log($"弹窗监控已锁存：{popup}，等待主循环接管"),
-            ex => Log($"移动弹窗监控暂时失败：{ex.Message}"),
-            message => Log(message),
-            PopupProbeDisabledReason);
-        var watchdogTask = watchdog.RunAsync(watchdogCts.Token);
-        try { activeMovement = action(); await activeMovement; }
-        finally
+        await operations.RunAsync(ControllerOperationKind.Movement, async owner =>
         {
-            watchdogCts.Cancel();
-            try { await watchdogTask; } catch (OperationCanceledException) { }
+            if (startupProbePaused) startupPreparing = true;
+            devices.Enabled = false;
             dungeon.MotionInterrupt.Clear();
-            touch.MovementCancellation = default;
-            if (startupProbePaused) startupPreparing = false;
-            UpdateDeviceAvailability();
-        }
+            using var watchdogCts = new CancellationTokenSource();
+            var watchdog = new PopupWatchdog(adb, touch, dungeon.MotionInterrupt, PopupProbeEnabled, movementExecution.Interrupt,
+                popup => Log($"弹窗监控已锁存：{popup}，等待主循环接管"),
+                ex => Warn($"移动弹窗监控暂时失败：{ex.Message}"),
+                message => Log(message),
+                PopupProbeDisabledReason);
+            var watchdogTask = watchdog.RunAsync(watchdogCts.Token);
+            try { await action(); }
+            finally
+            {
+                watchdogCts.Cancel();
+                try { await watchdogTask; } catch (OperationCanceledException) { }
+                dungeon.MotionInterrupt.Clear();
+                if (startupProbePaused) startupPreparing = false;
+                UpdateDeviceAvailability();
+            }
+        });
+        UpdateDeviceAvailability();
     }
 
     async Task StopMovement()
@@ -371,11 +328,11 @@ public sealed partial class MainForm
         stopping = true;
         try
         {
-            runCts?.Cancel();
-            entryCts?.Cancel();
+            operations.Cancel(ControllerOperationKind.Movement);
+            operations.Cancel(ControllerOperationKind.Entry);
             try { await touch.EmergencyRelease(); } catch (Exception ex) { Error(ex); }
-            if (activeMovement is not null) await activeMovement;
-            if (activeEntry is not null) await activeEntry;
+            // The Application operation includes watchdog and final cleanup.
+            try { await operations.StopAsync(closeAdmission: closing); } catch (OperationCanceledException) { }
         }
         finally
         {

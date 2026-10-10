@@ -16,7 +16,7 @@ public sealed partial class MainForm
     async Task CalibrateEntry()
     {
         if (string.IsNullOrWhiteSpace(devices.Text)) throw new InvalidOperationException("请先连接设备");
-        if (runCts is not null || activeMovement is { IsCompleted: false } || activeEntry is { IsCompleted: false })
+        if (activeMovement is { IsCompleted: false } || activeEntry is { IsCompleted: false })
             throw new InvalidOperationException("请先暂停当前运行，再进行入口标定");
         var map = SelectedEntryMap;
         using var screenshot = await adb.CaptureScreenForAutomationAsync();
@@ -35,16 +35,17 @@ public sealed partial class MainForm
     async Task AutoEnter()
     {
         if (string.IsNullOrWhiteSpace(devices.Text)) throw new InvalidOperationException("请先连接设备");
-        if (runCts is not null || activeMovement is { IsCompleted: false })
+        if (activeMovement is { IsCompleted: false })
             throw new InvalidOperationException("请先暂停或停止地图导航，再自动进图");
         if (activeEntry is { IsCompleted: false }) return;
 
-        var owner = new CancellationTokenSource();
-        entryCts = owner;
+        await operations.RunAsync(ControllerOperationKind.Entry, AutoEnterCore);
+    }
+    async Task AutoEnterCore(CancellationToken owner)
+    {
         var selection = new DungeonEntrySelection(
             SelectedEntryMap.Id, Math.Max(1, entryChoice.SelectedIndex + 1),
             (DungeonDifficulty)Math.Clamp(entryDifficulty.SelectedIndex, (int)DungeonDifficulty.Normal, (int)DungeonDifficulty.Nightmare));
-        Task? operation = null;
         try
         {
             adb.Serial = devices.Text;
@@ -63,16 +64,14 @@ public sealed partial class MainForm
                         break;
                     case MaaPipelineTraceKind.NodeFailed:
                     case MaaPipelineTraceKind.TaskChainFailed:
-                        Log($"进图 Pipeline 失败：{task}，{value.Error ?? value.Detail}");
+                        Log($"进图 Pipeline 失败：{task}，{value.Error ?? value.Detail}", LogLevel.Error);
                         break;
                     case MaaPipelineTraceKind.BranchSelected:
                         Log($"进图 Pipeline 分支：{task} -> {value.Detail ?? "结束"}");
                         break;
                 }
             });
-            var entryOperation = automation.RunAsync(selection, owner.Token, new MaaPipelineTraceMultiplexer([trace, liveTrace]));
-            operation = entryOperation;
-            activeEntry = entryOperation;
+            var entryOperation = automation.RunAsync(selection, owner, new MaaPipelineTraceMultiplexer([trace, liveTrace]));
             var result = await entryOperation;
             try
             {
@@ -80,7 +79,7 @@ public sealed partial class MainForm
                 trace.SaveJson(tracePath);
                 Log($"进图 Pipeline 节点诊断已保存：{tracePath}");
             }
-            catch (Exception ex) { Log($"进图 Pipeline 节点诊断保存失败：{ex.Message}"); }
+            catch (Exception ex) { Warn($"进图 Pipeline 节点诊断保存失败：{ex.Message}"); }
 
             if (result.Status == MaaPipelineExecutionStatus.Canceled)
             {
@@ -89,16 +88,13 @@ public sealed partial class MainForm
             }
             else if (!result.Succeeded)
             {
-                Log($"自动进图失败：{result.Error ?? result.Status.ToString()}");
+                Log($"自动进图失败：{result.Error ?? result.Status.ToString()}", LogLevel.Error);
                 State("自动进图失败");
             }
         }
         catch (OperationCanceledException) { Log("自动进图已取消"); State("自动进图已取消"); }
         finally
         {
-            if (ReferenceEquals(activeEntry, operation)) activeEntry = null;
-            if (ReferenceEquals(entryCts, owner)) entryCts = null;
-            owner.Dispose();
             UpdateDeviceAvailability();
         }
     }

@@ -31,7 +31,7 @@ public static class PortalRouting
     public const int StairsMinimapType = 1;
     public const int PortalMinimapType = 18;
     public const int RoomPortalMinimapType = 22;
-    public const int RoomToRoomTransdoorType = 3;
+    public const int RoomToRoomTransdoorType = PortalProtocol.RoomToRoomTransdoorType;
 
     public static bool IsPortalKind(string kind) => kind is "出口" or "传送门" or "秘境传送门";
 

@@ -45,7 +45,7 @@ public static class MiningPlanner
     }
 
     public static bool InRange(Cell player, Cell target)
-        => Math.Abs((long)target.X - player.X) + Math.Abs((long)target.Y - player.Y) <= 2;
+        => Math.Max(Math.Abs((long)target.X - player.X), Math.Abs((long)target.Y - player.Y)) == 1;
 
     public static MiningPlan? Plan(MapDump map, IReadOnlySet<Cell>? blocked = null)
     {
@@ -109,7 +109,7 @@ public static class MiningScreenCoordinates
         double tileWidth = 200, double tileHeight = 100)
     {
         if (!MiningPlanner.InRange(player, target) || player == target)
-            throw new ArgumentOutOfRangeException(nameof(target), "目标必须位于人物两格以内");
+            throw new ArgumentOutOfRangeException(nameof(target), "目标必须位于人物身边一格");
         if (!double.IsFinite(tileWidth) || !double.IsFinite(tileHeight) || tileWidth <= 0 || tileHeight <= 0)
             throw new ArgumentOutOfRangeException(nameof(tileWidth));
         var dx = target.X - player.X;

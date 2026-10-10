@@ -15,6 +15,8 @@ public static class CardFloorPolicy
     const int DistortedSpace = 9;
     const int ElementalInferno = 12;
     const int VoidRift = 14;
+    // 原初试炼沿用游戏内部的 MODE_VIKING。
+    const int PrimordialTrial = 16;
 
     public static int? Resolve(string? mapName, int currentFloor)
         => Resolve(-1, mapName, currentFloor);
@@ -22,22 +24,28 @@ public static class CardFloorPolicy
     public static int? Resolve(MapDump map)
         => Resolve(map.CaveMode, map.MapName, map.Level);
 
+    public static int? MaximumFloor(MapDump map) => MaximumFloor(map.CaveMode);
+
+    static int? MaximumFloor(int caveMode) => caveMode switch
+    {
+        NormalTimeGate => 180,
+        HeroTimeGate => 30,
+        SandEye => 30,
+        DistortedSpace => 70,
+        ElementalInferno => 50,
+        VoidRift => 20,
+        PrimordialTrial => 10,
+        _ => null,
+    };
+
     static int? Resolve(int caveMode, string? mapName, int currentFloor)
     {
         if (currentFloor <= 0) return null;
 
-        var normalized = mapName?.Trim() ?? "";
         if (caveMode is HeroTimeGate) return 30;
         if (caveMode is NormalTimeGate) return 180;
 
-        var maximum = caveMode switch
-        {
-            SandEye => 30,
-            DistortedSpace => 70,
-            ElementalInferno => 50,
-            VoidRift => 20,
-            _ => 0,
-        };
+        var maximum = MaximumFloor(caveMode) ?? 0;
         if (maximum == 0) return null;
 
         var decade = ((currentFloor + 9) / 10) * 10;

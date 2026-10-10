@@ -39,7 +39,7 @@ public sealed partial class MainForm
         var inputDelta = InputDelta(delta);
         if (Math.Abs(delta.X) + Math.Abs(delta.Y) != 1)
         {
-            Log($"战斗停靠点失效：人物 {start}，目标 {task.Target.Cell}，等待重新规划");
+            Warn($"战斗停靠点失效：人物 {start}，目标 {task.Target.Cell}，等待重新规划");
             return;
         }
 
@@ -98,7 +98,7 @@ public sealed partial class MainForm
                     // 卡在旧的 30 秒战斗超时中。此时释放方向，让常规循环刷新并重新协调路线。
                     if (Environment.TickCount64 - targetGoneAt >= Math.Max(300L, (long)stallTimeout.Value))
                     {
-                        Log($"{task.Target.Kind} 已消失但人物未进格，超过卡住超时，停止当前方向并重新校准");
+                        Warn($"{task.Target.Kind} 已消失但人物未进格，超过卡住超时，停止当前方向并重新校准");
                         return;
                     }
                 }
@@ -112,21 +112,22 @@ public sealed partial class MainForm
     }
     PlanOptions Options()
     {
+        var includeAll = dungeon.Map is not null && FloorPlanningPolicy.IncludeAllInteractions(dungeon.Map);
         return new PlanOptions
         {
             // 6101 是纯战斗房间。该楼型不依赖用户的“全清小怪/清除精英”勾选，
             // 进入后统一交给怪物追猎规划器；普通楼层仍完全遵循 UI 选项。
-            AttackBoss = attackBoss.Checked ||
+            AttackBoss = includeAll || attackBoss.Checked ||
                 (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
-            Monsters = monsters.Checked ||
+            Monsters = includeAll || monsters.Checked ||
                 (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
-            Elites = elites.Checked || (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
-            Chests = chests.Checked,
-            Pots = pots.Checked,
-            Bones = bones.Checked,
-            Gold = gold.Checked,
-            Runes = runes.Checked,
-            Chambers = chambers.Checked
+            Elites = includeAll || elites.Checked || (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
+            Chests = includeAll || chests.Checked,
+            Pots = includeAll || pots.Checked,
+            Bones = includeAll || bones.Checked,
+            Gold = includeAll || gold.Checked,
+            Runes = includeAll || runes.Checked,
+            Chambers = includeAll || chambers.Checked
         };
     }
     static bool IsSelected(RoleInfo role, PlanOptions o) => TargetPolicy.IsSelected(role, o);
@@ -135,15 +136,6 @@ public sealed partial class MainForm
     static int OptionsSignature(PlanOptions o) => HashCode.Combine(
         HashCode.Combine(o.AttackBoss, o.Monsters, o.Elites, o.Chests, o.Pots, o.Bones, o.Gold),
         HashCode.Combine(o.Runes, o.Chambers, o.VisionRadius));
-    void RecordMechanismVisit(MapDump map)
-    {
-        var player = new Cell(map.Player.X, map.Player.Y);
-        if (!map.ByCell.TryGetValue(player, out var tile)) return;
-        if (!tile.Roles.Any(role => role.Kind == "机关")) return;
-        if (dungeon.Mechanisms.Add(player))
-            Log($"已记录机关踩中：{player}（以实际人物坐标确认）");
-    }
-
     HashSet<TargetKey> SelectedTargets(MapDump map, PlanOptions options, bool includeLockedBoss = false) => map.Tiles.SelectMany(row => row)
         .SelectMany(tile => tile.Roles.Where(role => TargetPolicy.IsSelected(role, options) && !(role.RoleType == 5 && role.Opened) &&
             (role.Kind != "机关" || (!tile.Reached && !visitedMechanisms.Contains(new Cell(tile.X, tile.Y)))) &&
@@ -329,7 +321,7 @@ public sealed partial class MainForm
         {
             floorPhase = FloorPhase.GoToPortal;
             var blockedBefore = dungeon.Blocked.Count;
-            var plan = Planner.PlanToPortalRecoveringTemporaryBlocks(map, dungeon.Blocked, !monsters.Checked, dungeon.PortalUnlocks);
+            var plan = Planner.PlanToPortalRecoveringTemporaryBlocks(map, dungeon.Blocked, !Options().Monsters, dungeon.PortalUnlocks);
             if (blockedBefore > 0 && dungeon.Blocked.Count == 0)
                 Log($"临时封锁导致出口不可达，已撤销 {blockedBefore} 个封锁并恢复路线");
             route = plan.Route; plannedInteractions = plan.Interactions; plannedTargetUniverse = plan.TargetUniverse;
@@ -382,7 +374,7 @@ public sealed partial class MainForm
     {
         if (dungeon.Map is null || floorPhase != FloorPhase.Explore || HasMapDownstairsEntrance(dungeon.Map) ||
             dungeon.PendingRoomPortal is not null) return false;
-        var plan = Planner.PlanToRoomPortal(dungeon.Map, dungeon.Blocked, !monsters.Checked, dungeon.AttemptedRoomPortals);
+        var plan = Planner.PlanToRoomPortal(dungeon.Map, dungeon.Blocked, !Options().Monsters, dungeon.AttemptedRoomPortals);
         if (plan.Interactions.Count == 0)
         {
             var unlockPlan = Planner.PlanToPortalUnlockMonster(dungeon.Map, dungeon.Blocked, dungeon.PortalUnlocks);
@@ -417,7 +409,7 @@ public sealed partial class MainForm
             .ToList();
         if (candidates.Count == 0) return false;
 
-        if (!monsters.Checked)
+        if (!Options().Monsters)
         {
             var safeCandidates = candidates.Where(cell => !Planner.HasRoadMonster(dungeon.Map.ByCell[cell])).ToList();
             if (safeCandidates.Count > 0) candidates = safeCandidates;
@@ -541,7 +533,7 @@ public sealed partial class MainForm
         }
 
         var blockedBefore = dungeon.Blocked.Count;
-        var plan = Planner.PlanToPortalRecoveringTemporaryBlocks(dungeon.Map, dungeon.Blocked, !monsters.Checked, dungeon.PortalUnlocks);
+        var plan = Planner.PlanToPortalRecoveringTemporaryBlocks(dungeon.Map, dungeon.Blocked, !Options().Monsters, dungeon.PortalUnlocks);
         if (blockedBefore > 0 && dungeon.Blocked.Count == 0)
             Log($"临时封锁导致出口不可达，已撤销 {blockedBefore} 个封锁并恢复路线");
         route = plan.Route;
@@ -557,15 +549,15 @@ public sealed partial class MainForm
             : $"传送门路线失效，当前不可达：{plan.FailureReason}");
     }
 
-    bool HasNewRoadMonsters(MapDump map) => !FloorPlanningPolicy.IsMonsterHuntRoom(map) && !monsters.Checked && map.ByCell.Any(pair =>
+    bool HasNewRoadMonsters(MapDump map) => !FloorPlanningPolicy.IsMonsterHuntRoom(map) && !Options().Monsters && map.ByCell.Any(pair =>
         Planner.HasRoadMonster(pair.Value) && !dungeon.Route.PlannedRoadMonsters.Contains(pair.Key));
 
     void EnsureRoute(bool force = false)
     {
         if (dungeon.Map is null)
         {
-        // 保持此处的显式检查：过去规划器可能在首次成功获取快照前被调用
-        // （例如设备列表或 root Shell 仍在稳定时），然后悄悄让 UI 显示空路线。
+            // 保持此处的显式检查：过去规划器可能在首次成功获取快照前被调用
+            // （例如设备列表或 root Shell 仍在稳定时），然后悄悄让 UI 显示空路线。
             Log("规划跳过：当前没有有效地图快照，请先刷新地图并确认助手数据已生成");
             State("地图未就绪");
             return;
@@ -630,7 +622,7 @@ public sealed partial class MainForm
         // 按独立的节奏导出。强制/手动重新规划前始终获取新的设备快照，
         // 否则规划器可能复用运行开始时捕获的迷雾状态。
         await RefreshMap(false, waitForLock: true);
-        if (serverErrorDialogVisible || runCts?.IsCancellationRequested == true) return;
+        if (serverErrorDialogVisible || operations.MovementToken.IsCancellationRequested) return;
         ReplanFromCurrentMap();
     }
 
@@ -638,7 +630,7 @@ public sealed partial class MainForm
     {
         if (dungeon.Map is null)
         {
-            Log("规划失败：当前没有有效地图快照（设备、Root 会话或助手地图数据未就绪）");
+            Warn("规划失败：当前没有有效地图快照（设备、Root 会话或助手地图数据未就绪）");
             State("地图未就绪");
             return;
         }
@@ -655,7 +647,7 @@ public sealed partial class MainForm
         {
             if (floorPhase is FloorPhase.ConfirmPortal or FloorPhase.GoToPortal)
             {
-                var portalPlan = Planner.PlanToPortalRecoveringTemporaryBlocks(dungeon.Map, dungeon.Blocked, !monsters.Checked, dungeon.PortalUnlocks);
+                var portalPlan = Planner.PlanToPortalRecoveringTemporaryBlocks(dungeon.Map, dungeon.Blocked, !Options().Monsters, dungeon.PortalUnlocks);
                 route = portalPlan.Route; plannedInteractions = portalPlan.Interactions; plannedTargetUniverse = portalPlan.TargetUniverse;
                 mapPanel.Route = route; mapPanel.Invalidate();
                 if (route.Count > 1) Log($"重新规划前往出口：{route.Count - 1} 步");

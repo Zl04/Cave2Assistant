@@ -1,0 +1,209 @@
+using System;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace AdbMapController;
+
+/// <summary>
+/// Interprets captured game frames. It owns OCR and image recognition state,
+/// but never captures screenshots or sends device input.
+/// </summary>
+internal sealed class AdbScreenAnalyzer : IDisposable
+{
+    readonly PaddleOcrEngine paddleOcr = new();
+    readonly Lazy<VisualTemplate?> miningToolTemplate = new(LoadMiningToolTemplate);
+
+    public string? LastRiftGemTitle { get; private set; }
+    public string GemTitleDetectionMode { get; private set; } = "未检测";
+    public NextFloorDialogKind LastNextFloorDialogKind { get; private set; }
+
+    public async Task<string> ReadTextAsync(Bitmap image, CancellationToken token = default)
+        => (await paddleOcr.RecognizeAsync(image, token)).Text.Trim();
+
+    public async Task<IReadOnlyList<OcrWord>> ReadOcrWordsAsync(Bitmap image, CancellationToken token)
+    {
+        var response = await paddleOcr.RecognizeAsync(image, token);
+        return response.Words
+            .Where(word => !string.IsNullOrWhiteSpace(word.Text) && word.Width > 0 && word.Height > 0)
+            .Select(word => new OcrWord(word.Text.Trim(), word.Left, word.Top, word.Width, word.Height, word.Confidence))
+            .ToArray();
+    }
+
+    public async Task<MiningToolStatus> ReadMiningToolStatusAsync(Bitmap source, CancellationToken token = default)
+    {
+        var iconPresent = HasMiningToolIcon(source);
+        var quantityText = await ReadMiningToolQuantityTextAsync(source, token);
+        return new(iconPresent, MiningToolGuard.ParseQuantityText(quantityText));
+    }
+
+    static VisualTemplate? LoadMiningToolTemplate()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "vision", "mining_tool_slot.png");
+        if (!File.Exists(path)) return null;
+        try
+        {
+            var template = VisualTemplate.FromFile(path);
+            // The tight template is 97x81 at 1920x1080; scale from the shorter
+            // display dimension so matching also works at other resolutions.
+            template.PatchWidthRatio = 97d / 1080d;
+            template.PatchHeightRatio = 81d / 1080d;
+            return template;
+        }
+        catch { return null; }
+    }
+
+    bool HasMiningToolIcon(Bitmap source)
+    {
+        var template = miningToolTemplate.Value;
+        if (template is null) return false;
+        var expectedX = source.Width * MiningScreenCoordinates.ToolSlot.X;
+        var expectedY = source.Height * MiningScreenCoordinates.ToolSlot.Y;
+        return template.FindAll(source, .84, 16).Any(match =>
+            Math.Abs(match.Center.X - expectedX) <= source.Width * .10 &&
+            Math.Abs(match.Center.Y - expectedY) <= source.Height * .10);
+    }
+
+    async Task<string> ReadMiningToolQuantityTextAsync(Bitmap source, CancellationToken token)
+    {
+        // Enlarge the small count in the lower-right of the 70x70 quick-bag cell.
+        var sx = Math.Clamp((int)Math.Round(source.Width * .375), 0, source.Width - 1);
+        var sy = Math.Clamp((int)Math.Round(source.Height * .945), 0, source.Height - 1);
+        var sw = Math.Clamp((int)Math.Round(source.Width * .045), 1, source.Width - sx);
+        var sh = Math.Clamp((int)Math.Round(source.Height * .055), 1, source.Height - sy);
+        using var crop = source.Clone(new Rectangle(sx, sy, sw, sh), PixelFormat.Format24bppRgb);
+        string? lastText = null;
+        // Twofold preserves tiny strokes better; retry at eightfold only if needed.
+        foreach (var scale in new[] { 2, 8 })
+        {
+            using var enlarged = new Bitmap(crop.Width * scale, crop.Height * scale, PixelFormat.Format24bppRgb);
+            using (var graphics = Graphics.FromImage(enlarged))
+            {
+                graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                graphics.PixelOffsetMode = PixelOffsetMode.Half;
+                graphics.DrawImage(crop, new Rectangle(0, 0, enlarged.Width, enlarged.Height));
+            }
+            var text = await ReadTextAsync(enlarged, token);
+            lastText = text;
+            if (MiningToolGuard.ParseQuantityText(text) is not null)
+                return text;
+        }
+        return lastText ?? string.Empty;
+    }
+
+    public bool HasNextFloorButton(Bitmap source)
+    {
+        // The button darkens during stable scenes; accept the observed brown/gold tone.
+        return OpenCvPopupColorAnalysis.Ratio(source, (.78, .985, .45, .57),
+            PopupColorKind.GoldButton) > .30;
+    }
+
+    public async Task<bool> HasServerErrorDialogAsync(Bitmap source, CancellationToken token = default)
+    {
+        if (!ConnectionPopupRecognition.IsCandidate(source)) return false;
+        // Color is only a cheap candidate filter. The modal text is authoritative.
+        var text = await ReadScreenTextAsync(source, (.25, .75, .24, .74), "服务器异常弹窗", token);
+        return ConnectionPopupRecognition.IsDisconnectText(text);
+    }
+
+    public Task<bool> HasServerErrorDialogAsync(Bitmap source, string? ocrText)
+    {
+        if (!ConnectionPopupRecognition.IsCandidate(source)) return Task.FromResult(false);
+        return Task.FromResult(ConnectionPopupRecognition.IsDisconnectText(ocrText));
+    }
+
+    public Task<bool> HasEnterNextFloorConfirmAsync(Bitmap source)
+        // Merchant/special-map confirmation uses a green button on the right.
+        => Task.FromResult(OpenCvPopupColorAnalysis.Ratio(source, (.52, .68, .56, .72),
+            PopupColorKind.GreenButton) > .15);
+
+    public async Task<bool> HasNextFloorBonusSelectionAsync(Bitmap source, CancellationToken token = default)
+    {
+        var title = await ReadPopupTitleTextAsync(source, token);
+        return PopupRecognition.IsGreedySelectionTitle(title);
+    }
+
+    public async Task<NextFloorDialogKind> DetectNextFloorDialogAsync(
+        Bitmap bitmap,
+        CancellationToken token,
+        Action<string?>? bodyObserved)
+    {
+        var title = await ReadPopupTitleTextAsync(bitmap, token);
+        var body = await ReadScreenTextAsync(bitmap, (.20, .80, .20, .70), "换层弹窗", token);
+        bodyObserved?.Invoke(body);
+        return DetectNextFloorDialog(bitmap, title, body);
+    }
+
+    public NextFloorDialogKind DetectNextFloorDialog(Bitmap bitmap, string? ocrText)
+        => DetectNextFloorDialog(bitmap, ocrText, ocrText);
+
+    public NextFloorDialogKind DetectNextFloorDialog(Bitmap bitmap, string? titleText, string? bodyText)
+    {
+        LastNextFloorDialogKind = PopupRecognition.ClassifyNextFloorDialog(bitmap, titleText, bodyText);
+        return LastNextFloorDialogKind;
+    }
+
+    public NextFloorDialogKind ClassifyNextFloorDialog(Bitmap bitmap, string? ocrText)
+    {
+        LastNextFloorDialogKind = PopupRecognition.ClassifyNextFloorDialog(bitmap, ocrText);
+        return LastNextFloorDialogKind;
+    }
+
+    public Task<string?> ReadPopupTitleTextAsync(Bitmap frame, CancellationToken token = default)
+        => ReadScreenTextAsync(frame, (.35, .65, .03, .18), "贪婪抉择标题", token);
+
+    public async Task<bool> HasRiftGemSelectionAsync(Bitmap bitmap)
+    {
+        LastRiftGemTitle = null;
+        GemTitleDetectionMode = "PaddleOCR";
+        // The title is authoritative; do not reject by card or button colors.
+        var title = await ReadGemTitleAsync(bitmap);
+        return HasRiftGemSelectionText(title);
+    }
+
+    public bool HasRiftGemSelectionText(string? title)
+    {
+        GemTitleDetectionMode = "PaddleOCR";
+        LastRiftGemTitle = title;
+        return !string.IsNullOrWhiteSpace(title) && IsRiftGemTitle(title!);
+    }
+
+    public static bool IsRiftGemTitle(string text)
+        => GemTitleMatcher.IsSelectionTitle(text);
+
+    public async Task<string?> ReadScreenTextAsync(
+        Bitmap source,
+        (double X0, double X1, double Y0, double Y1) region,
+        string description,
+        CancellationToken token = default)
+    {
+        var sx = Math.Clamp((int)(source.Width * region.X0), 0, source.Width - 1);
+        var sy = Math.Clamp((int)(source.Height * region.Y0), 0, source.Height - 1);
+        var sw = Math.Clamp((int)(source.Width * (region.X1 - region.X0)), 1, source.Width - sx);
+        var sh = Math.Clamp((int)(source.Height * (region.Y1 - region.Y0)), 1, source.Height - sy);
+        using var screenCrop = source.Clone(new Rectangle(sx, sy, sw, sh), PixelFormat.Format24bppRgb);
+        return await ReadTextAsync(screenCrop, token);
+    }
+
+    async Task<string?> ReadGemTitleAsync(Bitmap source)
+    {
+        // Keep the full frame: empirical PaddleOCR output degrades when the title
+        // crop is isolated without its surrounding layout context.
+        return await ReadTextAsync(source);
+    }
+
+    public async Task<string> ReadPopupFrameTextAsync(Bitmap frame, CancellationToken token = default)
+    {
+        token.ThrowIfCancellationRequested();
+        var text = await ReadTextAsync(frame, token);
+        token.ThrowIfCancellationRequested();
+        return text;
+    }
+
+    public void Dispose() => paddleOcr.Dispose();
+}

@@ -311,6 +311,7 @@ local function codexExportCurrentMap()
             schema = 1, timestamp = os.time(),
             width = width, height = height,
             level = codexSafeCall(mapData, "getLevel", 0),
+            townMapId = tonumber(mapData.ID) or 0,
             sceneType = codexSafeCall(mapData, "getSceneType", -1),
             caveMode = codexSafeCall(mapData, "getCaveMode", -1),
             mapName = mapName,

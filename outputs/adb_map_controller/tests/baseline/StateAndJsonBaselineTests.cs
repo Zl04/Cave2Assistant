@@ -38,7 +38,7 @@ public sealed class StateAndJsonBaselineTests
         state.InteractedChambers.Add(new Cell(2, 2));
         state.RouteExecution.MoveSpeed = 2400;
         state.RouteExecution.PulseFallback = true;
-        state.MotionInterrupt.Request(MovementPopupKind.LootConfirm);
+        state.MotionInterrupt.Request(MovementPopupKind.ServerError);
         state.StopAutomation();
         Assert.Same(map, state.Map);
         Assert.Equal(7, state.ObservedLevel);
@@ -74,7 +74,7 @@ public sealed class StateAndJsonBaselineTests
     public async Task ConcurrentInterruptRequestsHaveExactlyOneWinner()
     {
         var state = new MotionInterruptState();
-        var results = await Task.WhenAll(Enumerable.Range(0, 32).Select(_ => Task.Run(() => state.Request(MovementPopupKind.LootConfirm))));
+        var results = await Task.WhenAll(Enumerable.Range(0, 32).Select(_ => Task.Run(() => state.Request(MovementPopupKind.ServerError))));
         Assert.Single(results, x => x);
     }
 
@@ -157,7 +157,6 @@ public sealed class StateAndJsonBaselineTests
     [InlineData(MovementPopupKind.ServerError, 1)]
     [InlineData(MovementPopupKind.RiftGemSelection, 1)]
     [InlineData(MovementPopupKind.NextFloorDialog, 1)]
-    [InlineData(MovementPopupKind.LootConfirm, 2)]
     public void PopupConfirmationThresholdIsCompatibilityPolicy(MovementPopupKind kind, int frames)
         => Assert.Equal(frames, PopupDetectionPolicy.RequiredConsecutiveFrames(kind));
 }

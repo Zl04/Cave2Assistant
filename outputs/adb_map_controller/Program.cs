@@ -42,7 +42,7 @@ internal static class Program
             OpenCvRuntime.Initialize();
             ApplicationConfiguration.Initialize();
             runtime = new ControllerRuntime(AppContext.BaseDirectory);
-            var settings = new JsonSettingsStore(runtime.Paths.Settings);
+            var settings = new JsonSettingsStore(runtime.Paths.Settings, runtime.Diagnostics.Record);
             form = new MainForm(runtime, settings);
             Application.Run(form);
         }

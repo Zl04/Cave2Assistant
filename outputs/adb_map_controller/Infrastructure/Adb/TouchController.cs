@@ -1,62 +1,60 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace AdbMapController;
 
-/// <summary>
-/// 面向应用的触摸边界。移动代码依赖这个小型契约，而不必了解 ADB 如何按住、脉冲或释放接触点。
-/// AdbClient 提供底层 ADB 传输。
-/// </summary>
-public sealed class TouchController : IMovementInput, IDisposable
+/// <summary>Device capability consumed by the contact state machine.</summary>
+public interface ITouchTransport
 {
-    readonly AdbClient adb;
-    readonly SemaphoreSlim lifecycle = new(1, 1);
-    (int X, int Y)? heldPoint;
-    public event Action<Exception>? InputFailed;
-    public CancellationToken MovementCancellation { get; set; }
-    public TouchController(AdbClient adb) => this.adb = adb;
+    Task EnsureTouchReady();
+    (int X, int Y) TouchPoint(Cell delta);
+    Task SendTouchDown((int X, int Y) point);
+    Task SendTouchUp();
+    Task SendTouchPulse((int X, int Y) point, int milliseconds);
+}
 
-    CancellationToken OperationCancellation(CancellationToken token)
-        => token.CanBeCanceled ? token : MovementCancellation;
+/// <summary>Serializes gestures and owns the last confirmed or uncertain contact.</summary>
+public sealed class TouchController(ITouchTransport transport) : IMovementInput, IDisposable
+{
+    readonly SemaphoreSlim lifecycle = new(1, 1);
+    bool contactMayBeDown;
+    int disposed;
+    public event Action<Exception>? InputFailed;
+
 
     public async Task TouchDown(Cell delta, CancellationToken cancellationToken = default)
     {
-        await lifecycle.WaitAsync();
+        await lifecycle.WaitAsync().ConfigureAwait(false);
         try
         {
-            await adb.EnsureTouchReady();
-            await ReleaseCore();
-            OperationCancellation(cancellationToken).ThrowIfCancellationRequested();
-            var point = adb.TouchPoint(delta);
-            await SendTouchDown(point);
-            heldPoint = point;
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+            await transport.EnsureTouchReady().ConfigureAwait(false);
+            await ReleaseCore().ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            var point = transport.TouchPoint(delta);
+            // A partial protocol write can reach the device before throwing.
+            // Retain uncertainty until an explicit release is acknowledged.
+            contactMayBeDown = true;
+            await transport.SendTouchDown(point).ConfigureAwait(false);
         }
+        catch (Exception error) { Notify(error); throw; }
         finally { lifecycle.Release(); }
     }
 
     public async Task TouchUp()
     {
-        await lifecycle.WaitAsync();
-        try { await ReleaseCore(); }
+        await lifecycle.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+            await ReleaseCore().ConfigureAwait(false);
+        }
+        catch (Exception error) { Notify(error); throw; }
         finally { lifecycle.Release(); }
     }
 
     async Task ReleaseCore()
     {
-        var point = heldPoint;
-        heldPoint = null;
-        if (point is null) return;
-        try
-        {
-            await SendTouchUp();
-        }
-        catch
-        {
-            // 释放失败时不要将其视为本地仍处于按住状态。
-            // 传输错误会停止路线并重新创建 Shell。
-            throw;
-        }
+        if (!contactMayBeDown) return;
+        await transport.SendTouchUp().ConfigureAwait(false);
+        contactMayBeDown = false;
     }
 
     public Task ChangeDirection(Cell delta, CancellationToken cancellationToken = default)
@@ -64,45 +62,42 @@ public sealed class TouchController : IMovementInput, IDisposable
 
     public async Task PulseOneCell(Cell delta, int milliseconds, CancellationToken cancellationToken = default)
     {
-        await lifecycle.WaitAsync();
+        await lifecycle.WaitAsync().ConfigureAwait(false);
         try
         {
-            await adb.EnsureTouchReady(); await ReleaseCore();
-            OperationCancellation(cancellationToken).ThrowIfCancellationRequested();
-            var point = adb.TouchPoint(delta);
-            await SendTouchPulse(point, Math.Max(1, milliseconds));
-            OperationCancellation(cancellationToken).ThrowIfCancellationRequested();
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+            await transport.EnsureTouchReady().ConfigureAwait(false);
+            await ReleaseCore().ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            var point = transport.TouchPoint(delta);
+            contactMayBeDown = true;
+            await transport.SendTouchPulse(point, Math.Max(1, milliseconds)).ConfigureAwait(false);
+            contactMayBeDown = false;
+            cancellationToken.ThrowIfCancellationRequested();
         }
+        catch (Exception error) { Notify(error); throw; }
         finally { lifecycle.Release(); }
     }
 
     public Task HoldInteraction(Cell delta, int milliseconds, CancellationToken cancellationToken = default)
         => PulseOneCell(delta, milliseconds, cancellationToken);
-
     public Task EmergencyRelease() => TouchUp();
 
-    async Task SendTouchPulse((int X, int Y) point, int milliseconds)
+    void Notify(Exception error)
     {
-        try { await adb.SendTouchPulse(point, milliseconds); }
-        catch (Exception ex) { InputFailed?.Invoke(ex); throw; }
-    }
-
-    async Task SendTouchDown((int X, int Y) point)
-    {
-        try { await adb.SendTouchDown(point); }
-        catch (Exception ex) { InputFailed?.Invoke(ex); throw; }
-    }
-
-    async Task SendTouchUp()
-    {
-        try { await adb.SendTouchUp(); }
-        catch (Exception ex) { InputFailed?.Invoke(ex); throw; }
+        if (error is OperationCanceledException or ObjectDisposedException) return;
+        if (InputFailed is not { } handlers) return;
+        foreach (Action<Exception> handler in handlers.GetInvocationList())
+            try { handler(error); } catch { /* Observers cannot replace a transport failure. */ }
     }
 
     public void Dispose()
     {
-        // 同步释放绝不能等待 UI 同步上下文。
-        // 窗体会在释放传输前等待 EmergencyRelease。
-        heldPoint = null;
+        if (Interlocked.Exchange(ref disposed, 1) != 0) return;
+        lifecycle.Wait();
+        try { contactMayBeDown = false; }
+        finally { lifecycle.Release(); }
+        // The owner releases the device before disposal. Already queued callers
+        // still need a valid semaphore so they can observe disposed admission.
     }
 }

@@ -17,6 +17,7 @@ public sealed class DungeonEntryAutomation
     readonly VisionTaskCatalog? visionTasks;
     readonly Action<string> log;
     readonly Action<string> state;
+    MapDump? mapBeforeChallenge;
 
     public DungeonEntryAutomation(AdbClient adb, EntryTemplateStore templates,
         Action<string> log, Action<string> state)
@@ -44,6 +45,7 @@ public sealed class DungeonEntryAutomation
         if (!template.IsValid) throw new InvalidDataException("入口识图模板损坏，请重新标定");
 
         var pipelinePath = Path.Combine(AppContext.BaseDirectory, "pipelines", "dungeon-entry-pipeline.json");
+        mapBeforeChallenge = null;
         var catalog = MaaPipelineCatalogLoader.Load(pipelinePath);
         var pipeline = new MaaPipeline<DungeonEntryAutomation>(
             catalog,
@@ -78,6 +80,14 @@ public sealed class DungeonEntryAutomation
             "DungeonEntryStep",
             async (task, _, token) =>
             {
+                if (task.Name == "WaitForMapLoad")
+                {
+                    token.ThrowIfCancellationRequested();
+                    var current = await adb.ReadMap();
+                    return HasEnteredDungeon(mapBeforeChallenge, current)
+                        ? MaaPipelineRecognitionResult.Hit(detail: "地图已切换到副本")
+                        : MaaPipelineRecognitionResult.Miss(detail: "等待地图切换到副本");
+                }
                 if (!string.Equals(task.Name, "BastanMapOpened", StringComparison.Ordinal))
                     return MaaPipelineRecognitionResult.Hit(detail: "Pipeline 节点由领域 handler 执行");
 
@@ -116,11 +126,23 @@ public sealed class DungeonEntryAutomation
                 state($"识别{selection.Map.Name}层节点");
                 if (!await LocateAndSelectLayer(selection, token))
                     throw new InvalidOperationException($"已进入“{selection.Map.Name}”，但未能通过识图和 OCR 确认“{selection.Entry.Name}”节点，未执行盲点");
+                mapBeforeChallenge = await adb.ReadMap();
+                return;
+            case "WaitForMapLoad":
+                log("已确认地图切换，自动进图成功");
+                state("自动进图成功");
                 return;
             default:
                 throw new InvalidDataException($"进图 Pipeline 未知节点：{taskName}");
         }
     }
+
+    static bool HasEnteredDungeon(MapDump? previous, MapDump current)
+        => previous is not null && current.SceneType == 2 && current.Width > 0 && current.Height > 0
+            && current.Tiles.Count > 0 && current.Timestamp >= previous.Timestamp
+            && (previous.SceneType != current.SceneType || previous.Level != current.Level
+                || previous.CaveMode != current.CaveMode || previous.MapName != current.MapName
+                || previous.Width != current.Width || previous.Height != current.Height);
 
     async Task EnterDungeon(DungeonEntrySelection selection, CancellationToken token)
     {

@@ -25,6 +25,9 @@ public static class FloorPlanningPolicy
     public static bool IsMonsterHuntRoom(MapDump map)
         => Resolve(map) == FloorPlanningMode.MonsterHunt;
 
+    public static bool IncludeAllInteractions(MapDump map)
+        => CardFloorPolicy.MaximumFloor(map) is { } maximum && map.Level > maximum;
+
     public static bool IsMonster(RoleInfo role)
         => role.ClassName == "MonsterData" && role.Kind is "小怪" or "群怪" or "精英" or "小Boss" or "Boss";
 }

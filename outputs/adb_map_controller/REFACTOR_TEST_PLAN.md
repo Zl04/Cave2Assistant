@@ -1,6 +1,12 @@
 # 保行为测试计划与当前覆盖
 
-日期：2026-10-08（RU-01后更新）。测试冻结当前语义，包括已知不理想行为；测试通过不授权更改业务规则。RU-01只恢复AdbClient声明，未触碰设备。
+日期：2026-10-08（RU-02后更新）。测试冻结当前语义，包括已知不理想行为；测试通过不授权更改业务规则。RU-02只调整测试工程和文档，未触碰生产源码或设备。
+
+阶段结论补记（2026-10-09）：用户确认实际跑图/自动进图正常，并明确触摸时序、弹窗抢占、RunLoop可视为核验通过；当前阶段不要求相关剩余自动化/设备trace或RU-09/10/13、RU-12闭环。验证报告必须区分用户实际使用确认与自动化覆盖；关闭交接、视觉缺样本、局部时间常量命名仍是已知非阻塞项。
+
+RU-15前历史执行记录：RU-03/04/05/06/07/08/11/14生产接管或保障完成；RU-09/10/13仍有自动化覆盖缺口，RU-12未开始但当前阶段不要求闭环。Debug与Release主142/142、baseline52/52均通过，0失败/0跳过。主工程新增88例。用户确认实际跑图、自动进图、触摸时序、弹窗抢占、RunLoop均正常，作为本阶段用户实际使用核验通过；这不等同于所有专项硬件trace。关闭交接、视觉缺失样本和其余时间常量命名均保留为非阻塞已知缺口。
+
+RU-15后最新Release完整验证（2026-10-09）：主测试156/156、独立baseline51/51，0失败/0跳过；两套均直接按各自工程配置执行。独立用例比历史记录少1，是已有工作区修改删除一条LootConfirm InlineData，本次重构没有改测试。新增加的生产模块边界仍由现有AdbClient生产程序集测试覆盖。设备行为的用户实际使用核验与自动化证据分开记录；当前阶段按用户要求接受已有验证，不要求补全剩余trace。
 
 ## 1. 可复现命令与结果
 
@@ -15,7 +21,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Verify-RefactorBasel
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Verify-RefactorBaseline.ps1 -Publish
 ```
 
-SDK 8.0.401 / VSTest 17.11.0。RU-01后完整脚本exit 0：生产引用测试 **6/6**，独立 baseline **52/52**，均无跳过；生产Release构建0警告/0错误。本次未发布，native资源随正式publish的装载验证仍未覆盖。
+SDK 8.0.401 / VSTest 17.11.0。Debug与Release生产引用测试均 **142/142**、独立baseline均 **52/52**；完整Release验证脚本exit 0，Release build 0 warning/0 error。本轮未发布；正式publish目录内native部署/装载仍未验证。
+
+主工程通过ProjectReference使用真实生产类型，RU-02阶段五份baseline手写测试（48例）加原有6例共54例。此后新增88例均只加入主工程，当前预计142例。独立工程复用原有4例及新增48例，共52例；原SettingsStoreTests两例只在主工程，故两工程数量不同。主工程不链接生产源文件并排除baseline生成源码；Fixture复制到输出目录。未改业务断言或预期。
 
 源码链接式 fallback 的局限：同一个测试程序集编译选定生产源文件，不能发现主 csproj 的资源/native 装载、生产程序集边界、漏掉的设备类或真正的 UI 行为；链接后 internal 可见性与真实程序集不同，因此新增用例只调用 public seam。独立项目不复制/修改生产代码，不替代原 ProjectReference 测试。
 
@@ -31,6 +39,7 @@ SDK 8.0.401 / VSTest 17.11.0。RU-01后完整脚本exit 0：生产引用测试 *
 | baseline/PipelineBaselineTests.cs | 12 | MAA action→sub→next/maxTimes/顺序重跑/Stop/trace异常；MAA action不受timeout限制，候选超时后onError；owner取消handler finally；Task entry跳过识别/失败重试/协作超时/取消不重试/忽略取消仍可成功；UI共享帧fallback | 全部 MAA 继承表达式、真实资源运行、硬超时、非协作handler终止 |
 | baseline/PortalLearningBaselineTests.cs | 5 | 一格邻近落点学习；Reset清边；不移动/两格外/跨层拒绝；随机才静态候选fallback | 解锁关联、随机多目的地、MainForm防回跳 |
 | baseline/SettingsFailureBaselineTests.cs | 3 | 缺失/损坏=null，失败保存不抛错且无tmp，覆盖保留值 | 设置诊断新增功能、所有权限/磁盘故障类型 |
+| VisualFrameReplayTests / VisualFixtures | 2 | 一张真实游戏负帧；用户提供的6张帧覆盖普通/警告换层、宝石、贪婪继续-only/回城-only/混合卡，并验证颜色与卡片索引 | server-error/Loot正例、purpose-built近似负例、其它分辨率/动画及OCR/native准确率 |
 
 Fixture：`Fixtures/maa-semantics.json`（虚拟 handler、无设备动作）和 `tolerant-tile.json`（合成字段异常，不冒充设备快照）。复制到测试输出后使用；设置测试仅在输出目录下创建唯一临时目录并 finally/Dispose 删除。JSON 全局诊断的用例禁止与其它 collection 并行。异步超时用例使用 CT 驱动，不断言毫秒级墙钟；外层 WaitAsync(5s) 仅是失败保护，不是生产硬超时契约。
 
@@ -78,7 +87,7 @@ Fixture：`Fixtures/maa-semantics.json`（虚拟 handler、无设备动作）和
 | 取消/超时 | 自己的CT取消循环及120ms delay；native OCR/共享capture可能还在完成；popup不得取消整个owner |
 | 资源 | using释放返回frame clone；RunMovement finally取消并await watchdog；不能仅cancel然后Dispose ADB/OCR |
 | 调用顺序 | frameId→capture→pipeline→确认帧数→Request赢得锁存→cancelCurrentMovement→(活动则)EmergencyRelease→detected；主循环先消费后恢复 |
-| 回归方案 | 已测MotionInterrupt+阈值，不是watchdog集成；待fake probe脚本None/A/A、disabled、idle latch、release fail、owner cancel；保持序列及shared frame；M03真机 |
+| 回归方案 | 已测MotionInterrupt+阈值；新增fake ADB生产程序集测试覆盖同FrameId共享、waiter独立取消、不同FrameId重捕、Disconnect清缓存及Bitmap clone；仍不是PopupWatchdog集成。待fake probe脚本None/A/A、disabled、idle latch、release fail、owner cancel；保持序列及shared frame；M03真机 |
 
 ### C04 FloorStateMachine / 楼层转场
 

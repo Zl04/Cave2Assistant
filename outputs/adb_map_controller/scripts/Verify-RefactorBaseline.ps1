@@ -52,7 +52,7 @@ try {
         else { Write-Host "Published: $(Join-Path (Join-Path $projectRoot 'publish') $applicationName)" }
     }
 } finally {
-    foreach ($relativePath in @('publish\.build', 'tests\publish\.build', 'tests\baseline\publish\.build')) {
+    foreach ($relativePath in @('publish\.build', 'tests\publish\.build', 'tests\baseline\publish\.build', 'tests\FakeAdb\publish\.build')) {
         $cleanupTargets.Add((Join-Path $projectRoot $relativePath))
     }
     foreach ($target in $cleanupTargets) {

@@ -39,8 +39,16 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     readonly ComboBox entryDifficulty = new ThemedComboBox { Width = 78, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "自动进图难度" };
     readonly ComboBox themeChoice = new ThemedComboBox { Width = 105, DropDownStyle = ComboBoxStyle.DropDownList };
     readonly CheckBox alwaysOnTop = Box("窗口置顶");
-    readonly ListBox bonusPriority = new() { Width = 230, Height = 104, IntegralHeight = false, AllowDrop = true, SelectionMode = SelectionMode.One,
-        BorderStyle = BorderStyle.FixedSingle, Tag = ThemeRole.Input };
+    readonly ListBox bonusPriority = new()
+    {
+        Width = 230,
+        Height = 104,
+        IntegralHeight = false,
+        AllowDrop = true,
+        SelectionMode = SelectionMode.One,
+        BorderStyle = BorderStyle.FixedSingle,
+        Tag = ThemeRole.Input
+    };
     readonly ToolStripDropDown bonusPriorityPopup = new() { AutoClose = true, AutoSize = false, Padding = new Padding(3) };
     readonly Button bonusPriorityToggle = Btn("加成优先级", ThemeRole.SecondaryButton);
     readonly CheckBox mining = Box("挖矿");
@@ -52,11 +60,10 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     readonly SemaphoreSlim refreshLock = new(1, 1);
     long lastOverlayUnknownLogAt;
     readonly SemaphoreSlim clickNavigationSwitch = new(1, 1);
-    CancellationTokenSource? runCts; CancellationTokenSource? entryCts;
-    readonly object movementSliceGate = new();
-    CancellationTokenSource? currentMovementSlice;
-    Task? activeMovement;
-    Task? activeEntry;
+    readonly ControllerOperations operations = new();
+    readonly MovementExecution movementExecution;
+    Task? activeMovement => operations.TaskFor(ControllerOperationKind.Movement);
+    Task? activeEntry => operations.TaskFor(ControllerOperationKind.Entry);
     Task? shutdownTask;
     readonly OperationTracker uiOperations = new();
     bool closing, closeReady, stopping, scanning;
@@ -109,8 +116,13 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         Tag = role,
     };
     static readonly string[] BonusKinds = [
-        "增益效果", "魔法材料", "回复药剂", "道具",
-        "物资", "锻造材料", "附魔材料"
+        "增益效果",
+        "魔法材料",
+        "回复药剂",
+        "道具",
+        "物资",
+        "锻造材料",
+        "附魔材料"
     ];
     // 换层弹窗有入场动画，不能在一次截图失败后直接按三选一坐标盲点。
     // 每轮按固定顺序检查三类换层界面，全部未识别时短暂等待后持续重试。
@@ -122,11 +134,12 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         this.settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
         adb = runtime.Adb;
         touch = runtime.Touch;
+        movementExecution = new MovementExecution(dungeon.MotionInterrupt);
         routeExecutor = new RouteExecutor(adb, touch);
         pipelineWebServer = runtime.PipelineMonitor;
         entryTemplates = new EntryTemplateStore(runtime.Paths.EntryTemplates);
-        touch.InputFailed += ex => { runCts?.Cancel(); entryCts?.Cancel(); Error(ex); };
-        Text = "洞窟地图 ADB 控制器"; Width = 946; Height = 643; MinimumSize = new(946, 643);
+        touch.InputFailed += ex => { operations.Cancel(ControllerOperationKind.Movement); operations.Cancel(ControllerOperationKind.Entry); Error(ex); };
+        Text = "洞窟地图 ADB 控制器"; Width = 786; Height = 643; MinimumSize = new(786, 643);
         AutoScaleMode = AutoScaleMode.Dpi;
         Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
         attackBoss.Checked = true;
@@ -166,8 +179,15 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         bonusPriority.MouseDown += (_, e) => { if (e.Button == MouseButtons.Left && bonusPriority.IndexFromPoint(e.Location) >= 0) bonusPriority.DoDragDrop(bonusPriority.IndexFromPoint(e.Location), DragDropEffects.Move); };
         bonusPriority.DragOver += (_, e) => e.Effect = DragDropEffects.Move;
         bonusPriority.DragDrop += (_, e) => { var from = (int)e.Data!.GetData(typeof(int))!; var to = bonusPriority.IndexFromPoint(bonusPriority.PointToClient(new Point(e.X, e.Y))); if (to < 0) to = bonusPriority.Items.Count - 1; var item = bonusPriority.Items[from]; bonusPriority.Items.RemoveAt(from); bonusPriority.Items.Insert(to, item); bonusPriority.SelectedIndex = to; SaveSettings(); };
-        var top = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Padding = new(10, 8, 10, 6), WrapContents = true, Tag = ThemeRole.Surface };
+        var top = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding = new(10, 8, 10, 6),
+            WrapContents = true,
+            Tag = ThemeRole.Surface
+        };
         var scan = Btn("扫描设备", ThemeRole.SecondaryButton); var refresh = Btn("刷新地图", ThemeRole.SecondaryButton);
         var plan = Btn("规划路线", ThemeRole.InfoButton); var start = Btn("开始", ThemeRole.SuccessButton); var pause = Btn("暂停", ThemeRole.WarningButton); var step = Btn("单步", ThemeRole.InfoButton); var stop = Btn("急停", ThemeRole.DangerButton);
         var autoEnter = Btn("识图自动进图", ThemeRole.SuccessButton); var calibrateEntry = Btn("更新入口模板", ThemeRole.UtilityButton);
@@ -175,10 +195,25 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         var detectAssistant = Btn("检测助手", ThemeRole.UtilityButton); var installAssistant = Btn("安装助手", ThemeRole.UtilityButton); var restoreAssistant = Btn("恢复原版", ThemeRole.DangerButton); var openTestPanel = Btn("打开测试面板", ThemeRole.WarningButton);
         var mine = Btn("挖矿", ThemeRole.WarningButton);
         top.Controls.AddRange([refresh, plan, start, mine, pause, step, stop, autoEnter, calibrateEntry, miniWindow, openWebMonitor, alwaysOnTop]);
-        var settingsTop = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Padding = new(10, 8, 10, 6), WrapContents = true, Tag = ThemeRole.Surface };
-         settingsTop.Controls.AddRange([new Label { Text = "设备", AutoSize = true, Padding = new(0, 6, 0, 0) }, devices, scan, detectAssistant, installAssistant, restoreAssistant, openTestPanel, assistantState,
-            new Label { Text = "主题", AutoSize = true, Padding = new(10, 6, 0, 0) }, themeChoice]);
+        var settingsTop = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding = new(10, 8, 10, 6),
+            WrapContents = true,
+            Tag = ThemeRole.Surface
+        };
+        settingsTop.Controls.AddRange([new Label { Text = "设备", AutoSize = true, Padding = new(0, 6, 0, 0) },
+            devices,
+            scan,
+            detectAssistant,
+            installAssistant,
+            restoreAssistant,
+            openTestPanel,
+            assistantState,
+            new Label { Text = "主题", AutoSize = true, Padding = new(10, 6, 0, 0) },
+            themeChoice]);
         var options = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 9, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
         options.Controls.AddRange([new Label { Text = "目标（钥匙必选）：", AutoSize = true }, attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, bonusPriorityToggle]);
         var floorStop = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
@@ -187,23 +222,15 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         entryOptions.Controls.AddRange([new Label { Text = "自动进图：", AutoSize = true }, entryMapChoice, entryChoice, entryDifficulty, new Label { Text = "入口识别：内置图标或当前地图场景模板", AutoSize = true, Padding = new(4, 5, 0, 0), Tag = ThemeRole.WarningText }]);
         var timing = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 7, 10, 5), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
         timing.Controls.AddRange([new Label { Text = "时间参数：", AutoSize = true }, new Label { Text = "单格脉冲按住(ms)", AutoSize = true }, singleCellPulseHold, new Label { Text = "提前/延迟松开(ms)", AutoSize = true }, movementReleaseLead, new Label { Text = "交互按住(ms)", AutoSize = true }, interactionHold, new Label { Text = "卡住超时(ms)", AutoSize = true }, stallTimeout, new Label { Text = "新层启动延迟(ms)", AutoSize = true }, newFloorStartDelay, new Label { Text = "规划容错次数", AutoSize = true }, routeRecoveryAttempts]);
-        var split = new SplitContainer
-        {
-            Dock = DockStyle.Fill,
-            Orientation = Orientation.Vertical,
-            SplitterDistance = 760,
-            SplitterWidth = 1,
-            BorderStyle = BorderStyle.None,
-            Tag = ThemeRole.Default,
-        };
-        split.Panel1.Controls.Add(mapPanel); split.Panel2.Controls.Add(log);
         var runPage = new ThemedTabPage { Text = "运行", Padding = new(0), Tag = ThemeRole.Default };
-        runPage.Controls.Add(split); runPage.Controls.Add(top);
+        runPage.Controls.Add(mapPanel); runPage.Controls.Add(top);
+        var logPage = new ThemedTabPage { Text = "日志", Padding = new(0), Tag = ThemeRole.Default };
+        logPage.Controls.Add(CreateLogView());
         var settingsPage = new ThemedTabPage { Text = "设置", Padding = new(0), Tag = ThemeRole.Default };
         settingsPage.Controls.Add(CreateMiningSettings());
         settingsPage.Controls.Add(timing); settingsPage.Controls.Add(floorStop); settingsPage.Controls.Add(entryOptions); settingsPage.Controls.Add(options); settingsPage.Controls.Add(settingsTop);
         var tabs = new ThemedTabControl { Dock = DockStyle.Fill, Tag = ThemeRole.Default };
-        tabs.TabPages.Add(runPage); tabs.TabPages.Add(settingsPage);
+        tabs.TabPages.Add(runPage); tabs.TabPages.Add(settingsPage); tabs.TabPages.Add(logPage);
         Controls.Add(tabs);
         scan.Click += async (_, _) => await RunUi(Scan); refresh.Click += async (_, _) => await RunUi(() => RefreshMap()); plan.Click += async (_, _) => await RunUi(Replan); start.Click += async (_, _) => await RunUi(StartRun); pause.Click += async (_, _) => await RunUi(async () => { await StopMovement(); State("已暂停"); }); step.Click += async (_, _) => await RunUi(Step); stop.Click += async (_, _) => await RunUi(EmergencyStopAndClear);
         autoEnter.Click += async (_, _) => await RunUi(AutoEnter); calibrateEntry.Click += async (_, _) => await RunUi(CalibrateEntry);
@@ -211,7 +238,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         miniWindow.Click += (_, _) => ToggleMiniWindowMode();
         openWebMonitor.Click += (_, _) => OpenPipelineWebMonitor();
         alwaysOnTop.CheckedChanged += (_, _) => { ApplyAlwaysOnTop(); SaveSettings(); };
-         detectAssistant.Click += async (_, _) => await RunUi(DetectAssistant); installAssistant.Click += async (_, _) => await RunUi(InstallAssistant); restoreAssistant.Click += async (_, _) => await RunUi(RestoreAssistant); openTestPanel.Click += async (_, _) => await RunUi(OpenTestPanel);
+        detectAssistant.Click += async (_, _) => await RunUi(DetectAssistant); installAssistant.Click += async (_, _) => await RunUi(InstallAssistant); restoreAssistant.Click += async (_, _) => await RunUi(RestoreAssistant); openTestPanel.Click += async (_, _) => await RunUi(OpenTestPanel);
         bonusPriorityToggle.Click += (_, _) =>
         {
             if (bonusPriorityPopup.Visible)
@@ -245,7 +272,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             // This is a background snapshot, not a user operation. Going
             // through RunUi would toggle the device ComboBox Enabled state
             // every 500 ms and make the selector visibly flicker.
-            if (runCts is null && activeEntry is null && !uiOperations.IsBusy)
+            if (activeMovement is null && activeEntry is null && !uiOperations.IsBusy)
                 await RefreshMap(false, lockDeviceSelection: false);
         }; Shown += async (_, _) => await RunUi(async () => { await Scan(); await RefreshMap(); if (!closing) refreshTimer.Start(); });
         foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, mining, cardMining, cardLayer, entryMapChoice, entryChoice, entryDifficulty })
@@ -268,7 +295,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         }
         catch (Exception ex)
         {
-            Log($"MAA Pipeline 本地 Web 监控启动失败：{ex.Message}");
+            Log($"MAA Pipeline 本地 Web 监控启动失败：{ex.Message}", LogLevel.Error);
         }
         FormClosing += async (_, e) =>
         {
@@ -327,7 +354,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     {
         if (string.IsNullOrWhiteSpace(pipelineWebServer.Url))
         {
-            Log("MAA Pipeline 本地 Web 监控不可用");
+            Warn("MAA Pipeline 本地 Web 监控不可用");
             return;
         }
 
@@ -407,17 +434,39 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         => control.Value = Math.Clamp(value, control.Minimum, control.Maximum);
     void SaveSettings()
     {
-        var s = new ControllerSettings { Theme = CurrentThemeMode, AlwaysOnTop = alwaysOnTop.Checked, AttackBoss = attackBoss.Checked, Monsters = monsters.Checked, Elites = elites.Checked, Chests = chests.Checked,
-            Pots = pots.Checked, Bones = bones.Checked, Gold = gold.Checked, Runes = runes.Checked, Chambers = chambers.Checked,
-            SingleCellPulseHold = singleCellPulseHold.Value, MovementReleaseLead = movementReleaseLead.Value,
-            MiningTileWidth = miningTileWidth.Value, MiningTileHeight = miningTileHeight.Value, MiningInterval = miningInterval.Value,
-            InteractionHold = interactionHold.Value, StallTimeout = stallTimeout.Value, NewFloorStartDelay = newFloorStartDelay.Value, RouteRecoveryAttempts = routeRecoveryAttempts.Value,
-            TargetStopFloor = (int)targetStopFloor.Value, CardLayer = cardLayer.Checked,
-            Mining = mining.Checked, CardMining = cardMining.Checked,
-            EntryMapId = SelectedEntryMap.Id, EntryId = Math.Max(1, entryChoice.SelectedIndex + 1),
+        var s = new ControllerSettings
+        {
+            Theme = CurrentThemeMode,
+            AlwaysOnTop = alwaysOnTop.Checked,
+            AttackBoss = attackBoss.Checked,
+            Monsters = monsters.Checked,
+            Elites = elites.Checked,
+            Chests = chests.Checked,
+            Pots = pots.Checked,
+            Bones = bones.Checked,
+            Gold = gold.Checked,
+            Runes = runes.Checked,
+            Chambers = chambers.Checked,
+            SingleCellPulseHold = singleCellPulseHold.Value,
+            MovementReleaseLead = movementReleaseLead.Value,
+            MiningTileWidth = miningTileWidth.Value,
+            MiningTileHeight = miningTileHeight.Value,
+            MiningInterval = miningInterval.Value,
+            InteractionHold = interactionHold.Value,
+            StallTimeout = stallTimeout.Value,
+            NewFloorStartDelay = newFloorStartDelay.Value,
+            RouteRecoveryAttempts = routeRecoveryAttempts.Value,
+            TargetStopFloor = (int)targetStopFloor.Value,
+            CardLayer = cardLayer.Checked,
+            Mining = mining.Checked,
+            CardMining = cardMining.Checked,
+            EntryMapId = SelectedEntryMap.Id,
+            EntryId = Math.Max(1, entryChoice.SelectedIndex + 1),
             EntryDifficulty = (DungeonDifficulty)Math.Clamp(entryDifficulty.SelectedIndex, (int)DungeonDifficulty.Normal, (int)DungeonDifficulty.Nightmare),
             EntryEliteMode = entryDifficulty.SelectedIndex == (int)DungeonDifficulty.Elite,
-            Device = devices.Text, BonusPriority = bonusPriority.Items.Cast<string>().ToList() };
+            Device = devices.Text,
+            BonusPriority = bonusPriority.Items.Cast<string>().ToList()
+        };
         settingsStore.Save(s);
     }
 

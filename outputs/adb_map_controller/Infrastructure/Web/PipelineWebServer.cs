@@ -27,6 +27,7 @@ public sealed class PipelineWebServer : IMaaPipelineTraceSink, IAsyncDisposable
     readonly object liveGate = new();
     readonly string traceDirectory;
     readonly string webRoot;
+    readonly Func<IReadOnlyList<string>>? diagnostics;
     readonly List<MaaPipelineTraceEvent> liveEvents = [];
     readonly CancellationTokenSource stopSource = new();
     HttpListener? listener;
@@ -36,10 +37,13 @@ public sealed class PipelineWebServer : IMaaPipelineTraceSink, IAsyncDisposable
     DateTimeOffset? liveStartedAt;
     DateTimeOffset? liveLastEventAt;
 
-    public PipelineWebServer(string traceDirectory, string webRoot)
+    public PipelineWebServer(string traceDirectory, string webRoot) : this(traceDirectory, webRoot, null) { }
+
+    public PipelineWebServer(string traceDirectory, string webRoot, Func<IReadOnlyList<string>>? diagnostics)
     {
         this.traceDirectory = Path.GetFullPath(traceDirectory);
         this.webRoot = Path.GetFullPath(webRoot);
+        this.diagnostics = diagnostics;
     }
 
     public string? Url { get; private set; }
@@ -126,6 +130,12 @@ public sealed class PipelineWebServer : IMaaPipelineTraceSink, IAsyncDisposable
                 if (path == "/" || path == "/index.html")
                 {
                     await WriteFileAsync(context, Path.Combine(webRoot, "pipeline.html"), "text/html; charset=utf-8");
+                    return;
+                }
+
+                if (path.Equals("/api/diagnostics", StringComparison.OrdinalIgnoreCase))
+                {
+                    await WriteJsonAsync(context, diagnostics?.Invoke() ?? Array.Empty<string>());
                     return;
                 }
 

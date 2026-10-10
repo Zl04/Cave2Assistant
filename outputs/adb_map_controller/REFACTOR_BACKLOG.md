@@ -1,6 +1,6 @@
 # 可执行重构 Backlog
 
-状态：RU-01 已完成源码恢复及 Release 构建/测试验证；未发布、未提交。RU-02 至 RU-14 仍为计划，等待下一步指令。各 Unit 独立提交；工作区含用户既有改动，不得用整文件 restore/reset 覆盖。
+状态（2026-10-09，最新）：RU-01至RU-08、RU-11/14已完成；本轮新增RU-15（AdbClient职责拆分）已完成。RU-09/10/13保留部分自动化覆盖，RU-12未开始且当前阶段不要求闭环。用户确认控制器实际跑图、自动进图、触摸时序、弹窗抢占和RunLoop正常，设备核验按用户实际使用验证接受；无独立trace的项不伪称自动化覆盖。Release全量验证最新结果为主测试156/156、独立测试51/51，均0失败/0跳过；独立测试数减少来自本轮前已有工作区改动删除一条LootConfirm理论用例，本轮未修改测试。当前阶段无强制遗留重构项；其它缺口作为未来可选改进。详见REFACTOR_EXECUTION_REPORT.md。
 
 依据：REFACTOR_BASELINE.md 的 TD-01..18/B-01..05、REFACTOR_TEST_PLAN.md 的 C01..09/G0..6。目标设计见 TARGET_ARCHITECTURE.md。未知业务语义必须先确认，不能用重构消除告警。
 
@@ -24,6 +24,7 @@
 | 最后/条件执行 | RU-12 单个应用用例迁移 | 高/高 | G2/G3/G4/G6；一用例一提交 | RU-09及相关设备保障 |
 | 低侵入支线 | RU-13 命名已验证常量 | 中/低 | 默认/单位/输入序列一致 | RU-02；受影响设备门槛 |
 | 安全支线 | RU-14 Web回环/路径边界测试 | 中/低 | localhost测试、代码无需变 | RU-02 |
+| 门面瘦身 | RU-15 AdbClient职责拆分 | 高/中 | 生产ProjectReference全测、单元可回退 | RU-06/07/08 |
 
 默认推荐首先执行 **RU-01、RU-02、RU-03**。RU-09/10 的素材和事件记录可以提前准备，但不会替代G0，也不能据此提前迁移生产编排。
 
@@ -56,9 +57,12 @@
 - 回归测试：全54例无跳过，独立52例；检查测试发现数量、Fixture来源和集合并行限制。
 - 验收标准：主测试直接引用真实生产程序集且全绿；fallback和主测试报告分开；从无.build环境可重现；生产文件零修改。
 - 回滚策略：仅回退测试工程include/fixture映射及脚本调整，保留新增测试源。
-- 推荐：第二项，恢复之后所有结构改动必须依赖此保障。
+- 执行记录（2026-10-08）：原测试工程显式纳入五个 baseline 手写测试文件，保留生产 ProjectReference，两个 Fixture 映射至输出 Fixtures/。Release/Debug 主测试54/54、独立52/52，失败及跳过均0；完整脚本两次exit 0，第二次清洁构建验证通过。无生产源码修改、无新增测试跳过；未发布、未提交、未操作设备。
+- 推荐：已完成；RU-03 前置满足，等待单独执行指令。
 
 ### RU-03 — RouteSession归属Navigation
+
+执行状态：完成。文件已移到 Navigation，内容与 HEAD 原文件逐字一致（忽略行尾）；54/52测试通过。baseline 的 Domain/Navigation 通配符无需调整，旧文件没有残留。下述“当前位置”为执行前证据。
 
 - 问题：TD-01最直接的Domain→Navigation反向类型依赖。
 - 当前位置：Domain/RouteSession.cs:12-13,32；Navigation/Planner.cs中计划类型。
@@ -74,6 +78,8 @@
 
 ### RU-04 — 锁定Pipeline入口、配置与三种超时语义
 
+执行状态：完成测试保障单元。新增 PipelineContractTests 16例，真实MAA/Popup资源复制和离线黄金路径通过，运行约束及字段说明见 docs/PIPELINE_CONTRACTS.md。未修改或删除生产runtime。
+
 - 问题：TD-04/B-05；历史计划混淆超时/重试且覆盖不足。
 - 当前位置：MaaPipeline.cs:893-1127、TaskPipeline.cs:234-384、UiPipeline.cs:115-166；Resources/Automation；MainForm.Automation:61。
 - 目标设计：三种runtime职责隔离；声明Maa实例顺序使用；配置/编译/trace与handler测试先齐备，不统一引擎。
@@ -87,6 +93,8 @@
 - 推荐：是，可在目录整理后独立提交。
 
 ### RU-05 — 保容错的有限诊断旁路
+
+执行状态：完成。NonCriticalDiagnostics采用进程内100条/512字符/30秒全局节流，配置失败和JSON消费点接线；本机GET /api/diagnostics为实际消费方，无新增磁盘I/O。3例新增测试及既有JSON/配置测试通过；回调异常隔离，缺文件静默，默认值/临时覆盖保持。
 
 - 问题：TD-07/11/15、B-03；JSON诊断丢弃、配置失败无可见证据。
 - 当前位置：MainForm.DeviceMap.cs:197；Domain/Models.cs:18-27；Configuration/SettingsStore.cs:23-43。
@@ -102,6 +110,8 @@
 
 ### RU-06 — ADB传输golden与单owner接管
 
+执行状态：完成。`AdbClient`的Run/RunRoot/root能力/reset/dispose已委托唯一`AdbCommandTransport`，旧root进程与锁已删除。Fake ADB生产引用测试覆盖argv/serial切换、devices、root拒绝转su、玩家JSON、EOF/非零退出及marker golden。LDPlayer `emulator-5554`（Android 9/API 28）经授权执行root启用及adbd重枚举；同serial恢复、shell uid=0、生产facade `ReadPlayer`在Disconnect前后成功且serial保持，设备游戏进程未终止。没有触摸或改变游戏状态。Debug/Release主测试全绿。
+
 - 问题：TD-03/09、B-01；重复Run/RunRoot、标记转义差异。
 - 当前位置：AdbClient.cs:153-214,232-293；AdbCommandTransport.cs:20-156。
 - 目标设计：Serial/root state/Process/marker归transport，AdbClient保持facade；先golden再一次接管对应方法及reset/dispose。
@@ -115,6 +125,8 @@
 - 推荐：有门槛后执行，不紧跟编译恢复自动开始。
 
 ### RU-07 — 截图适配接管与shared frame验证
+
+执行状态：完成。生产`AdbClient`截图委托唯一`AdbScreenCapture` owner，旧capture进程与锁已移除。生产引用测试覆盖同FrameId共享捕获、waiter独立取消、不同FrameId/淘汰后重捕、Disconnect清缓存、Bitmap clone、Dispose期间迟到帧；fake ADB覆盖空流/坏PNG/非零退出/超时。LDPlayer上生产facade内存截图成功（1920×1080）；用户弹窗帧通过捆绑PaddleOCR native运行时离线调用并返回有效框。本轮未保存设备截图文件。
 
 - 问题：TD-03/12；AdbScreenCapture已存在而旧Capture仍运行，帧/取消/淘汰未覆盖。
 - 当前位置：AdbClient.cs:748-790；AdbScreenCapture.cs:9-65；ScreenFrameCache.cs:60-166。
@@ -130,6 +142,8 @@
 
 ### RU-08 — 助手gateway接管，不修改设备协议
 
+执行状态：生产接管与正/负向代表路径完成。`AdbClient`公开助手API现委托`AssistantController`并删除旧重复实现；LDPlayer上Status→Restore→Install→Restore→Install成功，target哈希恢复原值，备份仍在。Fake ADB远端文件树测试覆盖安装写目标失败时原目标/备份保持及临时payload清理、成功安装后重复Restore幂等、损坏备份拒绝且原目标不变；另覆盖test-panel命令文本和本地模板缺失。未逐一注入pull/push/copy/chmod/cleanup每种失败；设备未触发test-panel UI。此项生产接管验收通过，失败矩阵可后续增补。
+
 - 问题：TD-03/09；AssistantController候选实现未替代旧安装/恢复/测试面板代码。
 - 当前位置：AdbClient.cs:793-934；Infrastructure/Patching/AssistantController.cs。
 - 目标设计：助手远端文件/备份/hash/安装/恢复/testpanel协议成为完整内部模块；facade结果字段及错误路径一致。
@@ -143,6 +157,8 @@
 - 推荐：后置；禁止在本阶段安装助手。
 
 ### RU-09 — RunLoop、抢占与关闭顺序Fixture
+
+执行状态：本阶段接受通过（用户实际使用核验）；自动化/事件trace覆盖仍部分完成。4例真实STA同步上下文tracker测试覆盖多任务失败、取消finally、快照边界和同步失败；生产`PopupWatchdog`离线集成测试覆盖专用流程disabled时不启动ADB，以及贪婪回城帧经Fake ADB/native OCR/真实UI Pipeline后idle锁存类别/卡索引和两个movement-cancel分支返回值。用户确认实际跑图、自动进图，以及触摸时序、弹窗抢占和RunLoop均正常；此为用户设备使用核验，不等同于本仓库新增Touch transcript或RunLoop事件trace。ShutdownCore/native关闭交接仍未独立验证。用户明确当前阶段不要求RU-09剩余测试闭环。
 
 - 问题：TD-02/05/10、B-02/03/05；复杂事件时序与多任务释放缺乏测试。
 - 当前位置：MainForm.Automation:190、Movement:233-389、MainForm:283-319、PopupWatchdog:47、OperationTracker:13。
@@ -158,6 +174,8 @@
 
 ### RU-10 — 视觉正负帧回放基线
 
+执行状态：部分完成；当前阶段接受遗留覆盖缺口，不要求闭环。真实游戏负帧及用户六张1004×565弹窗帧覆盖普通/警告换层、宝石、贪婪继续-only/回城-only/混合卡。贪婪回城-only样本经native OCR和生产UI Pipeline识别并由PopupWatchdog锁存卡索引；此单一样本不代表整体OCR准确率。部分公告/缺标题文本可能误分类，规则保持未改。ServerError/Loot正例、近似负例、更多分辨率/动画仍缺，作为未来可选样本补充，不阻塞当前阶段。
+
 - 问题：TD-05/13；UI Pipeline节点控制流不验证识别正确率。
 - 当前位置：AdbClient.cs:461-705；VisualTemplate.cs；PopupUiPipeline及Resources/Vision/Templates。
 - 目标设计：每帧固定来源/分辨率/frameId/结果/阈值/节点优先级，离线跑现有算法；不训练/更换模型。
@@ -171,6 +189,8 @@
 - 推荐：是，素材受限时标待补。
 
 ### RU-11 — 清剩余反向常量并建立架构守卫
+
+执行状态：完成。PortalProtocol拥有分类码3，PortalRouting保留常量别名；Domain仅用BCL编译守卫及Navigation/Infrastructure/Presentation负例通过，无allowlist。新增共20例边界/传送分类测试，未拆程序集。
 
 - 问题：TD-01/18；MapIconCatalog依PortalRouting常量，目录约束只能靠文档。
 - 当前位置：Domain/MapIconCatalog.cs:192；Navigation/PortalRouting.cs:30起常量；csproj。
@@ -186,6 +206,8 @@
 
 ### RU-12 — 仅迁移一个已覆盖的Application用例
 
+当前阶段结论：未开始且不要求执行。用户确认本阶段不再要求遗留项闭环；没有具体生产维护痛点前，不为完成清单而迁移MainForm用例。
+
 - 问题：TD-02；窗体还拥有业务编排和CTS生命周期。
 - 当前位置：MainForm.DeviceMap的刷新/合并/观察用例，或Automation某个已完整定义子流程；最终范围需下一次评审择一。
 - 目标设计：一个明确输入/输出与状态owner的完整用例，UI adapter负责展示；run CTS owner一次转移，MainForm薄委托。
@@ -199,6 +221,8 @@
 - 推荐：条件执行，非第一批；未过门槛不得开始。
 
 ### RU-13 — 命名并注明已有时间/协议常量
+
+执行状态：部分完成（AdbClient JSON重试子单元）；当前阶段接受该状态，不要求继续改名。JSON解析重试的20次/5ms及设备文件可用性轮询的20次/0.005s已提为类内命名常量，Fake ADB锁定次数、命令和异常语义。RouteExecutor/PopupWatchdog/触摸时间值仍保留现状。用户对实际触摸/弹窗/RunLoop行为的确认作为设备使用证据，但不自动授权或要求重排/调整数值；剩余纯命名整理属于未来可选维护。
 
 - 问题：TD-06/17；散落数字不易理解单位/来源。
 - 当前位置：RouteExecutor.cs的5ms/120ms/1000单位，PopupWatchdog的120ms/2s，AdbClient路径/重试（先择一个文件）。
@@ -214,6 +238,8 @@
 
 ### RU-14 — Web本机监听与路径安全测试
 
+执行状态：完成。7例离线HTTP测试通过，覆盖回环、读取、非GET、编码路径、端口回退及释放；只使用测试自建listener与唯一目录，不读取用户trace。
+
 - 问题：TD-16；当前回环绑定/路径限制需防止未来扩展误改，不是已发现LAN暴露。
 - 当前位置：PipelineWebServer.cs:47-75,119-245,281-292。
 - 目标设计：锁定127.0.0.1/端口回退/GET/安全trace文件名/Dispose；无auth或新监听配置。
@@ -226,6 +252,21 @@
 - 回滚策略：仅移除测试/fixture增量。
 - 推荐：是，低侵入保障支线。
 
+### RU-15 — AdbClient职责拆分为稳定兼容门面
+
+执行状态：完成（2026-10-09）。原`AdbClient`约695行，混合设备会话/触摸、地图与玩家JSON、OCR/视觉识别、截图缓存与弹窗Pipeline组合。现在门面约276行；新增`AdbTouchSession`（设备连接、触摸backend和坐标映射）、`AdbGameDataReader`（快照读取、JSON容错与地图归一）、`AdbScreenAnalyzer`（PaddleOCR、挖矿/弹窗/宝石识别）。现有`AdbCommandTransport`、`AdbScreenCapture`、`AssistantController`继续是单一owner。FrameId缓存与弹窗Pipeline结果汇总保留在facade作为跨识别流程协调边界。
+
+- 问题：AdbClient职责过多，任何设备/JSON/视觉改动均集中在同一类，难以独立理解和验证。
+- 当前代码位置：`Infrastructure/Adb/AdbClient.cs`及新建三个协作者；相关既有owner在`AdbCommandTransport.cs`、`AdbScreenCapture.cs`、`Infrastructure/Patching/AssistantController.cs`。
+- 目标设计：facade只维护公开兼容面与协作者组合；会话、数据解析、图像解释各自拥有状态/生命周期，禁止重复实现。
+- 修改文件范围：AdbClient及三个新协作者；更新目标架构、架构入口、基线与执行记录。没有修改业务规则/测试断言/协议。
+- 前置依赖：RU-06/07/08，主测试直接引用生产程序集。
+- 预计影响范围：所有现存AdbClient调用；公开/内部兼容方法保留并转发，RouteExecutor、PopupWatchdog、MainForm调用方不改。
+- 行为兼容性风险：中；连接锁/触摸backend顺序、坐标换算、JSON重试/回退、OCR裁剪和检测阈值、同FrameId捕获缓存及Dispose顺序必须保持。
+- 回归测试：Release完整验证；本次主测试156/156、独立baseline 51/51通过。已有Fake ADB验证同serial重连、JSON重试、截图缓存、助手与弹窗路径；历史设备使用反馈确认跑图/自动进图和触摸/抢占/RunLoop正常。
+- 验收标准：`AdbClient`不再自行执行设备会话、解析地图JSON或持有OCR引擎；调用签名和识别/移动规则不变；单owner无旧重复实现；构建/两套测试通过。
+- 回滚策略：作为一个整体恢复`AdbClient`的原内联实现并移除三个新协作者；不要回退此前RU-06/07/08的transport/capture/assistant owner或整份用户工作区。
+
 ## 3. 明确不纳入保行为重构的事项
 
 - TD-07：坏字段立刻停止；TD-08：非法转换默认拒绝；TD-14：跨运行持久化门户图；TD-15：强制设备schema版本；TD-16：新增LAN监听/认证。这些是业务/协议/部署改动，需另案。
@@ -236,13 +277,15 @@
 
 以下计划的源码恢复和测试步骤已执行。发布步骤因本阶段指令明确禁止发布而未执行；它不影响 RU-02 的生产引用测试前置条件，但 native 发布验证仍属交付前门槛。
 
+本节仅记录RU-01当时的范围与执行边界；其中“新组件尚未接管”的表述仅指RU-01完成时点。RU-06/07/08后续已完成对应facade接管，当前状态见Backlog顶部及REFACTOR_EXECUTION_REPORT.md。
+
 1. **冻结输入**：记录git status、AdbClient SHA256、当前暂存/工作区diff；与BASELINE比对，若用户继续修改了同一区域先核对。不要commit/reset/restore整个用户工作区。
 2. **复现红基线**：运行完整Verify脚本，确认CS0103仍是旧声明缺失；独立52用例仍绿。先检查/停止本项目进程。
 3. **逐符号对照**：只读 `git show 7f9ff2b:outputs/adb_map_controller/Infrastructure/Adb/AdbClient.cs`。列出11类缺失声明：rootShell/rootShellLock/rootCommandId/adbRunsAsRoot/screenCaptureLock；AdbCommandTimeoutMs=5000/PersistentShellTimeoutMs=3000/ScreenCaptureTimeoutMs=5000；TestPanelCommandPath/TempPath/ResultPath（原Root后缀）。对照其当前所有引用，确认无第二份同名声明。
 4. **最小patch**：在AdbClient恢复这些私有字段/const；不恢复旧serial字段（当前Serial由transport持有），不改Serial setter、Run/RunRoot/Connect/Capture/助手方法体、catch、delay、root标记或Dispose顺序。不直接委托新模块，不删除新文件。
 5. **静态差异复核**：diff仅新增对应声明；核对常量值、类型/初值与旧实现一致。若出现新的非缺声明错误，停止扩张范围，先说明其证据与另一个最小补丁是否需要批准。
 6. **绿色验证**：完整脚本；原6测试、独立52测试、Release生产编译；成功后`-Publish`直更标准publish根，停止进程并清除仅构建中间产物。只在批准执行本单元时做生产发布，当前阶段没有发布。
-7. **核验并记录**：程序路径固定`publish/洞窟地图控制器.exe`；记录当前源码身份/构建时间/测试计数/SDK/native依赖。注明未做真机，不把构建绿等同root/触摸验证；新组件尚未接管债务继续保留。
+7. **核验并记录**（RU-01当时）：程序路径固定`publish/洞窟地图控制器.exe`；记录源码身份/构建时间/计数/SDK/native依赖。RU-01当时未做真机、未完成新组件接管；后续RU-06/07/08已经有单独设备证据，当前事实见本Backlog顶部与执行报告。
 8. **独立提交候选**：仅stage本单元增量，不把用户已暂存其它改动并入；在用户未要求提交时只给diff与结果。提交或发布前确认可恢复的上版交付，不建版本化publish子目录。
 9. **失败/回滚**：未构建成功不发布；构建恢复改动可逐hunk回退而不碰用户其它变更。若发布已成功后验收失败，恢复事先确定的上一交付到同一标准根，再确认当前二进制身份；不得回滚设备文件，因为本单元不改设备。
 

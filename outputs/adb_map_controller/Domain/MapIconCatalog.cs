@@ -189,7 +189,7 @@ public static class MapIconCatalog
     {
         if (role.ClassName != "TriggerNpcData") return null;
         if (role.RoleType == 1 && role.MinimapType == 22 &&
-            role.TransdoorType == PortalRouting.RoomToRoomTransdoorType && role.IsRandomTransfer)
+            role.TransdoorType == PortalProtocol.RoomToRoomTransdoorType && role.IsRandomTransfer)
             return "ui_minimap_icon_room_purple";
         var assets = role.RoleType == 7 ? FunctionAssets : role.RoleType == 1 ? TransferAssets : null;
         return assets is not null && assets.TryGetValue(role.MinimapType, out var asset) ? asset : null;

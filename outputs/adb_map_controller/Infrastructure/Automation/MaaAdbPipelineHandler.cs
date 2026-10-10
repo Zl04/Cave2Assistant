@@ -115,7 +115,9 @@ public sealed class MaaAdbPipelineHandler<TState> : IMaaPipelineHandler<TState>
 
     static VisionTask CreateVisionTask(MaaPipelineTask task, string resourceRoot)
     {
-        var template = task.Templates.FirstOrDefault();
+        var template = task.Algorithm is MaaPipelineAlgorithm.MatchTemplate or MaaPipelineAlgorithm.FeatureMatch
+            ? task.Templates.FirstOrDefault()
+            : null;
         return new VisionTask
         {
             Name = task.Name,

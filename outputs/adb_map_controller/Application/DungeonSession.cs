@@ -48,7 +48,7 @@ public sealed class DungeonSession
         Mechanisms.Reset();
         InteractedChambers.Clear();
         ExpectedTaskRoadChanges.Clear();
-        FloorState.Transition(FloorPhase.Explore);
+        FloorState.Reset();
         PortalJumps.Clear();
         PortalUnlocks.Clear();
         AttemptedRoomPortals.Clear();

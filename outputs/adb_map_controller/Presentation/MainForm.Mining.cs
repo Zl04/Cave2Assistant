@@ -15,11 +15,21 @@ public sealed partial class MainForm
 
     Control CreateMiningSettings()
     {
-        var panel = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true,
-            Padding = new(10, 7, 10, 5), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
+        var panel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            Padding = new(10, 7, 10, 5),
+            WrapContents = true,
+            Tag = ThemeRole.SurfaceAlt
+        };
         Label Caption(string text) => new() { Text = text, AutoSize = true, Padding = new(0, 5, 0, 0) };
-        panel.Controls.AddRange([Caption("挖矿：格宽/高（1280×720）"), miningTileWidth, miningTileHeight,
-            Caption("使用间隔(ms)"), miningInterval, Caption("人物以屏幕中心计算，使用底栏第二格道具")]);
+        panel.Controls.AddRange([Caption("挖矿：格宽/高（1280×720）"),
+            miningTileWidth,
+            miningTileHeight,
+            Caption("使用间隔(ms)"),
+            miningInterval,
+            Caption("人物以屏幕中心计算，使用底栏第二格道具")]);
         foreach (var control in new[] { miningTileWidth, miningTileHeight, miningInterval })
             control.ValueChanged += (_, _) => SaveSettings();
         return panel;
@@ -36,18 +46,16 @@ public sealed partial class MainForm
 
     async Task MineCore()
     {
-        using var owner = new CancellationTokenSource();
-        runCts = owner;
-        touch.MovementCancellation = owner.Token;
+        var owner = operations.MovementToken;
         try
         {
             State("挖矿：检查地图和弹窗");
             var ready = await RefreshMap(true, waitForLock: true, onMapReady: ClearMiningRoute);
             startupPreparing = false;
-            owner.Token.ThrowIfCancellationRequested();
+            owner.ThrowIfCancellationRequested();
             if (!ready || dungeon.Map is null) { State("挖矿：地图未就绪"); return; }
             dungeon.Blocked.Clear();
-            await MineFloorCore(owner.Token, dungeon.Map);
+            await MineFloorCore(owner, dungeon.Map);
         }
         catch (OperationCanceledException) when (owner.IsCancellationRequested)
         { State("挖矿已暂停"); }
@@ -58,7 +66,6 @@ public sealed partial class MainForm
             finally
             {
                 ClearMiningRoute();
-                if (ReferenceEquals(runCts, owner)) runCts = null;
             }
         }
     }
@@ -215,7 +222,7 @@ public sealed partial class MainForm
             // 用户也可以在弹窗关闭后用手动“挖矿”按钮重新启动。
             dungeon.FloorMiningSkippedLevel = initial.Level;
             try { await touch.EmergencyRelease(); } catch (Exception ex) { Error(ex); }
-            Log($"第 {initial.Level} 层本次挖矿失败，已放弃挖矿并继续跑图");
+            Warn($"第 {initial.Level} 层本次挖矿失败，已放弃挖矿并继续跑图");
             State("本次挖矿失败，已放弃，继续跑图");
         }
         return true;

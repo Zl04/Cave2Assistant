@@ -7,6 +7,7 @@ internal sealed class AdbScreenCapture : IDisposable
 {
     const int TimeoutMs = 5000;
     readonly SemaphoreSlim captureLock = new(1, 1);
+    int disposed;
 
     public async Task<Bitmap> CaptureAsync(
         string serial,
@@ -16,6 +17,8 @@ internal sealed class AdbScreenCapture : IDisposable
         await captureLock.WaitAsync(token);
         try
         {
+            if (Volatile.Read(ref disposed) != 0)
+                throw new ObjectDisposedException(nameof(AdbScreenCapture));
             var psi = new ProcessStartInfo("adb")
             {
                 RedirectStandardOutput = true,
@@ -61,5 +64,5 @@ internal sealed class AdbScreenCapture : IDisposable
         finally { captureLock.Release(); }
     }
 
-    public void Dispose() => captureLock.Dispose();
+    public void Dispose() => Interlocked.Exchange(ref disposed, 1);
 }

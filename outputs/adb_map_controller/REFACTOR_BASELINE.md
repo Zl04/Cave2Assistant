@@ -4,6 +4,34 @@
 
 ## 1. 基线身份、RU-01 前后结果与限制
 
+### 当前工作区最新验证（2026-10-09，RU-15后）
+
+AdbClient职责拆分后的Release完整验证通过：主测试156/156、独立baseline 51/51，均0失败/0跳过；标准`publish/`发布成功。基线测试数较历史52少1，是本轮重构前已有工作区变更在`tests/baseline/StateAndJsonBaselineTests.cs`删除一条`LootConfirm`理论用例所致，本轮未修改测试或断言。Build与中间产物按项目规则生成于`publish/.build/`并由验证脚本清理。用户确认实际跑图、自动进图、触摸时序、弹窗抢占和RunLoop正常；此为用户实际使用核验。程序发布后已启动，未发送游戏输入。
+
+RU-15完成：原`AdbClient`约695行，当前约276行，作为兼容门面委托`AdbTouchSession`、`AdbGameDataReader`、`AdbScreenAnalyzer`、既有`AdbCommandTransport`、`AdbScreenCapture`和`AssistantController`。FrameId共享帧缓存与弹窗Pipeline结果汇总保留在门面。旧142/52数据是RU-15前历史基线，不覆盖本节最新156/51结果。
+
+### 后续重构当前基线（2026-10-08，优先于下面历史记录）
+
+阶段结论补记（2026-10-09）：用户确认实际跑图、自动进图正常，并明确触摸时序、弹窗抢占、RunLoop可视为核验通过；当前阶段不再要求RU-09/10/13剩余项或RU-12闭环。该结论记录为用户实际使用核验，不等同于独立硬件trace或自动化覆盖。ShutdownCore/native关闭交接、部分视觉素材和时间常量命名仍有记录缺口，但均不阻塞当前阶段。详细范围见REFACTOR_EXECUTION_REPORT.md末尾。
+
+RU-03/04/05/06/07/08/11/14生产接管/保障已完成；RU-09/10/13保留部分自动化覆盖，RU-12未开始且当前阶段不要求执行。RU-08 fake覆盖pull/push/目标写入失败、损坏备份、payload清理、重复恢复幂等；chmod/cleanup自身失败未逐类注入，当前阶段接受。RU-13已完成AdbClient JSON重试常量命名，移动时序常量不变且无需本阶段整理。主项目Release构建成功，0警告/0错误；Debug与Release完整验证主142/142、独立52/52均通过，失败/跳过0。主测试新增88例通过生产ProjectReference执行；独立baseline保留52例。LDPlayer已验证ADB root后重连、生产facade读状态/截图及助手状态/恢复/安装往返；设备文件哈希验证通过。RU-09离线覆盖PopupWatchdog部分流程；用户另确认实际跑图、自动进图、触摸时序、弹窗抢占和RunLoop正常，按用户设备使用核验通过接受。关闭交接自动化缺口不阻塞当前阶段。RU-10缺server-error/Loot正例、近似负例和多分辨率/动画；作为可选素材补充。OCR集成仅对一个贪婪回城正例验证，不代表整体准确率。文本边界测试记录了部分现有子串规则的潜在误分类，不改变行为，当前阶段接受。RouteSession内容保持、Domain反向依赖已由BCL编译守卫验证消除。新增有限观测旁路不改变JSON、配置容错或设备决策。
+
+完整 Verify-RefactorBaseline.ps1：exit 0，主142/142、独立52/52；Debug主142/142、独立52/52亦通过。Release生产build为0警告/0错误。脚本清理四个项目内publish/.build及TRX临时目录，标准publish交付物未改写。LDPlayer验证包括root启用后同serial恢复、生产facade Disconnect前后读玩家状态、内存截图1920×1080、助手Restore/Install往返且安装文件哈希与初始一致；未触摸/操纵游戏。未提交、未发布；RU-05有明确生产源码变更。
+
+TD-01目录反向依赖已消除（RU-03/11）；TD-07/11诊断不可见部分已改善（RU-05），容错语义仍保留；TD-05增加生产引用测试但设备E2E仍缺。下面逐项核验保留为审计时的证据，当前状态以本段及执行报告为准。
+
+### RU-02 当前绿色基线（2026-10-08）
+
+- 执行起点 HEAD：`1805700b623a505675d5635f5b9be36cc1dfa0e5`；暂存区为空，生产源码无未提交修改，仅有前次构建的 publish/.build。以下 RU-01 记录作为历史保留。
+- 前置 Release 主项目构建成功：0 警告、0 错误；接入前原测试 6/6 通过。
+- 原测试工程保留真实 ProjectReference，只显式加入五个 baseline 手写测试文件；没有重复编译生产源码。两个 JSON Fixture 通过 TargetPath 复制至输出的 Fixtures/，测试从 AppContext.BaseDirectory 读取。
+- Release、Debug：主测试均发现/通过 54，失败 0、跳过 0；独立 baseline 均发现/通过 52，失败 0、跳过 0。主工程原有 6 + 新增 48；独立工程复用原有 4 + 新增 48，数量差异来自原 SettingsStoreTests 两例，不是遗漏。
+- 完整 Verify-RefactorBaseline.ps1 两次 exit 0；第二次从无 .build 环境重新还原、构建并运行，计数仍为 54/52。所有测试未使用筛选条件，没有新增跳过或断言改动。
+- MSBuild 实际 Compile 项只有测试源文件（含 GlobalUsings），ProjectReference 指向主项目；没有 baseline 生成文件或生产类型重复定义。JSON 静态诊断所在 collection 禁止并行，其它测试采用实例状态和唯一临时目录，未发现执行顺序依赖。
+- 未发现运行中的项目实例；未启动应用或 ADB、未发布、未提交。脚本已清理三个 publish/.build 和本次 TRX 临时目录，现有发布交付物保持原样。下表三个生产源码 SHA256 与 RU-01 后一致，Git diff 中无生产源码修改。
+- 离线覆盖路线/取消、Reset/Stop、非法楼层转换、JSON 默认值、MotionInterrupt、三类 Pipeline、门户学习、设置失败；仍不证明 ADB 重连、物理 touch 配对/急停、RunLoop/Watchdog 交接、真实转场或 native OCR/截图释放。
+- RU-02 完成，RU-03 前置条件满足；等待下一步指令。
+
 - HEAD：`7f9ff2bc3e46f3f46178b3ac4a70617b2f1eaee0`；工作区包含用户此前暂存的拆分、测试、文档及发布文件，不能用 HEAD 代表当前实现。本阶段不重置、不提交这些改动。
 - 环境：Windows，.NET SDK 8.0.401，VSTest 17.11.0；项目 net8.0-windows / win-x64。
 - RU-01 前，主项目和原测试因 AdbClient 缺失声明报 CS0103，原 6 个用例未运行；完整脚本退出码 1。修复前结果保留作审计历史。
@@ -23,13 +51,13 @@
 | Presentation/MainForm.Automation.cs | 4BD65048EEA129A0DC1167EDE2E1A10154978E40854862CA9E8EB96B7E3F2E8C |
 | Infrastructure/Automation/MaaPipeline.cs | 408CE1C9F762E35F59653826D12C56BF8B20A6E458D391B7913F8B62B9B6A7B0 |
 
-## 2. ADB 迁移现状：RU-01 已恢复构建，接管仍未完成
+## 2. ADB迁移现状（RU-01至RU-08执行后的核验）
 
-证据：AdbClient.cs:27-29 已创建 AdbCommandTransport、AdbScreenCapture、AssistantController；:52-61 仅 Serial 和构造使用新 transport。Run(:164)、RunRoot(:197)、截图(:761)、助手操作(:804 起)、Dispose(:965) 仍使用旧实现。RU-01 已恢复旧实现依赖的声明并通过构建；这些方法还没有迁移到新组件。
+RU-01最初恢复了缺失声明；之后RU-06/07/08分别完成transport、截图和助手facade接管。当前 `AdbClient` 的普通/root命令归 `AdbCommandTransport`，capture process归 `AdbScreenCapture`，助手文件/备份协议归 `AssistantController`；旧root process/lock、重复截图process/lock、重复助手实现已删除。公开facade签名保持。
 
-原缺失符号包括 `rootShell`、`rootShellLock`、`rootCommandId`、`adbRunsAsRoot`、`screenCaptureLock`、三类超时常量及三条 TestPanel 路径，现已按 HEAD 中类型、初值与常量值恢复。路径临时文件名沿用现有调用/历史声明 `TestPanelCommandTempPath`。新组件“存在”不代表调用已接管；构建通过也不代表已完成ADB迁移。
+行为证据：Fake ADB锁定serial argv、root/su和marker、截图错误/共享帧、助手写入失败保护与restore；LDPlayer `emulator-5554`验证root启用后的同serial重连、Disconnect前后读玩家状态、真实生产facade截图，以及助手恢复/安装往返。目标脚本最终SHA256与验证前一致，原备份保留。未验证真实触摸链路，且RU-08各类pull/push/chmod/cleanup故障尚未穷尽；这些剩余项见REFACTOR_BACKLOG和执行报告。
 
-后续迁移仍须按单元执行。新的 RunRootAsync 与旧 RunRoot 的 printf 换行转义文本不同，未经字节级/假进程核验，直接委托可能改变边界标记协议。
+下面TD条目中的“证据/风险”保留审计时发现；凡提及未接管的状态均以本节及REFACTOR_EXECUTION_REPORT为准。迁移前发现的Root marker换行差异，已由Fake ADB对比测试确认等价。
 
 ## 3. TD-01 至 TD-18 逐项核验
 
@@ -38,7 +66,7 @@
 ### TD-01：Domain 与 Navigation 的反向依赖
 
 - 真实性/证据：真实的目录级依赖环；Domain/RouteSession.cs:12-13,32 引用 Planner.cs 中 PlannedInteraction、TargetKey、RoutePlan；Domain/MapIconCatalog.cs:192 引用 PortalRouting 常量；Navigation/RouteExecutor.cs:33 及 Planner 使用 Domain 模型。不是两个程序集的循环引用，目前只有一个程序集。
-- 当前行为/局部修复：RouteExecutor 已有端口和显式上下文，但 RouteSession 放置位置仍不合理。回调观察端口本身不是循环依赖证据。
+- 当前行为/局部修复：RU-03已将RouteSession物理移到Navigation并保留类型名/namespace/内容；RU-11把portal分类码归中性Domain常量并保留公开别名。已知Domain反向目录依赖已由架构守卫消除；这不代表全项目所有层都成为独立程序集。
 - 真实风险/等级：中；影响模块独立验证、导航契约修改的范围，不是现有运行崩溃证据。
 - 建议/更小方案：先把 RouteSession 移到 Navigation，保持类型名/命名空间/字段/方法不变；Portal 分类码另一个小单元处理。无需立刻拆程序集或新建泛用 Contracts 包。
 - 收益/行为风险：消除最明显的反向所有权；物理移动风险低，序列化/API 不应改变。
@@ -57,8 +85,8 @@
 
 ### TD-03：AdbClient 职责聚合且迁移中断
 
-- 真实性/证据：真实并存在编译阻断；AdbClient.cs:153-355,359-458,625-790,793-954；新 transport、capture、assistant 并未接管。
-- 当前行为/局部修复：TouchController 分离输入生命周期；新三个内部组件已写出但旧调用、旧 Dispose 残留。RU-01 已恢复主项目构建，尚未验证真机行为。
+- 真实性/证据：审计时真实存在编译阻断和重复候选owner；RU-01恢复构建，RU-06/07/08已完成对应生产facade接管并删除旧重复owner。
+- 当前行为/局部修复：AdbClient现在是公开facade；Transport、ScreenCapture、AssistantController各自单一持有相应进程/协议职责。设备root/重连、截图和助手正向文件往返已实际验证；触摸/运行循环仍不是此项范围。
 - 真实风险/等级：高；首先是无法构建，其次双实现的锁、Serial、root 状态和资源释放可能不一致。
 - 建议/更小方案：RU-01 已恢复缺失声明；随后按 Run/RunRoot、截图、助手三个单元逐一对照和迁移。
 - 收益/行为风险：先恢复验证通路，后降低跨职责修改；root 标记、su 回退、设备枚举、缓存清理、Dispose 改变均是潜在不兼容。
@@ -229,4 +257,4 @@
 
 RU-01 的源码/build/test准入已完成；标准 publish/native交付未验证且本次按要求未发布。RU-02 的生产引用前置条件已满足，下一步可独立执行；随后 RU-03 小范围归位 RouteSession。ADB transport/capture/assistant、MainForm用例迁移必须通过各自设备/顺序门槛。
 
-本阶段只是准备和基线，未修复上述生产缺陷。推荐不是自动执行；完整可执行顺序、验收和回滚见 REFACTOR_BACKLOG.md。
+本文件的原始审计阶段只建立基线；其后已执行若干refactor unit。当前尚未完成部分和真实剩余风险以本文件开头的“后续重构当前基线”、REFACTOR_BACKLOG.md及REFACTOR_EXECUTION_REPORT.md为准。

@@ -15,7 +15,8 @@
     "rate_limit": 300,
     "next": ["BastanMapOpened", "OpenMapButton"],
     "on_error": ["EntryOpenMapFailed"],
-    "maxTimes": 1
+    "exceeded_next": ["EntryOpenMapFailed"],
+    "maxTimes": 11
   },
   "BastanMapOpened": {
     "recognition": "TemplateMatch",
@@ -77,10 +78,10 @@
     "text": ["挑战"],
     "action": "Click",
     "handler": "MaaAdb",
-    "timeout": 3000,
+    "timeout": 20000,
+    "rate_limit": 500,
     "post_delay": 500,
-    "on_error": ["WaitForMapLoad"],
-    "next": ["ConfirmEnter"],
+    "next": ["WaitForMapLoad", "ConfirmEnter"],
     "maxTimes": 1
   },
   "ConfirmEnter": {
@@ -88,15 +89,15 @@
     "text": ["进入地图", "确定", "确认", "进入"],
     "action": "Click",
     "handler": "MaaAdb",
-    "timeout": 3000,
+    "timeout": 20000,
+    "rate_limit": 500,
     "next": ["WaitForMapLoad"],
     "maxTimes": 1
   },
   "WaitForMapLoad": {
-    "recognition": "DirectHit",
+    "recognition": "Custom",
     "action": "DoNothing",
-    "handler": "MaaAdb",
-    "post_delay": 1800,
+    "handler": "DungeonEntryStep",
     "maxTimes": 1
   }
 }

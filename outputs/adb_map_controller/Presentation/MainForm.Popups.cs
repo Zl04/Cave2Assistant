@@ -102,7 +102,7 @@ public sealed partial class MainForm
                 if (popup == MovementPopupKind.ServerError)
                 {
                     serverErrorDialogVisible = true;
-                    runCts?.Cancel();
+                    operations.Cancel(ControllerOperationKind.Movement);
                     yield break;
                 }
                 if (popup == MovementPopupKind.RiftGemSelection)
@@ -124,7 +124,7 @@ public sealed partial class MainForm
                     yield return releaseTask;
                     Log("指定层未出现贪婪抉择回城卡，未确认进入下一层");
                     State("指定层等待贪婪抉择回城选项");
-                    runCts?.Cancel();
+                    operations.Cancel(ControllerOperationKind.Movement);
                     yield break;
                 }
                 var tapTask = adb.TapScreen(0.591, 0.639);
@@ -179,7 +179,7 @@ public sealed partial class MainForm
                         ? $"弹窗按钮点击已发送：第 {cardIndex + 1} 张回城卡，已选择‘安全回城’"
                         : $"弹窗按钮点击已发送：{preferred}，已选择‘安全回城’");
                     State("已选择安全回城，等待返回城镇");
-                    runCts?.Cancel();
+                    operations.Cancel(ControllerOperationKind.Movement);
                     yield break;
                 }
                 Log($"弹窗按钮点击已发送：{preferred}，等待界面关闭");
@@ -210,7 +210,7 @@ public sealed partial class MainForm
 
     void Pause()
     {
-        runCts?.Cancel();
+        operations.Cancel(ControllerOperationKind.Movement);
         coroutines.StopAll(); portalChoiceCoroutine = null;
         State("正在暂停");
     }
@@ -225,13 +225,11 @@ public sealed partial class MainForm
 
     async Task StepCore()
     {
-        using var owner = new CancellationTokenSource();
-        runCts = owner;
-        touch.MovementCancellation = owner.Token;
+        var owner = operations.MovementToken;
         try
         {
             await RefreshMap(false);
-            owner.Token.ThrowIfCancellationRequested();
+            owner.ThrowIfCancellationRequested();
             if (dungeon.Map is null)
             {
                 Log("单步跳过：当前没有有效地图快照，请先刷新地图");
@@ -254,7 +252,7 @@ public sealed partial class MainForm
             }
             var expected = route[runLength]; var after = before; var lastChange = Environment.TickCount64; var previousPosition = before;
             State($"按住 {delta.X},{delta.Y}，等待到达 {expected}");
-            var popupInterrupted = await RunMovementSlice(owner.Token, async sliceToken =>
+            var popupInterrupted = await RunMovementSlice(owner, async sliceToken =>
             {
                 await touch.TouchDown(InputDelta(delta), sliceToken);
                 try
@@ -273,28 +271,28 @@ public sealed partial class MainForm
             });
             if (popupInterrupted)
             {
-                await HandleMovementPopupInterrupt(owner.Token);
+                await HandleMovementPopupInterrupt(owner);
                 return;
             }
             Log($"坐标触发松开：{before} -> {after}，转向/停止点 {expected}");
             if (after == before)
             {
                 dungeon.UnchangedCount = dungeon.LastBlockedAttempt == next ? dungeon.UnchangedCount + 1 : 1; dungeon.LastBlockedAttempt = next;
-                if (dungeon.UnchangedCount >= 2) { dungeon.Blocked.Add(next); dungeon.UnchangedCount = 0; Log($"格子 {next} 连续受阻，临时封锁并绕路"); }
-                else Log("未发生位移，将重新规划");
+                if (dungeon.UnchangedCount >= 2) { dungeon.Blocked.Add(next); dungeon.UnchangedCount = 0; Warn($"格子 {next} 连续受阻，临时封锁并绕路"); }
+                else Warn("未发生位移，将重新规划");
             }
             else
             {
                 dungeon.UnchangedCount = 0; dungeon.LastBlockedAttempt = null;
                 var routeIndex = route.FindIndex(1, Math.Min(runLength, route.Count - 1), cell => cell == after);
-                if (routeIndex < 1) Log("实际位置不在当前直线路段，已暂停并等待重新校准");
+                if (routeIndex < 1) Warn("实际位置不在当前直线路段，已暂停并等待重新校准");
                 else if (after != expected) Log($"本次实际前进 {routeIndex} 格，下轮从真实坐标继续");
                 if (routeIndex < 1) Pause();
             }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { Error(ex); Pause(); }
-        finally { if (ReferenceEquals(runCts, owner)) runCts = null; }
+
     }
 
     async Task Stop() { Pause(); try { await touch.EmergencyRelease(); } catch { } State("已急停"); Log("急停：停止发送方向操作"); }
@@ -309,9 +307,8 @@ public sealed partial class MainForm
         pendingGreedySelectionReturnCards = Array.Empty<int>();
         mapPanel.Route = route; mapPanel.Invalidate(); State("急停"); Log("急停：已停止移动并清除换层流程");
     }
-    void Log(string text) { if (IsDisposed || Disposing) return; if (InvokeRequired) { BeginInvoke(() => Log(text)); return; } log.AppendText($"[{DateTime.Now:HH:mm:ss}] {text}\r\n"); }
     void State(string text) { if (IsDisposed || Disposing) return; if (InvokeRequired) { BeginInvoke(() => State(text)); return; } state.Text = text; mapPanel.StatusText = text; mapPanel.Invalidate(); }
-    void Error(Exception ex) { CrashLog.Write("Controller operation", ex); Log("错误：" + ex.Message); State("错误"); }
+    void Error(Exception ex) { CrashLog.Write("Controller operation", ex); Log("错误：" + ex.Message, LogLevel.Error); State("错误"); }
 
     void IRouteExecutionObserver.SetState(string text) => State(text);
     void IRouteExecutionObserver.WriteLog(string text) => Log(text);

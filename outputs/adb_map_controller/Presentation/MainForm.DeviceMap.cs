@@ -72,9 +72,9 @@ public sealed partial class MainForm
         adb.Serial = devices.Text;
         if (onMapReady is not null)
         {
-            var ready = await NavigationStartup.PrepareAsync(
+            var ready = await NavigationStartupUseCase.PrepareAsync(
                 () => RefreshMapSnapshot(writeLog), () => RefreshOverlayState(writeLog, failSafe: true),
-                onMapReady, runCts?.Token ?? default);
+                onMapReady, operations.MovementToken);
             if (!ready || runeSelectionVisible) return ready;
 
             // OCR 在冷启动时可能耗时数秒。在允许输入前只重新读取开销较低的
@@ -101,7 +101,7 @@ public sealed partial class MainForm
         var now = Environment.TickCount64;
         if (now - Interlocked.Read(ref lastOverlayUnknownLogAt) < 2000) return;
         Interlocked.Exchange(ref lastOverlayUnknownLogAt, now);
-        Log("弹窗状态未知");
+        Warn("弹窗状态未知");
     }
 
     async Task<bool> RefreshOverlayState(bool writeLog, bool failSafe = false)
@@ -114,7 +114,7 @@ public sealed partial class MainForm
             adb.Serial = devices.Text;
             // 在同一帧检查两个覆盖层，避免重复截图。
             var frameId = adb.NextPopupFrameId();
-            using var screen = await adb.CaptureMovementPopupFrameAsync(frameId, runCts?.Token ?? default);
+            using var screen = await adb.CaptureMovementPopupFrameAsync(frameId, operations.MovementToken);
             var runPopupPipeline = writeLog || runeSelectionVisible;
             var popup = MovementPopupKind.None;
             PopupUiPipelineResult? popupPipeline = null;
@@ -131,10 +131,10 @@ public sealed partial class MainForm
             if (popup == MovementPopupKind.ServerError)
             {
                 if (!serverErrorDialogVisible)
-                    Log("检测到服务器连接异常弹窗，已停止运行；请重新进入游戏");
+                    Log("检测到服务器连接异常弹窗，已停止运行；请重新进入游戏", LogLevel.Error);
                 serverErrorDialogVisible = true;
                 await touch.EmergencyRelease();
-                runCts?.Cancel();
+                operations.Cancel(ControllerOperationKind.Movement);
                 State("服务器连接异常，已停止运行");
                 return false;
             }
@@ -180,7 +180,7 @@ public sealed partial class MainForm
             // 运行中的路线仍需停机，避免在模态框下发送移动输入。
             LogOverlayUnknown();
             if (!failSafe) return true;
-            runCts?.Cancel();
+            operations.Cancel(ControllerOperationKind.Movement);
             try { await touch.EmergencyRelease(); } catch { }
             State("弹窗状态未知，已停止运行");
             return false;
@@ -191,46 +191,15 @@ public sealed partial class MainForm
     {
         try
         {
-            adb.Serial = devices.Text; var previousMap = dungeon.Map; var map = await adb.ReadMap(); var player = await adb.ReadPlayer();
-            // JSON 容错诊断仍会被收集，但暂时不在界面日志中输出，避免
-            // 正常的默认值修正淹没移动和规划日志。
-            _ = JsonDiagnostics.Drain();
-            if (player.MoveSpeed > 0) dungeon.RouteExecution.MoveSpeed = player.MoveSpeed;
-            RouteExecutor.ApplyPlayerStatus(map, player);
-            if (previousMap is not null)
-                foreach (var unlock in dungeon.PortalUnlocks.Observe(previousMap, map))
-                    Log($"检测到传送门解锁：{unlock.Portal}，关联消失小怪 {string.Join(", ", unlock.DefeatedMonsters)}");
-            if (dungeon.PendingRoomPortal is { } roomPortal && previousMap is not null && dungeon.RoomPortalOrigin is { } origin &&
-                map.Level == previousMap.Level && PortalJumpGraph.KeyOf(map) == PortalJumpGraph.KeyOf(previousMap))
-            {
-                var now = new Cell(map.Player.X, map.Player.Y);
-                if (dungeon.PortalJumps.Observe(previousMap, roomPortal.Cell, map, out var destination, dungeon.RoomPortalOrigin))
-                {
-                    // 将落地传送门视为本楼层自动探索流程中已消耗。
-                    // 这样可以防止下一次规划立即激活双传送门循环的反向边。
-                    dungeon.AttemptedRoomPortals.Add(destination);
-                    var sourceRole = previousMap.ByCell.TryGetValue(roomPortal.Cell, out var sourceTile)
-                        ? sourceTile.Roles.FirstOrDefault(role => role.Kind == roomPortal.Kind)
-                        : null;
-                    var description = sourceRole is null ? "层内传送门" : PortalRouting.Describe(sourceRole);
-                    Log($"层内传送已确认：{roomPortal.Cell} -> {destination}（{description}，已记录 {dungeon.PortalJumps.EdgeCount(map)} 条边）");
-                    dungeon.PendingRoomPortal = null; dungeon.RoomPortalOrigin = null; dungeon.RoomPortalInteractionAt = 0;
-                }
-                else if (now != origin && now != roomPortal.Cell)
-                {
-                    if (PortalRouting.NearestRoomPortal(map, now) is { } landingPortal)
-                        dungeon.AttemptedRoomPortals.Add(landingPortal);
-                    Log($"层内传送已发生：{roomPortal.Cell} -> {now}，落点附近没有可确认的传送门，保留当前位置重新寻路");
-                    dungeon.PendingRoomPortal = null; dungeon.RoomPortalOrigin = null; dungeon.RoomPortalInteractionAt = 0;
-                }
-            }
-            dungeon.Mechanisms.ObserveLevel(map.Level);
-            dungeon.Map = map; dungeon.Route.Snapshot = MapSnapshot.Capture(map); mapPanel.Map = map; mapPanel.Route = route; mapPanel.Invalidate();
-            RecordMechanismVisit(map);
-            var tiles = map.Tiles.SelectMany(x => x).Where(t => t.Walkable).ToList();
+            adb.Serial = devices.Text;
+            var result = await new DungeonSnapshotUseCase(dungeon, adb).RefreshAsync(operations.MovementToken);
+            var map = result.Map;
+            foreach (var diagnostic in result.Diagnostics) runtime.Diagnostics.Record("JSON: " + diagnostic);
+            foreach (var message in result.Messages) Log(message);
+            mapPanel.Map = map; mapPanel.Route = route; mapPanel.Invalidate();
             var seal = map.BossSeal;
             var warning = seal.Present
-                ? $"  预警 {seal.CurScore}/{seal.WakeScore} ({seal.Percent}%) {(seal.Ready ? "守层Boss可攻击" : "守层Boss未解锁")}" 
+                ? $"  预警 {seal.CurScore}/{seal.WakeScore} ({seal.Percent}%) {(seal.Ready ? "守层Boss可攻击" : "守层Boss未解锁")}"
                 : "  预警 --";
             warningState.Text = warning.Trim();
             warningState.ForeColor = seal.Present && seal.Ready ? currentPalette.SuccessText : currentPalette.WarningText;
@@ -289,7 +258,7 @@ public sealed partial class MainForm
         }
         else if (writeLog && !string.IsNullOrWhiteSpace(adb.LastRiftGemTitle))
         {
-            Log($"秘境宝石标题未匹配：{adb.LastRiftGemTitle}");
+            Warn($"秘境宝石标题未匹配：{adb.LastRiftGemTitle}");
         }
     }
 

@@ -1,6 +1,6 @@
 # 目标架构：保行为、逐边界深化
 
-这是待执行设计，不是当前代码已经达到的状态。前置事实和 TD 核验见 REFACTOR_BASELINE.md；任务及门槛见 REFACTOR_BACKLOG.md。当前主项目构建不通过，先恢复基线再迁移。
+这是目标设计，不是当前代码全部已经达到的状态。前置事实和 TD 核验见 REFACTOR_BASELINE.md；任务及门槛见 REFACTOR_BACKLOG.md。RU-01已恢复构建；RU-03/11完成RouteSession归位及中性分类码，Domain的已知反向依赖已消除。ADB/MainForm迁移仍需设备门槛，不能由测试数量替代。
 
 ## 1. 最小目标与非目标
 
@@ -21,7 +21,7 @@ Presentation 实现 UI 观察能力，不让 Application/Navigation 持有 Form�
 Pipeline runtime <TState> 不构造设备/窗体，不拥有业务 session。
 ```
 
-单程序集阶段允许 ControllerRuntime 使用具体 Infrastructure（它是组合根），允许已存在的少量迁移例外，但不得扩大 allowlist。当前 Domain→Navigation 的例外在 RU-03/11 分别处理，不能宣称此图已经成立。
+单程序集阶段允许 ControllerRuntime 使用具体 Infrastructure（它是组合根）。RU-03/11已清除Domain→Navigation例外，测试用BCL-only编译验证Domain边界；不能由此宣称整个Application/Presentation目标依赖图已经成立。
 
 ## 2. 模块责任与迁移边界
 
@@ -66,11 +66,11 @@ Pipeline runtime <TState> 不构造设备/窗体，不拥有业务 session。
 
 ### Infrastructure/ADB：设备传输与输入后端
 
-- 当前职责：AdbClient 的旧进程/root shell、JSON、触摸后端、截图、OCR、助手均在 facade；新增 transport/capture/assistant 尚未接管，缺失旧声明导致编译失败。
-- 目标职责：AdbClient 保留稳定 facade，内部逐边界委托；AdbCommandTransport 独占 serial/root shell/标记/进程；AdbScreenCapture 独占截图进程/互斥/图像脱离流；AssistantController 独占安装/备份/测试面板协议。
-- 保留职责：公开方法、异常类型/结果、root/su 回退、连接缓存、旧 JSON 读取重试、各 timeout 和正常/异常命令顺序。
-- 迁移职责：先恢复旧声明，再按 transport→capture→assistant 逐项接管对应调用和 Dispose/Reset；禁止只删字段、只建文件或一次全切。
-- 依赖/接口：现有 facade 对 Application 提供能力；RouteExecutor 继续只依赖两个已有端口。transport 的内部 process seam 在 fake process 测试确有需求时增加，不把 `Process` 泄漏给业务。
+- 当前职责：`AdbClient` 是稳定兼容门面；传输/root shell、截图、助手、设备触摸会话、地图/玩家JSON读取、OCR/视觉识别分别由 `AdbCommandTransport`、`AdbScreenCapture`、`AssistantController`、`AdbTouchSession`、`AdbGameDataReader`、`AdbScreenAnalyzer` 持有。门面仍组合逻辑帧缓存与弹窗UI Pipeline结果。
+- 目标职责：维持上述单一owner。transport 独占 serial/root shell/marker/process；touch session 独占连接锁、屏幕/旋转参数、backend启动与输入映射；game reader 独占快照文件协议、JSON converter/retry/地图归一；screen analyzer 独占 PaddleOCR 生命周期和截图语义识别；screen capture 独占截图进程及互斥；assistant 独占安装/备份/测试面板协议。
+- 保留职责：`AdbClient`公开方法与调用兼容、协作者组合、FrameId/共享帧缓存与Pipeline结果组装；保持异常类型/结果、root/su回退、连接缓存、JSON回退/重试、阈值、坐标和正常/异常调用顺序。
+- 迁移职责：本次已将触摸会话、地图/玩家快照读取、OCR/视觉解析迁出。后续只有发现新职责再次聚集且有独立验证收益时才继续拆分；不为降低行数拆散Pipeline帧生命周期或添加纯转发层。
+- 依赖/接口：`AdbClient`→上述协作者；touch session→`AdbCommandTransport`及现有触摸backends；game reader→root命令委托；screen analyzer→`PaddleOcrEngine`/模板/视觉识别；popup pipeline继续通过兼容门面访问识别能力。Application 和 `RouteExecutor` 的调用签名不变，`Process` 不泄漏给业务。
 - 状态所有权：同一设备 Serial/root session 只由 transport 持有；TouchController 持有逻辑 heldPoint；触摸 backend 持有真实 writer/agent/socket。两者不是同一状态，不能用本地 null 证明物理 up。
 - 触摸抽象：保留 IMovementInput；TouchController 未来可依赖小型 touch-device 能力（ready/point/down/up/swipe），前提是协议字节和完整手势锁范围保持。不能机械把门控/映射移进每个后端。
 - 安全边界：EmergencyRelease 目前是串行 TouchUp，可能等脉冲结束；加 out-of-band reset 属新语义，需要设备协议评审。Down 部分失败恢复也是另案，不在“抽象”中修复。

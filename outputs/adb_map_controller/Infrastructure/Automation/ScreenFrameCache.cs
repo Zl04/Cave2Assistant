@@ -1,167 +1,146 @@
-using System;
 using System.Drawing;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace AdbMapController;
 
-/// <summary>
-/// 按逻辑帧编号复用截图。
-///
-/// FrameId 由调用方在一次检测循环开始时生成，而不是由此类定时采集。
-/// 同一 FrameId 的并发请求共享一次真实截图；不同 FrameId 必须重新截图。
-/// </summary>
+/// <summary>Owns cached images and reader leases across capture generations.</summary>
 internal sealed class ScreenFrameCache : IDisposable
 {
-    sealed class CachedFrame : IDisposable
+    sealed class Frame(long id, Bitmap image)
     {
-        public long FrameId { get; }
-        public Bitmap Image { get; }
-        readonly object imageGate = new();
-
-        public CachedFrame(long frameId, Bitmap image)
-        {
-            FrameId = frameId;
-            Image = image;
-        }
-
-        // System.Drawing.Bitmap is not safe for concurrent reads. A single
-        // logical frame can have multiple waiters resume at the same time
-        // (for example, after the shared capture completes), so cloning must
-        // be serialized even though the cache lookup itself is locked.
-        public Bitmap CloneImage()
-        {
-            lock (imageGate)
-                return new Bitmap(Image);
-        }
-
-        public void Dispose()
-        {
-            lock (imageGate)
-                Image.Dispose();
-        }
+        public long Id { get; } = id;
+        public Bitmap Image { get; } = image;
+        public int References;
     }
 
-    sealed class CaptureOperation
+    sealed class Capture(long id, long generation)
     {
-        public long FrameId { get; }
-        public TaskCompletionSource<CachedFrame> Completion { get; } =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public CaptureOperation(long frameId) => FrameId = frameId;
+        public long Id { get; } = id;
+        public long Generation { get; } = generation;
+        public int Readers;
+        public Frame? Frame;
+        public TaskCompletionSource Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     readonly object gate = new();
-    CachedFrame? cached;
-    CaptureOperation? active;
+    readonly Dictionary<long, Capture> pending = [];
+    Frame? cached;
+    long generation;
+    long latestRequest;
     bool disposed;
 
-    public async Task<Bitmap> GetAsync(
-        long frameId,
-        Func<CancellationToken, Task<Bitmap>> captureAsync,
-        CancellationToken token = default)
+    public async Task<Bitmap> GetAsync(long frameId,
+        Func<CancellationToken, Task<Bitmap>> captureAsync, CancellationToken token = default)
     {
-        if (captureAsync is null) throw new ArgumentNullException(nameof(captureAsync));
-
-        CaptureOperation operation;
-        var startCapture = false;
+        ArgumentNullException.ThrowIfNull(captureAsync);
+        token.ThrowIfCancellationRequested();
+        Capture operation;
+        bool start;
         lock (gate)
         {
-            ThrowIfDisposed();
-            if (cached?.FrameId == frameId)
-                return cached.CloneImage();
-
-            if (active?.FrameId == frameId)
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (cached?.Id == frameId) return new Bitmap(cached.Image);
+            latestRequest = frameId;
+            start = !pending.TryGetValue(frameId, out operation!);
+            if (start) pending.Add(frameId, operation = new Capture(frameId, generation));
+            operation.Readers++;
+        }
+        if (start) _ = CaptureAsync(operation, captureAsync);
+        try
+        {
+            await operation.Completion.Task.WaitAsync(token).ConfigureAwait(false);
+            lock (gate)
             {
-                operation = active;
-            }
-            else
-            {
-                operation = new CaptureOperation(frameId);
-                active = operation;
-                startCapture = true;
+                ObjectDisposedException.ThrowIf(disposed, this);
+                // The reader lease survives Clear and eviction; all Bitmap
+                // access is serialized with clone and release operations.
+                return new Bitmap(operation.Frame!.Image);
             }
         }
-
-        if (startCapture)
-            _ = CaptureAndPublishAsync(operation, captureAsync);
-
-        var result = await operation.Completion.Task.WaitAsync(token);
-        return result.CloneImage();
+        finally
+        {
+            lock (gate)
+            {
+                operation.Readers--;
+                Release(operation.Frame);
+            }
+        }
     }
 
-    async Task CaptureAndPublishAsync(
-        CaptureOperation operation,
-        Func<CancellationToken, Task<Bitmap>> captureAsync)
+    async Task CaptureAsync(Capture operation, Func<CancellationToken, Task<Bitmap>> captureAsync)
     {
         try
         {
-            // 共享截图不能被某一个等待者的取消操作中断；取消只作用于该等待者。
-            using var image = await captureAsync(CancellationToken.None);
-            var next = new CachedFrame(operation.FrameId, new Bitmap(image));
-            CachedFrame? previous = null;
-            var rejected = false;
+            // Cancelling one reader cannot cancel a capture shared by others.
+            using var image = await captureAsync(CancellationToken.None).ConfigureAwait(false);
+            var frame = new Frame(operation.Id, new Bitmap(image));
             lock (gate)
             {
+                RemovePending(operation);
                 if (disposed)
                 {
-                    rejected = true;
+                    frame.Image.Dispose();
+                    operation.Completion.TrySetException(new ObjectDisposedException(nameof(ScreenFrameCache)));
+                    _ = operation.Completion.Task.Exception;
+                    return;
                 }
-                else
+                operation.Frame = frame;
+                frame.References = operation.Readers;
+                if (operation.Generation == generation && operation.Id == latestRequest)
                 {
-                    previous = cached;
-                    cached = next;
-                    if (ReferenceEquals(active, operation)) active = null;
+                    Release(cached);
+                    cached = frame;
+                    frame.References++;
                 }
+                if (frame.References == 0) frame.Image.Dispose();
+                operation.Completion.TrySetResult();
             }
-
-            previous?.Dispose();
-            if (rejected)
-            {
-                next.Dispose();
-                operation.Completion.TrySetException(new ObjectDisposedException(nameof(ScreenFrameCache)));
-                return;
-            }
-
-            operation.Completion.TrySetResult(next);
         }
-        catch (Exception ex)
+        catch (Exception error)
         {
             lock (gate)
             {
-                if (ReferenceEquals(active, operation)) active = null;
+                RemovePending(operation);
+                operation.Completion.TrySetException(error);
+                _ = operation.Completion.Task.Exception;
             }
-            operation.Completion.TrySetException(ex);
         }
+    }
+
+    void RemovePending(Capture operation)
+    {
+        if (pending.TryGetValue(operation.Id, out var current) && ReferenceEquals(current, operation))
+            pending.Remove(operation.Id);
+    }
+
+    static void Release(Frame? frame)
+    {
+        if (frame is not null && --frame.References == 0) frame.Image.Dispose();
+    }
+
+    void Invalidate()
+    {
+        generation++;
+        pending.Clear();
+        Release(cached);
+        cached = null;
     }
 
     public void Clear()
     {
-        CachedFrame? previous;
         lock (gate)
         {
-            ThrowIfDisposed();
-            previous = cached;
-            cached = null;
+            ObjectDisposedException.ThrowIf(disposed, this);
+            Invalidate();
         }
-        previous?.Dispose();
-    }
-
-    void ThrowIfDisposed()
-    {
-        if (disposed) throw new ObjectDisposedException(nameof(ScreenFrameCache));
     }
 
     public void Dispose()
     {
-        CachedFrame? previous;
         lock (gate)
         {
             if (disposed) return;
             disposed = true;
-            previous = cached;
-            cached = null;
+            Invalidate();
         }
-        previous?.Dispose();
     }
 }

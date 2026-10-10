@@ -12,6 +12,9 @@ internal sealed class AdbCommandTransport : IDisposable
     const int PersistentShellTimeoutMs = 3000;
 
     readonly SemaphoreSlim rootShellLock = new(1, 1);
+    readonly object processGate = new();
+    readonly HashSet<Process> commands = [];
+    int disposed;
     Process? rootShell;
     long rootCommandId;
     bool runsAsRoot;
@@ -22,9 +25,16 @@ internal sealed class AdbCommandTransport : IDisposable
         get => serial;
         set
         {
-            if (serial == value) return;
-            serial = value;
-            ResetSession();
+            rootShellLock.Wait();
+            try
+            {
+                ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+                if (serial == value) return;
+                serial = value;
+                runsAsRoot = false;
+                DisposeRootShell();
+            }
+            finally { rootShellLock.Release(); }
         }
     }
 
@@ -32,6 +42,7 @@ internal sealed class AdbCommandTransport : IDisposable
 
     public async Task<string> RunAsync(params string[] args)
     {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
         var psi = new ProcessStartInfo("adb")
         {
             RedirectStandardOutput = true,
@@ -42,39 +53,54 @@ internal sealed class AdbCommandTransport : IDisposable
         psi.ArgumentList.Add("-s");
         psi.ArgumentList.Add(Serial);
         foreach (var arg in args) psi.ArgumentList.Add(arg);
-        using var process = Process.Start(psi) ?? throw new InvalidOperationException("无法启动 adb");
-        var stdout = process.StandardOutput.ReadToEndAsync();
-        var stderr = process.StandardError.ReadToEndAsync();
+        Process process;
+        lock (processGate)
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+            process = Process.Start(psi) ?? throw new InvalidOperationException("无法启动 adb");
+            commands.Add(process);
+        }
         try
         {
-            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromMilliseconds(CommandTimeoutMs));
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            var stderr = process.StandardError.ReadToEndAsync();
+            try
+            {
+                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromMilliseconds(CommandTimeoutMs)).ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+                try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
+                throw new TimeoutException($"ADB 命令超时（>{CommandTimeoutMs}ms）");
+            }
+            var error = await stderr.ConfigureAwait(false);
+            if (process.ExitCode != 0) throw new InvalidOperationException(error.Trim());
+            return await stdout.ConfigureAwait(false);
         }
-        catch (TimeoutException)
+        finally
         {
-            try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
-            throw new TimeoutException($"ADB 命令超时（>{CommandTimeoutMs}ms）");
+            lock (processGate) commands.Remove(process);
+            process.Dispose();
         }
-        var error = await stderr;
-        if (process.ExitCode != 0) throw new InvalidOperationException(error.Trim());
-        return await stdout;
     }
 
     public async Task<string> RunRootAsync(string command)
     {
-        if (!await rootShellLock.WaitAsync(TimeSpan.FromMilliseconds(PersistentShellTimeoutMs)))
+        if (!await rootShellLock.WaitAsync(TimeSpan.FromMilliseconds(PersistentShellTimeoutMs)).ConfigureAwait(false))
             throw new TimeoutException($"Root ADB 命令锁等待超时（>{PersistentShellTimeoutMs}ms）");
         try
         {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
             EnsureRootShell();
             var marker = $"__CODEX_DONE_{Interlocked.Increment(ref rootCommandId)}__";
-            await rootShell!.StandardInput.WriteLineAsync(command);
-            await rootShell.StandardInput.WriteLineAsync($"__codex_status=$?; printf '\n{marker}:%s\n' \"$__codex_status\"");
-            await rootShell.StandardInput.FlushAsync();
+            await rootShell!.StandardInput.WriteLineAsync(command).ConfigureAwait(false);
+            await rootShell.StandardInput.WriteLineAsync($"__codex_status=$?; printf '\\n{marker}:%s\\n' \"$__codex_status\"").ConfigureAwait(false);
+            await rootShell.StandardInput.FlushAsync().ConfigureAwait(false);
             var lines = new List<string>();
             while (true)
             {
                 var line = await rootShell.StandardOutput.ReadLineAsync()
-                    .WaitAsync(TimeSpan.FromMilliseconds(PersistentShellTimeoutMs))
+                    .WaitAsync(TimeSpan.FromMilliseconds(PersistentShellTimeoutMs)).ConfigureAwait(false)
                     ?? throw new IOException("持续 Root ADB shell 已断开");
                 if (line.StartsWith(marker + ":", StringComparison.Ordinal))
                 {
@@ -103,7 +129,7 @@ internal sealed class AdbCommandTransport : IDisposable
 
     public async Task<bool> EnableRootAsync()
     {
-        DisposeRootShell();
+        ResetSession();
         try
         {
             await RunAsync("root");
@@ -117,8 +143,9 @@ internal sealed class AdbCommandTransport : IDisposable
 
     public void ResetSession()
     {
-        runsAsRoot = false;
-        DisposeRootShell();
+        rootShellLock.Wait();
+        try { runsAsRoot = false; DisposeRootShell(); }
+        finally { rootShellLock.Release(); }
     }
 
     void EnsureRootShell()
@@ -155,7 +182,12 @@ internal sealed class AdbCommandTransport : IDisposable
 
     public void Dispose()
     {
-        DisposeRootShell();
-        rootShellLock.Dispose();
+        if (Interlocked.Exchange(ref disposed, 1) != 0) return;
+        lock (processGate)
+            foreach (var process in commands)
+                try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
+        ResetSession();
+        // Keep admission synchronization valid for queued callers, which must
+        // reject disposal rather than release an already disposed semaphore.
     }
 }

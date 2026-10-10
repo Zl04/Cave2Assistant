@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace AdbMapController;
 
-internal static class NavigationStartup
+internal static class NavigationStartupUseCase
 {
     // 规划只消费地图。输入必须等待两个分支都完成，
     // 包括任一分支失败或所属运行被取消的情况。

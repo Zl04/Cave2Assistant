@@ -22,8 +22,9 @@ public sealed class PaddleOcrEngine : IDisposable
 
     readonly string modelsPath;
     readonly SemaphoreSlim gate = new(1, 1);
+    readonly OcrFrameCache frameCache = new();
     OCRService? service;
-    bool disposed;
+    int disposed;
 
     public PaddleOcrEngine(string? modelsPath = null)
     {
@@ -39,6 +40,7 @@ public sealed class PaddleOcrEngine : IDisposable
         CancellationToken token = default)
     {
         if (image is null) throw new ArgumentNullException(nameof(image));
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
         token.ThrowIfCancellationRequested();
 
         using var copy = new Bitmap(image);
@@ -49,11 +51,16 @@ public sealed class PaddleOcrEngine : IDisposable
         await gate.WaitAsync(token).ConfigureAwait(false);
         try
         {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+            token.ThrowIfCancellationRequested();
+            if (frameCache.Find(imageBytes) is { } cached) return cached;
             // OCRService.Detect is synchronous and enters native inference. Keep
             // it off the WinForms synchronization context while preserving the
             // single-engine guarantee required by the native runtime.
-            return await Task.Run(() => RecognizeCore(imageBytes), CancellationToken.None)
+            var result = await Task.Run(() => RecognizeCore(imageBytes), CancellationToken.None)
                 .ConfigureAwait(false);
+            frameCache.Store(imageBytes, result);
+            return result;
         }
         finally { gate.Release(); }
     }
@@ -82,8 +89,8 @@ public sealed class PaddleOcrEngine : IDisposable
 
     void EnsureInitialized()
     {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
         if (service is not null) return;
-        if (disposed) throw new ObjectDisposedException(nameof(PaddleOcrEngine));
 
         // Keep the paths passed to the native SDK relative to the published
         // application directory. The entry point sets that directory before
@@ -180,11 +187,13 @@ public sealed class PaddleOcrEngine : IDisposable
 
     public void Dispose()
     {
-        if (disposed) return;
-        disposed = true;
-        try { service?.FreeEngine(); } catch { }
-        service = null;
-        gate.Dispose();
+        if (Interlocked.Exchange(ref disposed, 1) != 0) return;
+        // Native inference cannot be interrupted. Close admission first, then
+        // join the current invocation before freeing its engine. Keep the
+        // managed semaphore valid for already queued callers to reject safely.
+        gate.Wait();
+        try { service?.FreeEngine(); }
+        finally { service = null; frameCache.Clear(); gate.Release(); }
     }
 }
 

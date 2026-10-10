@@ -48,7 +48,7 @@ public sealed partial class MainForm
                     break;
                 case MaaPipelineTraceKind.NodeFailed:
                 case MaaPipelineTraceKind.TaskChainFailed:
-                    Log($"MAA Pipeline 失败：{task}，{value.Error ?? value.Detail}");
+                    Log($"MAA Pipeline 失败：{task}，{value.Error ?? value.Detail}", LogLevel.Error);
                     break;
                 case MaaPipelineTraceKind.BranchSelected:
                     Log($"MAA Pipeline 分支：{task} -> {value.Detail ?? "停止"}");
@@ -73,14 +73,14 @@ public sealed partial class MainForm
             new MaaPipelineExecutionOptions { TaskChain = "MapRun", RetryTimes = 0 },
             new MaaPipelineTraceMultiplexer([trace, liveTrace, pipelineWebServer]));
 
-        var result = await pipeline.RunAsync(this, ["RunDungeon"]);
+        var result = await pipeline.RunAsync(this, ["RunDungeon"], operations.MovementToken);
         try
         {
             var tracePath = runtime.Paths.Trace($"map-run-{result.RunId}.json");
             trace.SaveJson(tracePath);
             Log($"MAA Pipeline 节点诊断已保存：{tracePath}");
         }
-        catch (Exception ex) { Log($"MAA Pipeline 节点诊断保存失败：{ex.Message}"); }
+        catch (Exception ex) { Warn($"MAA Pipeline 节点诊断保存失败：{ex.Message}"); }
         if (!result.Succeeded && result.Status != MaaPipelineExecutionStatus.Canceled)
         {
             State("任务流水线失败");
@@ -90,16 +90,13 @@ public sealed partial class MainForm
 
     async Task<TaskPipelineNodeResult> RunDungeonTaskCore(CancellationToken pipelineToken)
     {
-        if (runCts is not null) return TaskPipelineNodeResult.Failure("已有跑图任务正在运行");
         // 停层标记只属于上一次运行。停止后玩家可能已手动重新进图，
         // 每次开始都必须刷新地图，再按当前楼层和剩余目标判断是否停住。
         dungeon.TargetFloorStopped = false;
         dungeon.FloorMiningCompletedLevel = -1;
         dungeon.FloorMiningSkippedLevel = -1;
-        using var linkedOwner = CancellationTokenSource.CreateLinkedTokenSource(pipelineToken);
-        var owner = linkedOwner;
-        runCts = owner;
-        touch.MovementCancellation = owner.Token;
+        var owner = pipelineToken;
+        var runTask = new MapRunTask();
         try
         {
             var startup = Stopwatch.StartNew();
@@ -109,6 +106,7 @@ public sealed partial class MainForm
             {
                 ready = await RefreshMap(true, waitForLock: true, onMapReady: () =>
                 {
+                    if (dungeon.Map is not null && MapRunTask.IsReturnDestination(dungeon.Map)) return;
                     var planning = Stopwatch.StartNew();
                     ReplanFromCurrentMap();
                     Log($"导航规划就绪 {startup.ElapsedMilliseconds} ms，其中路径规划 {planning.ElapsedMilliseconds} ms");
@@ -122,24 +120,21 @@ public sealed partial class MainForm
                 startupPreparing = false;
             }
             if (dungeon.MotionInterrupt.Reason == MotionInterruptReason.Popup)
-                await HandleMovementPopupInterrupt(owner.Token);
+                await HandleMovementPopupInterrupt(owner);
             if (serverErrorDialogVisible || owner.IsCancellationRequested)
             {
-                if (runCts == owner) runCts = null;
-                owner.Dispose();
                 return serverErrorDialogVisible
                     ? TaskPipelineNodeResult.Failure("服务器连接异常")
-                    : TaskPipelineNodeResult.Success();
+                    : throw new OperationCanceledException(owner);
             }
             // 刷新已经等待完成的标题 OCR（包括模型启动）。
             // 重复执行否定检查会拖慢每次正常启动；移动开始后由移动看门狗监控新覆盖层。
             if ((!ready || dungeon.Map is null) && !runeSelectionVisible && floorPhase != FloorPhase.SelectBonus)
             {
                 State("地图未就绪");
-                runCts = null;
-                owner.Dispose();
                 return TaskPipelineNodeResult.Failure("地图未就绪");
             }
+            if (dungeon.Map is not null) runTask.Observe(dungeon.Map);
             // 宝石选择覆盖层会消耗所有触摸输入。不要在其下方构建或启动移动路线；
             // RunLoop 会先执行有界的点击/重试序列，关闭后再恢复。
             if (runeSelectionVisible)
@@ -151,53 +146,41 @@ public sealed partial class MainForm
                 mapPanel.Invalidate();
                 State("秘境宝石选择：等待自动选择");
                 Log("启动检查已锁存秘境宝石选择，先执行一次专用点击流程");
-                await HandleRiftGemSelection(owner.Token);
-                await RunLoop(owner, useInitialSnapshot: true);
-                return TaskPipelineNodeResult.Success();
+                await HandleRiftGemSelection(owner);
+                await RunLoop(owner, runTask, useInitialSnapshot: true);
+                return runTask.Completed ? TaskPipelineNodeResult.Success() : TaskPipelineNodeResult.Failure("跑图已停止，尚未返回主城或公会");
             }
-            if (floorPhase != FloorPhase.WaitingFloorLoad && await TryStopAtTargetFloor())
+            if (dungeon.Map is not null && !MapRunTask.IsReturnDestination(dungeon.Map) &&
+                floorPhase != FloorPhase.WaitingFloorLoad && await TryStopAtTargetFloor())
             {
-                if (runCts == owner) runCts = null;
-                owner.Dispose();
-                return TaskPipelineNodeResult.Success();
+                return TaskPipelineNodeResult.Failure("已在目标楼层暂停，尚未返回主城或公会");
             }
             Log($"导航启动检查完成 {startup.ElapsedMilliseconds} ms");
-            if (owner.IsCancellationRequested || runCts != owner)
-            {
-                owner.Dispose();
-                return TaskPipelineNodeResult.Success();
-            }
+            owner.ThrowIfCancellationRequested();
             State("运行中");
-            await RunLoop(owner, useInitialSnapshot: true);
-            return TaskPipelineNodeResult.Success();
+            await RunLoop(owner, runTask, useInitialSnapshot: true);
+            return runTask.Completed ? TaskPipelineNodeResult.Success() : TaskPipelineNodeResult.Failure("跑图已停止，尚未返回主城或公会");
         }
-        catch (OperationCanceledException)
-        {
-            startupPreparing = false;
-            if (runCts == owner) runCts = null;
-            owner.Dispose();
-            return TaskPipelineNodeResult.Success();
-        }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             startupPreparing = false;
-            if (runCts == owner) runCts = null;
-            owner.Dispose();
             Error(ex);
             return TaskPipelineNodeResult.Failure(ex.Message);
         }
     }
-    async Task RunLoop(CancellationTokenSource owner, bool useInitialSnapshot = false)
+    async Task RunLoop(CancellationToken owner, MapRunTask runTask, bool useInitialSnapshot = false)
     {
         // 使用一次启动时刚检查过的快照；后续迭代继续执行常规的地图/覆盖层刷新。
         var skipRefreshForConfirmedTaskStop = useInitialSnapshot;
+        Exception? executionError = null;
         try
         {
             while (!owner.IsCancellationRequested)
             {
                 if (dungeon.MotionInterrupt.Reason == MotionInterruptReason.Popup)
                 {
-                    await HandleMovementPopupInterrupt(owner.Token);
+                    await HandleMovementPopupInterrupt(owner);
                     continue;
                 }
                 // RouteExecutor 已在每个分段边界执行释放后的玩家状态读取。
@@ -213,6 +196,23 @@ public sealed partial class MainForm
                     await RefreshMap(false);
                 }
                 if (serverErrorDialogVisible || owner.IsCancellationRequested) break;
+                if (dungeon.Map is { } observedMap)
+                {
+                    if (runTask.Observe(observedMap))
+                    {
+                        route = []; plannedInteractions = []; plannedTargetUniverse.Clear();
+                        mapPanel.Route = route; mapPanel.Invalidate();
+                        State("跑图任务完成：已返回主城或公会");
+                        Log($"跑图任务完成：{observedMap.MapName}，地图 {observedMap.Level}，同屏场景 {observedMap.TownMapId}");
+                        break;
+                    }
+                    if (MapRunTask.IsReturnDestination(observedMap))
+                    {
+                        State("跑图任务等待进入地图");
+                        await Task.Delay(180, owner);
+                        continue;
+                    }
+                }
                 // 看门狗在宝石选择锁存期间暂停探测；由主循环复用同一套
                 // OCR/弹窗管线确认它已关闭，避免点击后永久停留在宝石状态。
                 if (runeSelectionVisible)
@@ -222,13 +222,13 @@ public sealed partial class MainForm
                 }
                 if (runeSelectionVisible)
                 {
-                    await HandleRiftGemSelection(owner.Token);
+                    await HandleRiftGemSelection(owner);
                     continue;
                 }
                 if (dungeon.Map is null)
                 {
                     State("地图未就绪，等待弹窗/地图数据");
-                    await Task.Delay(120, owner.Token);
+                    await Task.Delay(120, owner);
                     continue;
                 }
                 // InBattle 由游戏运行时导出，是唯一必须暂停路线执行的状态。
@@ -237,7 +237,7 @@ public sealed partial class MainForm
                 {
                     await touch.EmergencyRelease();
                     State("战斗中，已停止移动");
-                    await Task.Delay(120, owner.Token);
+                    await Task.Delay(120, owner);
                     continue;
                 }
                 UpdateFloorPhase();
@@ -247,7 +247,7 @@ public sealed partial class MainForm
                     if (now == roomOrigin && Environment.TickCount64 - dungeon.RoomPortalInteractionAt < 5000)
                     {
                         State($"等待层内传送门跳转 {waitingRoomPortal.Cell}");
-                        await Task.Delay(80, owner.Token);
+                        await Task.Delay(80, owner);
                         continue;
                     }
                     // 到达传送门格但没有自动跳转，仍是有效的中间状态：
@@ -255,7 +255,7 @@ public sealed partial class MainForm
                     if (now != waitingRoomPortal.Cell)
                     {
                         if (now == roomOrigin)
-                            Log($"层内传送门 {waitingRoomPortal.Cell} 超时未改变坐标，按当前位置恢复寻路");
+                            Warn($"层内传送门 {waitingRoomPortal.Cell} 超时未改变坐标，按当前位置恢复寻路");
                         dungeon.PendingRoomPortal = null; dungeon.RoomPortalOrigin = null; dungeon.RoomPortalInteractionAt = 0;
                         route = []; plannedInteractions = []; plannedTargetUniverse.Clear();
                         mapPanel.Route = route; mapPanel.Invalidate();
@@ -264,14 +264,14 @@ public sealed partial class MainForm
                 if (floorPhase == FloorPhase.WaitingFloorLoad)
                 {
                     State($"等待新层加载 {(newFloorStartDelay.Value / 1000):0.##} 秒");
-                    await Task.Delay(80, owner.Token); continue;
+                    await Task.Delay(80, owner); continue;
                 }
                 if (await TryStopAtTargetFloor()) break;
                 // 已满足的楼层门控优先于探索。快捷入口会自行检查活动目标/Boss，
                 // 即使当前地图仍有迷雾，也允许继续前进。
-                if (await TryUseNextFloorShortcut(owner.Token))
+                if (await TryUseNextFloorShortcut(owner))
                 {
-                    await Task.Delay(80, owner.Token);
+                    await Task.Delay(80, owner);
                     continue;
                 }
                 ReconcileCompletedTasks();
@@ -285,12 +285,12 @@ public sealed partial class MainForm
                 }
                 if (floorPhase == FloorPhase.SelectBonus)
                 {
-                    portalChoiceCoroutine ??= coroutines.Start(SelectBonusRoutine, owner.Token);
+                    portalChoiceCoroutine ??= coroutines.Start(SelectBonusRoutine, owner);
                     var yieldedTask = coroutines.Tick(portalChoiceCoroutine, Environment.TickCount64);
-                    if (yieldedTask is not null) await yieldedTask.WaitAsync(owner.Token);
+                    if (yieldedTask is not null) await yieldedTask.WaitAsync(owner);
                     if (portalChoiceCoroutine.IsCompleted)
                         portalChoiceCoroutine = null;
-                    await Task.Delay(10, owner.Token);
+                    await Task.Delay(10, owner);
                     continue;
                 }
                 if (floorPhase == FloorPhase.VerifyTransition)
@@ -299,7 +299,7 @@ public sealed partial class MainForm
                     {
                         Log("选择加成后 8 秒仍未检测到换层，重新确认传送门入口"); floorPhase = FloorPhase.GoToPortal; dungeon.PortalCandidate = null; dungeon.PortalConfirmCount = 0;
                     }
-                    await Task.Delay(50, owner.Token); continue;
+                    await Task.Delay(50, owner); continue;
                 }
                 var currentCell = new Cell(dungeon.Map.Player.X, dungeon.Map.Player.Y);
                 var plannedTask = plannedInteractions.FirstOrDefault(task => task.Stop == currentCell &&
@@ -310,7 +310,7 @@ public sealed partial class MainForm
                     // 在任务停靠点强制执行第二次同步释放，避免交互准备期间
                     // 飞行中的方向指令提交额外的地图格。
                     await touch.TouchUp();
-                    await Task.Delay(20, owner.Token);
+                    await Task.Delay(20, owner);
                     var interactionStatus = await adb.ReadPlayer();
                     if (interactionStatus.MoveSpeed > 0) dungeon.RouteExecution.MoveSpeed = interactionStatus.MoveSpeed;
                     var settledCell = new Cell(interactionStatus.Player.X, interactionStatus.Player.Y);
@@ -333,7 +333,7 @@ public sealed partial class MainForm
                             EnsurePortalRoute();
                         }
                         else EnsureRoute(true);
-                        await Task.Delay(10, owner.Token);
+                        await Task.Delay(10, owner);
                         continue;
                     }
                     currentCell = settledCell;
@@ -342,9 +342,9 @@ public sealed partial class MainForm
                     var isRoomPortal = IsRoomPortalTarget(plannedTask.Target);
                     if (isRoomPortal)
                     {
-                        if (await SendInteraction((delta, plannedTask.Target.Kind), owner.Token))
+                        if (await SendInteraction((delta, plannedTask.Target.Kind), owner))
                         {
-                            await HandleMovementPopupInterrupt(owner.Token);
+                            await HandleMovementPopupInterrupt(owner);
                             continue;
                         }
                         dungeon.AttemptedRoomPortals.Add(plannedTask.Target.Cell);
@@ -357,9 +357,9 @@ public sealed partial class MainForm
                         // 到达楼层传送门后，必须在任何换层动作前完成挖矿判断。
                         // 这里既覆盖传送门交互，也覆盖同一位置出现的右侧快捷入口，
                         // 防止先触发“前往下一层”弹窗后才进入挖矿流程。
-                        if (await TryMineBeforeFloorTransition(owner.Token, transitionAvailable: true))
+                        if (await TryMineBeforeFloorTransition(owner, transitionAvailable: true))
                         {
-                            await Task.Delay(20, owner.Token);
+                            await Task.Delay(20, owner);
                             continue;
                         }
                         // 常规循环会在路线执行前检查目标楼层，但此传送门任务是路线停止后
@@ -377,7 +377,7 @@ public sealed partial class MainForm
                             plannedTargetUniverse.Clear();
                             mapPanel.Route = route;
                             mapPanel.Invalidate();
-                            await Task.Delay(80, owner.Token);
+                            await Task.Delay(80, owner);
                             continue;
                         }
 
@@ -388,23 +388,23 @@ public sealed partial class MainForm
                             await adb.TapScreen(0.890625, 0.498);
                             Log("检测到右侧‘前往下层’快捷入口，已点击");
                         }
-                        else if (await SendInteraction((delta, plannedTask.Target.Kind), owner.Token))
+                        else if (await SendInteraction((delta, plannedTask.Target.Kind), owner))
                         {
-                            await HandleMovementPopupInterrupt(owner.Token);
+                            await HandleMovementPopupInterrupt(owner);
                             continue;
                         }
                     }
                     else if (IsCombatInteraction(plannedTask.Target.Kind))
                     {
-                        if (await FightWhileHolding(plannedTask, owner.Token))
+                        if (await FightWhileHolding(plannedTask, owner))
                         {
-                            await HandleMovementPopupInterrupt(owner.Token);
+                            await HandleMovementPopupInterrupt(owner);
                             continue;
                         }
                     }
-                    else if (await SendInteraction((delta, plannedTask.Target.Kind), owner.Token))
+                    else if (await SendInteraction((delta, plannedTask.Target.Kind), owner))
                     {
-                        await HandleMovementPopupInterrupt(owner.Token);
+                        await HandleMovementPopupInterrupt(owner);
                         continue;
                     }
                     if (plannedTask.Target.Kind == "密室")
@@ -430,7 +430,7 @@ public sealed partial class MainForm
                         portalDialogPausedMs = 0;
                         State("已交互传送门，等待换层弹窗");
                     }
-                    await Task.Delay(50, owner.Token);
+                    await Task.Delay(50, owner);
                     continue;
                 }
                 if (route.Count < 2)
@@ -443,44 +443,46 @@ public sealed partial class MainForm
                         // 快捷入口可能会抢先执行。
                         if (TryPlanExplorationRoute())
                         {
-                            await Task.Delay(20, owner.Token);
+                            await Task.Delay(20, owner);
                             continue;
                         }
-                        if (await TryExploreWithoutTarget(owner.Token)) continue;
+                        if (await TryExploreWithoutTarget(owner)) continue;
                     }
                     // 探索规划失败时，不能在右侧下一层快捷入口出现前终止运行。
                     // 这是探索已经没有剩余路线时的回退逻辑。
-                    if (await TryUseNextFloorShortcut(owner.Token))
+                    if (await TryUseNextFloorShortcut(owner))
                     {
-                        await Task.Delay(80, owner.Token);
+                        await Task.Delay(80, owner);
                         continue;
                     }
                     if (floorPhase == FloorPhase.GoToPortal)
                     {
                         State("传送门暂不可达，等待道路更新");
                         dungeon.PortalCandidate = null; dungeon.PortalConfirmCount = 0;
-                        await Task.Delay(100, owner.Token); continue;
+                        await Task.Delay(100, owner); continue;
                     }
                     if (floorPhase == FloorPhase.Explore && reachableTargets.Count == 0)
                     {
                         State("探索地图，等待发现勾选目标");
-                        await Task.Delay(180, owner.Token);
+                        await Task.Delay(180, owner);
                         continue;
                     }
-                    if (await TryPlanningRecovery(owner.Token)) continue;
+                    if (await TryPlanningRecovery(owner)) continue;
                     if (reachableTargets.Count == 0)
                     {
                         State("无有效目标，等待下一层入口");
-                        await Task.Delay(180, owner.Token);
+                        await Task.Delay(180, owner);
                         continue;
                     }
-                    State("无目标"); break;
+                    State("无目标，等待返回主城或公会");
+                    await Task.Delay(180, owner);
+                    continue;
                 }
                 ArmRoomPortalTransition();
-                var routeResult = await ExecuteRouteSlice(owner.Token);
+                var routeResult = await ExecuteRouteSlice(owner);
                 if (routeResult.InterruptedByPopup)
                 {
-                    await HandleMovementPopupInterrupt(owner.Token);
+                    await HandleMovementPopupInterrupt(owner);
                     continue;
                 }
                 if (routeResult.RequiresReplan)
@@ -498,17 +500,21 @@ public sealed partial class MainForm
                         (HasTarget(task.Target) || PortalRouting.IsPortalKind(task.Target.Kind)));
                     if (skipRefreshForConfirmedTaskStop) continue;
                 }
-                await Task.Delay(10, owner.Token);
+                await Task.Delay(10, owner);
             }
+            if (serverErrorDialogVisible) throw new IOException("服务器连接已断开");
+            owner.ThrowIfCancellationRequested();
         }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) { Error(ex); }
+        catch (Exception error) { executionError = error; throw; }
         finally
         {
             coroutines.StopAll(); portalChoiceCoroutine = null;
-            try { await touch.TouchUp(); } catch (Exception ex) { Error(ex); }
-            if (ReferenceEquals(runCts, owner)) runCts = null;
-            owner.Dispose();
+            try { await touch.TouchUp(); }
+            catch (Exception releaseError)
+            {
+                if (executionError is not null) throw new AggregateException(executionError, releaseError);
+                throw;
+            }
         }
     }
 }

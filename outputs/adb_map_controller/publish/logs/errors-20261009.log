@@ -1,0 +1,50 @@
+[2026-10-09T14:15:30.6793016+08:00] Controller operation
+Process: F:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 126152
+Runtime: .NET 8.0.8; Architecture: X64
+Build: 2026-10-09T02:25:54.4371436Z
+System.IO.FileNotFoundException: 助手地图数据尚未生成。若刚安装助手，请彻底结束并重新启动游戏，然后进入地图。
+   at AdbMapController.AdbGameDataReader.ReadAtomicJsonAsync(String path) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbGameDataReader.cs:line 80
+   at AdbMapController.AdbGameDataReader.ReadJsonAsync[T](String path) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbGameDataReader.cs:line 57
+   at AdbMapController.AdbGameDataReader.ReadMapAsync() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbGameDataReader.cs:line 36
+   at AdbMapController.MainForm.RefreshMapSnapshot(Boolean writeLog) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.DeviceMap.cs:line 194
+
+[2026-10-09T14:15:38.1880347+08:00] Controller operation
+Process: F:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 126152
+Runtime: .NET 8.0.8; Architecture: X64
+Build: 2026-10-09T02:25:54.4371436Z
+System.InvalidOperationException: Root 命令失败（状态 1）
+   at AdbMapController.AdbCommandTransport.RunRootAsync(String command) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbCommandTransport.cs:line 82
+   at AdbMapController.AssistantController.FindTargetAsync() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Patching\AssistantController.cs:line 93
+   at AdbMapController.AssistantController.InstallAsync(String templateFile) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Patching\AssistantController.cs:line 36
+   at AdbMapController.MainForm.InstallAssistant() in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Assistant.cs:line 30
+
+[2026-10-09T14:15:42.7741035+08:00] Controller operation
+Process: F:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 126152
+Runtime: .NET 8.0.8; Architecture: X64
+Build: 2026-10-09T02:25:54.4371436Z
+System.InvalidOperationException: Root 命令失败（状态 1）
+   at AdbMapController.AdbCommandTransport.RunRootAsync(String command) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbCommandTransport.cs:line 82
+   at AdbMapController.AssistantController.FindTargetAsync() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Patching\AssistantController.cs:line 93
+   at AdbMapController.AssistantController.GetStatusAsync(String templateFile) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Patching\AssistantController.cs:line 18
+   at AdbMapController.MainForm.DetectAssistant() in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Assistant.cs:line 20
+
+[2026-10-09T14:15:47.0080136+08:00] Controller operation
+Process: F:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 126152
+Runtime: .NET 8.0.8; Architecture: X64
+Build: 2026-10-09T02:25:54.4371436Z
+System.InvalidOperationException: Root 命令失败（状态 1）
+   at AdbMapController.AdbCommandTransport.RunRootAsync(String command) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbCommandTransport.cs:line 82
+   at AdbMapController.AssistantController.FindTargetAsync() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Patching\AssistantController.cs:line 93
+   at AdbMapController.AssistantController.InstallAsync(String templateFile) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Patching\AssistantController.cs:line 36
+   at AdbMapController.MainForm.InstallAssistant() in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Assistant.cs:line 30
+
+[2026-10-09T14:15:52.1018081+08:00] Controller operation
+Process: F:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 126152
+Runtime: .NET 8.0.8; Architecture: X64
+Build: 2026-10-09T02:25:54.4371436Z
+System.InvalidOperationException: Root 命令失败（状态 1）
+   at AdbMapController.AdbCommandTransport.RunRootAsync(String command) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbCommandTransport.cs:line 82
+   at AdbMapController.AssistantController.FindTargetAsync() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Patching\AssistantController.cs:line 93
+   at AdbMapController.AssistantController.GetStatusAsync(String templateFile) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Patching\AssistantController.cs:line 18
+   at AdbMapController.MainForm.DetectAssistant() in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Assistant.cs:line 20
+

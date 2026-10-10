@@ -1,0 +1,187 @@
+[2026-10-10T12:21:03.9419175+08:00] Controller operation
+Process: F:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 17028
+Runtime: .NET 8.0.8; Architecture: X64
+Build: 2026-10-09T08:10:10.7647168Z
+System.IO.FileNotFoundException: 助手地图数据尚未生成。若刚安装助手，请彻底结束并重新启动游戏，然后进入地图。
+   at AdbMapController.AdbGameDataReader.ReadAtomicJsonAsync(String path) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbGameDataReader.cs:line 80
+   at AdbMapController.AdbGameDataReader.ReadJsonAsync[T](String path) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbGameDataReader.cs:line 57
+   at AdbMapController.AdbGameDataReader.ReadMapAsync() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbGameDataReader.cs:line 36
+   at AdbMapController.MainForm.RefreshMapSnapshot(Boolean writeLog) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.DeviceMap.cs:line 194
+
+[2026-10-10T12:21:13.5408046+08:00] Controller operation
+Process: F:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 17028
+Runtime: .NET 8.0.8; Architecture: X64
+Build: 2026-10-09T08:10:10.7647168Z
+System.IO.IOException: 持续 Root ADB shell 已断开
+   at AdbMapController.AdbCommandTransport.RunRootAsync(String command) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbCommandTransport.cs:line 76
+   at AdbMapController.AssistantController.FindTargetAsync() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Patching\AssistantController.cs:line 93
+   at AdbMapController.AssistantController.GetStatusAsync(String templateFile) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Patching\AssistantController.cs:line 18
+   at AdbMapController.MainForm.DetectAssistant() in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Assistant.cs:line 20
+
+[2026-10-10T14:16:18.5789122+08:00] Controller operation
+Process: F:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 93532
+Runtime: .NET 8.0.8; Architecture: X64
+Build: 2026-10-10T06:15:53.1283906Z
+System.IO.FileNotFoundException: 助手地图数据尚未生成。若刚安装助手，请彻底结束并重新启动游戏，然后进入地图。
+   at AdbMapController.AdbGameDataReader.ReadAtomicJsonAsync(String path) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbGameDataReader.cs:line 80
+   at AdbMapController.AdbGameDataReader.ReadJsonAsync[T](String path) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbGameDataReader.cs:line 57
+   at AdbMapController.AdbGameDataReader.ReadMapAsync() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbGameDataReader.cs:line 36
+   at AdbMapController.DungeonSnapshotUseCase.RefreshAsync(CancellationToken token) in F:\Cave2Assistant\outputs\adb_map_controller\Application\DungeonSnapshotUseCase.cs:line 17
+   at AdbMapController.MainForm.RefreshMapSnapshot(Boolean writeLog) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.DeviceMap.cs:line 195
+
+[2026-10-10T17:01:26.9785689+08:00] Controller operation
+Process: F:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 93532
+Runtime: .NET 8.0.8; Architecture: X64
+Build: 2026-10-10T06:15:53.1283906Z
+System.IO.IOException: 管道正在被关闭。
+   at System.IO.RandomAccess.<>c.<WriteAtOffsetAsync>b__21_0(ValueTuple`4 state)
+   at System.Threading.AsyncOverSyncWithIoCancellation.InvokeAsync[TState](Action`1 action, TState state, CancellationToken cancellationToken)
+   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+   at System.IO.Strategies.BufferedFileStreamStrategy.WriteToNonSeekableAsync(ReadOnlyMemory`1 source, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.<FlushAsyncInternal>g__Core|76_0(Boolean flushStream, Boolean flushEncoder, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.WriteAsyncInternal(ReadOnlyMemory`1 source, Boolean appendNewLine, CancellationToken cancellationToken)
+   at AdbMapController.LineTouchBackend.SendBatchAsync(String[] commands) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchBackends.cs:line 63
+   at AdbMapController.TouchController.TouchDown(Cell delta, CancellationToken cancellationToken) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 35
+
+[2026-10-10T17:01:27.0097509+08:00] Controller operation
+Process: F:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 93532
+Runtime: .NET 8.0.8; Architecture: X64
+Build: 2026-10-10T06:15:53.1283906Z
+System.IO.IOException: 管道正在被关闭。
+   at System.IO.RandomAccess.<>c.<WriteAtOffsetAsync>b__21_0(ValueTuple`4 state)
+   at System.Threading.AsyncOverSyncWithIoCancellation.InvokeAsync[TState](Action`1 action, TState state, CancellationToken cancellationToken)
+   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+   at System.IO.Strategies.BufferedFileStreamStrategy.WriteToNonSeekableAsync(ReadOnlyMemory`1 source, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.<FlushAsyncInternal>g__Core|76_0(Boolean flushStream, Boolean flushEncoder, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.WriteAsyncInternal(ReadOnlyMemory`1 source, Boolean appendNewLine, CancellationToken cancellationToken)
+   at AdbMapController.LineTouchBackend.SendBatchAsync(String[] commands) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchBackends.cs:line 63
+   at AdbMapController.TouchController.ReleaseCore() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 56
+   at AdbMapController.TouchController.TouchUp() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 47
+
+[2026-10-10T17:01:27.0295000+08:00] Controller operation
+Process: F:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 93532
+Runtime: .NET 8.0.8; Architecture: X64
+Build: 2026-10-10T06:15:53.1283906Z
+System.AggregateException: One or more errors occurred. (管道正在被关闭。) (管道正在被关闭。)
+ ---> System.IO.IOException: 管道正在被关闭。
+   at System.IO.RandomAccess.<>c.<WriteAtOffsetAsync>b__21_0(ValueTuple`4 state)
+   at System.Threading.AsyncOverSyncWithIoCancellation.InvokeAsync[TState](Action`1 action, TState state, CancellationToken cancellationToken)
+   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+   at System.IO.Strategies.BufferedFileStreamStrategy.WriteToNonSeekableAsync(ReadOnlyMemory`1 source, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.<FlushAsyncInternal>g__Core|76_0(Boolean flushStream, Boolean flushEncoder, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.WriteAsyncInternal(ReadOnlyMemory`1 source, Boolean appendNewLine, CancellationToken cancellationToken)
+   at AdbMapController.LineTouchBackend.SendBatchAsync(String[] commands) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchBackends.cs:line 63
+   at AdbMapController.TouchController.TouchDown(Cell delta, CancellationToken cancellationToken) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 35
+   at AdbMapController.MainForm.FightWhileHoldingCore(PlannedInteraction task, CancellationToken token) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Planning.cs:line 48
+   at AdbMapController.MovementExecution.ExecuteInteractionAsync(Func`2 action, CancellationToken owner) in F:\Cave2Assistant\outputs\adb_map_controller\Application\MovementExecution.cs:line 56
+   at AdbMapController.MainForm.FightWhileHolding(PlannedInteraction task, CancellationToken ownerToken) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Planning.cs:line 31
+   at AdbMapController.MainForm.RunLoop(CancellationToken owner, Boolean useInitialSnapshot) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 378
+   --- End of inner exception stack trace ---
+   at AdbMapController.MainForm.RunLoop(CancellationToken owner, Boolean useInitialSnapshot) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 492
+   at AdbMapController.MainForm.RunDungeonTaskCore(CancellationToken pipelineToken) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 157
+ ---> (Inner Exception #1) System.IO.IOException: 管道正在被关闭。
+   at System.IO.RandomAccess.<>c.<WriteAtOffsetAsync>b__21_0(ValueTuple`4 state)
+   at System.Threading.AsyncOverSyncWithIoCancellation.InvokeAsync[TState](Action`1 action, TState state, CancellationToken cancellationToken)
+   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+   at System.IO.Strategies.BufferedFileStreamStrategy.WriteToNonSeekableAsync(ReadOnlyMemory`1 source, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.<FlushAsyncInternal>g__Core|76_0(Boolean flushStream, Boolean flushEncoder, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.WriteAsyncInternal(ReadOnlyMemory`1 source, Boolean appendNewLine, CancellationToken cancellationToken)
+   at AdbMapController.LineTouchBackend.SendBatchAsync(String[] commands) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchBackends.cs:line 63
+   at AdbMapController.TouchController.ReleaseCore() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 56
+   at AdbMapController.TouchController.TouchUp() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 47
+   at AdbMapController.MainForm.RunLoop(CancellationToken owner, Boolean useInitialSnapshot) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 489<---
+
+
+[2026-10-10T17:01:48.4807680+08:00] Controller operation
+Process: F:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 93532
+Runtime: .NET 8.0.8; Architecture: X64
+Build: 2026-10-10T06:15:53.1283906Z
+System.IO.IOException: 管道正在被关闭。
+   at System.IO.RandomAccess.<>c.<WriteAtOffsetAsync>b__21_0(ValueTuple`4 state)
+   at System.Threading.AsyncOverSyncWithIoCancellation.InvokeAsync[TState](Action`1 action, TState state, CancellationToken cancellationToken)
+   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+   at System.IO.Strategies.BufferedFileStreamStrategy.WriteToNonSeekableAsync(ReadOnlyMemory`1 source, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.<FlushAsyncInternal>g__Core|76_0(Boolean flushStream, Boolean flushEncoder, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.WriteAsyncInternal(ReadOnlyMemory`1 source, Boolean appendNewLine, CancellationToken cancellationToken)
+   at AdbMapController.LineTouchBackend.SendBatchAsync(String[] commands) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchBackends.cs:line 63
+   at AdbMapController.TouchController.ReleaseCore() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 56
+   at AdbMapController.TouchController.TouchUp() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 47
+
+[2026-10-10T17:01:48.4927385+08:00] Controller operation
+Process: F:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 93532
+Runtime: .NET 8.0.8; Architecture: X64
+Build: 2026-10-10T06:15:53.1283906Z
+System.IO.IOException: 管道正在被关闭。
+   at System.IO.RandomAccess.<>c.<WriteAtOffsetAsync>b__21_0(ValueTuple`4 state)
+   at System.Threading.AsyncOverSyncWithIoCancellation.InvokeAsync[TState](Action`1 action, TState state, CancellationToken cancellationToken)
+   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+   at System.IO.Strategies.BufferedFileStreamStrategy.WriteToNonSeekableAsync(ReadOnlyMemory`1 source, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.<FlushAsyncInternal>g__Core|76_0(Boolean flushStream, Boolean flushEncoder, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.WriteAsyncInternal(ReadOnlyMemory`1 source, Boolean appendNewLine, CancellationToken cancellationToken)
+   at AdbMapController.LineTouchBackend.SendBatchAsync(String[] commands) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchBackends.cs:line 63
+   at AdbMapController.TouchController.ReleaseCore() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 56
+   at AdbMapController.TouchController.TouchUp() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 47
+   at AdbMapController.MainForm.StopMovement() in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Movement.cs:line 333
+
+[2026-10-10T17:01:54.1734186+08:00] Controller operation
+Process: F:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 93532
+Runtime: .NET 8.0.8; Architecture: X64
+Build: 2026-10-10T06:15:53.1283906Z
+System.IO.IOException: 管道正在被关闭。
+   at System.IO.RandomAccess.<>c.<WriteAtOffsetAsync>b__21_0(ValueTuple`4 state)
+   at System.Threading.AsyncOverSyncWithIoCancellation.InvokeAsync[TState](Action`1 action, TState state, CancellationToken cancellationToken)
+   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+   at System.IO.Strategies.BufferedFileStreamStrategy.WriteToNonSeekableAsync(ReadOnlyMemory`1 source, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.<FlushAsyncInternal>g__Core|76_0(Boolean flushStream, Boolean flushEncoder, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.WriteAsyncInternal(ReadOnlyMemory`1 source, Boolean appendNewLine, CancellationToken cancellationToken)
+   at AdbMapController.LineTouchBackend.SendBatchAsync(String[] commands) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchBackends.cs:line 63
+   at AdbMapController.TouchController.ReleaseCore() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 56
+   at AdbMapController.TouchController.TouchUp() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 47
+
+[2026-10-10T17:01:54.1965628+08:00] Controller operation
+Process: F:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 93532
+Runtime: .NET 8.0.8; Architecture: X64
+Build: 2026-10-10T06:15:53.1283906Z
+System.IO.IOException: 管道正在被关闭。
+   at System.IO.RandomAccess.<>c.<WriteAtOffsetAsync>b__21_0(ValueTuple`4 state)
+   at System.Threading.AsyncOverSyncWithIoCancellation.InvokeAsync[TState](Action`1 action, TState state, CancellationToken cancellationToken)
+   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+   at System.IO.Strategies.BufferedFileStreamStrategy.WriteToNonSeekableAsync(ReadOnlyMemory`1 source, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.<FlushAsyncInternal>g__Core|76_0(Boolean flushStream, Boolean flushEncoder, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.WriteAsyncInternal(ReadOnlyMemory`1 source, Boolean appendNewLine, CancellationToken cancellationToken)
+   at AdbMapController.LineTouchBackend.SendBatchAsync(String[] commands) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchBackends.cs:line 63
+   at AdbMapController.TouchController.ReleaseCore() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 56
+   at AdbMapController.TouchController.TouchUp() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 47
+
+[2026-10-10T17:01:54.2213895+08:00] Controller operation
+Process: F:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 93532
+Runtime: .NET 8.0.8; Architecture: X64
+Build: 2026-10-10T06:15:53.1283906Z
+System.AggregateException: One or more errors occurred. (管道正在被关闭。) (管道正在被关闭。)
+ ---> System.IO.IOException: 管道正在被关闭。
+   at System.IO.RandomAccess.<>c.<WriteAtOffsetAsync>b__21_0(ValueTuple`4 state)
+   at System.Threading.AsyncOverSyncWithIoCancellation.InvokeAsync[TState](Action`1 action, TState state, CancellationToken cancellationToken)
+   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+   at System.IO.Strategies.BufferedFileStreamStrategy.WriteToNonSeekableAsync(ReadOnlyMemory`1 source, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.<FlushAsyncInternal>g__Core|76_0(Boolean flushStream, Boolean flushEncoder, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.WriteAsyncInternal(ReadOnlyMemory`1 source, Boolean appendNewLine, CancellationToken cancellationToken)
+   at AdbMapController.LineTouchBackend.SendBatchAsync(String[] commands) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchBackends.cs:line 63
+   at AdbMapController.TouchController.ReleaseCore() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 56
+   at AdbMapController.TouchController.TouchUp() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 47
+   at AdbMapController.MainForm.RunLoop(CancellationToken owner, Boolean useInitialSnapshot) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 291
+   --- End of inner exception stack trace ---
+   at AdbMapController.MainForm.RunLoop(CancellationToken owner, Boolean useInitialSnapshot) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 492
+   at AdbMapController.MainForm.RunDungeonTaskCore(CancellationToken pipelineToken) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 157
+ ---> (Inner Exception #1) System.IO.IOException: 管道正在被关闭。
+   at System.IO.RandomAccess.<>c.<WriteAtOffsetAsync>b__21_0(ValueTuple`4 state)
+   at System.Threading.AsyncOverSyncWithIoCancellation.InvokeAsync[TState](Action`1 action, TState state, CancellationToken cancellationToken)
+   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+   at System.IO.Strategies.BufferedFileStreamStrategy.WriteToNonSeekableAsync(ReadOnlyMemory`1 source, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.<FlushAsyncInternal>g__Core|76_0(Boolean flushStream, Boolean flushEncoder, CancellationToken cancellationToken)
+   at System.IO.StreamWriter.WriteAsyncInternal(ReadOnlyMemory`1 source, Boolean appendNewLine, CancellationToken cancellationToken)
+   at AdbMapController.LineTouchBackend.SendBatchAsync(String[] commands) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchBackends.cs:line 63
+   at AdbMapController.TouchController.ReleaseCore() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 56
+   at AdbMapController.TouchController.TouchUp() in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 47
+   at AdbMapController.MainForm.RunLoop(CancellationToken owner, Boolean useInitialSnapshot) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 489<---
+
+

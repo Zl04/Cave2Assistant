@@ -18,6 +18,7 @@ internal static class PaddleOcrRuntime
     const string RuntimeDirectoryName = "AdbMapController-PaddleOCR-runtime-v5";
     static readonly object SyncRoot = new();
     static bool initialized;
+    static string? modelsRoot;
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true, ExactSpelling = true)]
     static extern uint GetShortPathName(string longPath, StringBuilder shortPath, uint bufferLength);
@@ -27,15 +28,16 @@ internal static class PaddleOcrRuntime
         lock (SyncRoot)
         {
             if (initialized) return;
-            initialized = true;
 
             var runtimeRoot = ResolveAsciiRuntimeRoot();
-            if (runtimeRoot is null) return;
+            if (runtimeRoot is null)
+                throw new DirectoryNotFoundException("PaddleOCR 运行时目录缺失或不完整");
 
             var nativeRoot = Path.Combine(runtimeRoot, "native");
             Directory.SetCurrentDirectory(runtimeRoot);
             var sdkPath = Path.Combine(runtimeRoot, "PaddleOCRSDK.dll");
-            if (!File.Exists(sdkPath) || !Directory.Exists(nativeRoot)) return;
+            if (!File.Exists(sdkPath) || !Directory.Exists(nativeRoot))
+                throw new DirectoryNotFoundException($"PaddleOCR SDK 或本机库目录缺失：{runtimeRoot}");
 
             var sdkAssembly = AppDomain.CurrentDomain.GetAssemblies()
                 .FirstOrDefault(assembly => string.Equals(
@@ -47,7 +49,20 @@ internal static class PaddleOcrRuntime
             NativeLibrary.SetDllImportResolver(
                 sdkAssembly,
                 (libraryName, _, _) => LoadPaddleNativeLibrary(nativeRoot, libraryName));
+            var bundledModelsRoot = Path.Combine(runtimeRoot, "paddle-models");
+            modelsRoot = Directory.Exists(bundledModelsRoot)
+                ? bundledModelsRoot
+                : Path.Combine(runtimeRoot, "models");
+            if (!Directory.Exists(modelsRoot))
+                throw new DirectoryNotFoundException($"PaddleOCR 模型目录缺失：{modelsRoot}");
+            initialized = true;
         }
+    }
+
+    public static string GetModelsRoot()
+    {
+        Initialize();
+        return modelsRoot!;
     }
 
     static string? ResolveAsciiRuntimeRoot()

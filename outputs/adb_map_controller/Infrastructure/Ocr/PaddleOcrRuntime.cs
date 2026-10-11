@@ -3,38 +3,41 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace AdbMapController;
 
 /// <summary>
-/// Stages the bundled PaddleOCR runtime in an ASCII-only working directory.
-/// The native SDK rejects the resolved physical path when the application is
-/// installed below a localized directory. The application still ships the
-/// SDK and models under PaddleOCR; only the native SDK's working copy is
-/// staged for compatibility.
+/// Loads PaddleOCR from an ASCII path. Prefer the runtime bundled with the
+/// application, using its Windows short path when the install path is
+/// localized. A process-private staging directory is the fallback when short
+/// paths are unavailable.
 /// </summary>
 internal static class PaddleOcrRuntime
 {
-    const string RuntimeDirectoryName = "AdbMapController-PaddleOCR-runtime-v4";
+    const string RuntimeDirectoryName = "AdbMapController-PaddleOCR-runtime-v5";
     static readonly object SyncRoot = new();
     static bool initialized;
+    static string? modelsRoot;
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true, ExactSpelling = true)]
+    static extern uint GetShortPathName(string longPath, StringBuilder shortPath, uint bufferLength);
 
     public static void Initialize()
     {
         lock (SyncRoot)
         {
             if (initialized) return;
-            initialized = true;
 
-            var runtimeRoot = PrepareAsciiRuntimeRoot();
-            if (runtimeRoot is null) return;
+            var runtimeRoot = ResolveAsciiRuntimeRoot();
+            if (runtimeRoot is null)
+                throw new DirectoryNotFoundException("PaddleOCR 运行时目录缺失或不完整");
 
-            // All paths passed to PaddleOCRSDK, including the native DLL path
-            // handled by the resolver, are relative to this ASCII root.
+            var nativeRoot = Path.Combine(runtimeRoot, "native");
             Directory.SetCurrentDirectory(runtimeRoot);
-            const string sdkPath = "PaddleOCRSDK.dll";
-            const string nativeRoot = ".";
-            if (!File.Exists(sdkPath) || !Directory.Exists(nativeRoot)) return;
+            var sdkPath = Path.Combine(runtimeRoot, "PaddleOCRSDK.dll");
+            if (!File.Exists(sdkPath) || !Directory.Exists(nativeRoot))
+                throw new DirectoryNotFoundException($"PaddleOCR SDK 或本机库目录缺失：{runtimeRoot}");
 
             var sdkAssembly = AppDomain.CurrentDomain.GetAssemblies()
                 .FirstOrDefault(assembly => string.Equals(
@@ -46,10 +49,23 @@ internal static class PaddleOcrRuntime
             NativeLibrary.SetDllImportResolver(
                 sdkAssembly,
                 (libraryName, _, _) => LoadPaddleNativeLibrary(nativeRoot, libraryName));
+            var bundledModelsRoot = Path.Combine(runtimeRoot, "paddle-models");
+            modelsRoot = Directory.Exists(bundledModelsRoot)
+                ? bundledModelsRoot
+                : Path.Combine(runtimeRoot, "models");
+            if (!Directory.Exists(modelsRoot))
+                throw new DirectoryNotFoundException($"PaddleOCR 模型目录缺失：{modelsRoot}");
+            initialized = true;
         }
     }
 
-    static string? PrepareAsciiRuntimeRoot()
+    public static string GetModelsRoot()
+    {
+        Initialize();
+        return modelsRoot!;
+    }
+
+    static string? ResolveAsciiRuntimeRoot()
     {
         var bundledRoot = Path.Combine(AppContext.BaseDirectory, "PaddleOCR");
         var bundledSdkPath = Path.Combine(bundledRoot, "PaddleOCRSDK.dll");
@@ -60,6 +76,11 @@ internal static class PaddleOcrRuntime
             || !Directory.Exists(bundledModelsRoot))
             return null;
 
+        if (IsAsciiPath(bundledRoot)) return bundledRoot;
+
+        var shortPath = TryGetAsciiShortPath(bundledRoot);
+        if (shortPath is not null) return shortPath;
+
         var tempRoot = Path.GetTempPath().TrimEnd(
             Path.DirectorySeparatorChar,
             Path.AltDirectorySeparatorChar);
@@ -67,7 +88,11 @@ internal static class PaddleOcrRuntime
             throw new InvalidOperationException(
                 $"PaddleOCR 需要 ASCII 临时目录，但系统临时目录包含非 ASCII 字符：{tempRoot}");
 
-        var runtimeRoot = Path.Combine(tempRoot, RuntimeDirectoryName);
+        // Never overwrite a staged DLL: another controller may have it loaded.
+        // Per-process roots also make simultaneous first launches independent.
+        var runtimeRoot = Path.Combine(
+            tempRoot,
+            $"{RuntimeDirectoryName}-{Environment.ProcessId}-{Guid.NewGuid():N}");
         Directory.CreateDirectory(runtimeRoot);
         File.Copy(
             bundledSdkPath,
@@ -80,6 +105,24 @@ internal static class PaddleOcrRuntime
             bundledModelsRoot,
             Path.Combine(runtimeRoot, "models"));
         return runtimeRoot;
+    }
+
+    static string? TryGetAsciiShortPath(string path)
+    {
+        var capacity = 512;
+        while (capacity <= 32768)
+        {
+            var buffer = new StringBuilder(capacity);
+            var length = GetShortPathName(path, buffer, (uint)buffer.Capacity);
+            if (length == 0) return null;
+            if (length < buffer.Capacity)
+            {
+                var shortPath = buffer.ToString();
+                return IsAsciiPath(shortPath) && Directory.Exists(shortPath) ? shortPath : null;
+            }
+            capacity = checked((int)length + 1);
+        }
+        return null;
     }
 
     static void MirrorDirectory(string sourceRoot, string destinationRoot)

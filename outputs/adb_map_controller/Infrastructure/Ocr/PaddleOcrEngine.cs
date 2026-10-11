@@ -33,7 +33,7 @@ public sealed class PaddleOcrEngine : IDisposable
     }
 
     static string ResolveDefaultModelsPath()
-        => "models";
+        => PaddleOcrRuntime.GetModelsRoot();
 
     public async Task<PaddleOcrRecognition> RecognizeAsync(
         Bitmap image,
@@ -92,16 +92,12 @@ public sealed class PaddleOcrEngine : IDisposable
         ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
         if (service is not null) return;
 
-        // Keep the paths passed to the native SDK relative to the published
-        // application directory. The entry point sets that directory before
-        // initializing OCR, so localized installation paths never reach the
-        // PaddleOCR model loader.
-        var modelRoot = modelsPath;
-        // The SDK's own helper builds model paths with '/', so keep the same
-        // relative spelling instead of letting Windows expand it first.
-        var detectionPath = $"{modelRoot}/{DetectionModel}";
-        var recognitionPath = $"{modelRoot}/{RecognitionModel}";
-        var orientationPath = $"{modelRoot}/{OrientationModel}";
+        var modelRoot = Path.GetFullPath(modelsPath);
+        if (modelRoot.Any(character => character > 0x7f))
+            throw new InvalidOperationException($"PaddleOCR 模型路径必须为 ASCII：{modelRoot}");
+        var detectionPath = Path.Combine(modelRoot, DetectionModel);
+        var recognitionPath = Path.Combine(modelRoot, RecognitionModel);
+        var orientationPath = Path.Combine(modelRoot, OrientationModel);
         var missing = new[]
         {
             (Path: detectionPath, Name: DetectionModel),

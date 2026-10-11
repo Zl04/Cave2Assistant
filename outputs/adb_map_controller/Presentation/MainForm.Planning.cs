@@ -18,6 +18,14 @@ public sealed partial class MainForm
         => dungeon.Map is null ? desired : DirectionMapper.ApplyConfusion(desired, dungeon.Map.Confused, dungeon.Map.ConfuseDirections);
     async Task<bool> SendInteraction((Cell Delta, string Kind) interaction, CancellationToken ownerToken)
     {
+        // 传送门等可通行交互点的路线会以目标格本身作为停靠点。
+        // 到达后目标与人物重合，游戏应自动触发或由弹窗流程接管，
+        // 不能再把 (0,0) 当作方向输入交给 TouchCoordinateMapper。
+        if (interaction.Delta == default)
+        {
+            Log($"{interaction.Kind} 已到达目标格，无需额外方向交互");
+            return false;
+        }
         var duration = (int)interactionHold.Value;
         var interrupted = await RunMovementSlice(ownerToken,
             token => touch.HoldInteraction(InputDelta(interaction.Delta), duration, token));

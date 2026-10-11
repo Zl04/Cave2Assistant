@@ -9,6 +9,7 @@
     "accent.foreground": "#3794FF",
     "status.success": "#89D185",
     "status.warning": "#CCA700",
+    "status.error": "#FF786E",
     "border": "#454545",
     "focus.border": "#007FD4",
     "selection.background": "#264F78",

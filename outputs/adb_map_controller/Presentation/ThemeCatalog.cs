@@ -20,6 +20,7 @@ public static class ThemeColorKeys
     public const string AccentForeground = "accent.foreground";
     public const string SuccessForeground = "status.success";
     public const string WarningForeground = "status.warning";
+    public const string ErrorForeground = "status.error";
     public const string Border = "border";
     public const string FocusBorder = "focus.border";
     public const string DisabledForeground = "foreground.disabled";
@@ -106,6 +107,7 @@ static class ThemePaletteFactory
             AccentText: Read(colors, ThemeColorKeys.AccentForeground, fallback.AccentText),
             SuccessText: Read(colors, ThemeColorKeys.SuccessForeground, fallback.SuccessText),
             WarningText: Read(colors, ThemeColorKeys.WarningForeground, fallback.WarningText),
+            ErrorText: Read(colors, ThemeColorKeys.ErrorForeground, fallback.ErrorText),
             Border: Read(colors, ThemeColorKeys.Border, fallback.Border),
             FocusBorder: Read(colors, ThemeColorKeys.FocusBorder, fallback.FocusBorder),
             DisabledText: Read(colors, ThemeColorKeys.DisabledForeground, fallback.DisabledText),

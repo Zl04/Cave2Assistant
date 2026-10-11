@@ -24,6 +24,7 @@ public enum ThemeRole
     AccentText,
     SuccessText,
     WarningText,
+    ErrorText,
     Map,
 }
 
@@ -37,6 +38,7 @@ public sealed record ThemePalette(
     Color AccentText,
     Color SuccessText,
     Color WarningText,
+    Color ErrorText,
     Color Border,
     Color FocusBorder,
     Color DisabledText,
@@ -73,6 +75,7 @@ public sealed record ThemePalette(
         AccentText: Color.FromArgb(0, 116, 170),
         SuccessText: Color.FromArgb(24, 125, 72),
         WarningText: Color.FromArgb(151, 103, 0),
+        ErrorText: Color.FromArgb(177, 52, 64),
         Border: Color.FromArgb(202, 209, 219),
         FocusBorder: Color.FromArgb(0, 116, 170),
         DisabledText: Color.FromArgb(146, 153, 164),
@@ -107,6 +110,7 @@ public sealed record ThemePalette(
         AccentText: Color.FromArgb(55, 148, 255),
         SuccessText: Color.FromArgb(137, 209, 133),
         WarningText: Color.FromArgb(204, 167, 0),
+        ErrorText: Color.FromArgb(255, 120, 110),
         Border: Color.FromArgb(69, 69, 69),
         FocusBorder: Color.FromArgb(0, 127, 212),
         DisabledText: Color.FromArgb(106, 106, 106),
@@ -214,6 +218,10 @@ public static class ThemeManager
                 control.BackColor = Color.Transparent;
                 control.ForeColor = palette.WarningText;
                 break;
+            case ThemeRole.ErrorText:
+                control.BackColor = Color.Transparent;
+                control.ForeColor = palette.ErrorText;
+                break;
             case ThemeRole.SecondaryButton:
             case ThemeRole.AccentButton:
             case ThemeRole.SuccessButton:
@@ -314,6 +322,8 @@ public static class ThemeManager
             themedComboBox.ApplyTheme(palette);
         else if (control is ThemedTextBox themedTextBox)
             themedTextBox.ApplyTheme(palette);
+        else if (control is ThemedRichTextBox themedRichTextBox)
+            themedRichTextBox.ApplyTheme(palette);
         else if (control is ThemedNumericUpDown themedNumericUpDown)
             themedNumericUpDown.ApplyTheme(palette);
 
@@ -844,6 +854,80 @@ public sealed class ThemedTextBox : TextBox
     static extern int ReleaseDC(IntPtr handle, IntPtr dc);
 }
 
+public sealed class ThemedRichTextBox : RichTextBox
+{
+    const int WmPaint = 0x000F;
+    const int WmNcPaint = 0x0085;
+    const int WmSize = 0x0005;
+    const int EmGetFirstVisibleLine = 0x00CE;
+    const int EmLineScroll = 0x00B6;
+    ThemePalette palette = ThemePalette.Light;
+
+    public int FirstVisibleLine => IsHandleCreated
+        ? (int)SendMessage(Handle, EmGetFirstVisibleLine, IntPtr.Zero, IntPtr.Zero)
+        : 0;
+
+    public ThemedRichTextBox()
+    {
+        BorderStyle = BorderStyle.FixedSingle;
+        DetectUrls = false;
+        HideSelection = false;
+    }
+
+    public void ApplyTheme(ThemePalette value)
+    {
+        palette = value;
+        BackColor = value.MapBackground;
+        ForeColor = value.Text;
+        if (IsHandleCreated) NativeTheme.ApplyScrollbarTheme(this, value);
+        PaintChrome();
+        Invalidate();
+    }
+
+    public void ScrollToLine(int line)
+    {
+        if (!IsHandleCreated) return;
+        var delta = Math.Max(0, line) - FirstVisibleLine;
+        if (delta != 0) _ = SendMessage(Handle, EmLineScroll, IntPtr.Zero, new IntPtr(delta));
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        NativeTheme.ApplyScrollbarTheme(this, palette);
+        PaintChrome();
+    }
+
+    protected override void WndProc(ref Message message)
+    {
+        base.WndProc(ref message);
+        if (message.Msg is WmPaint or WmNcPaint or WmSize) PaintChrome();
+    }
+
+    void PaintChrome()
+    {
+        if (!IsHandleCreated || Width <= 0 || Height <= 0) return;
+        var dc = GetWindowDC(Handle);
+        if (dc == IntPtr.Zero) return;
+        try
+        {
+            using var graphics = Graphics.FromHdc(dc);
+            using var border = new Pen(Enabled ? palette.Border : palette.MutedText);
+            graphics.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
+        }
+        finally { _ = ReleaseDC(Handle, dc); }
+    }
+
+    [DllImport("user32.dll")]
+    static extern IntPtr GetWindowDC(IntPtr handle);
+
+    [DllImport("user32.dll")]
+    static extern int ReleaseDC(IntPtr handle, IntPtr dc);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    static extern IntPtr SendMessage(IntPtr handle, int message, IntPtr wParam, IntPtr lParam);
+}
+
 public sealed class ThemedNumericUpDown : UserControl
 {
     readonly TextBox editor = new()
@@ -1189,7 +1273,7 @@ static class NativeTheme
 
     static bool NeedsCommonControlTheme(Control control)
     {
-        if (control is ThemedComboBox or ThemedTextBox or ThemedNumericUpDown or ThemedTabControl)
+        if (control is ThemedComboBox or ThemedTextBox or ThemedRichTextBox or ThemedNumericUpDown or ThemedTabControl)
             return false;
 
         return control is not Form && (control is Button or TextBoxBase or ComboBox or NumericUpDown or ListBox or

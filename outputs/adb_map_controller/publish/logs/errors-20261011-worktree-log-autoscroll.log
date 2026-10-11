@@ -1,0 +1,10 @@
+[2026-10-11T16:54:09.4754036+08:00] Application entry point
+Process: C:\Users\z2220\.codex\worktrees\66a9\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 31720
+Runtime: .NET 8.0.30; Architecture: X64
+Build: 2026-10-11T08:53:46.9283513Z
+System.IO.IOException: The process cannot access the file 'C:\Users\z2220\AppData\Local\Temp\AdbMapController-PaddleOCR-runtime-v4\PaddleOCRSDK.dll' because it is being used by another process.
+   at System.IO.FileSystem.CopyFile(String sourceFullPath, String destFullPath, Boolean overwrite)
+   at AdbMapController.PaddleOcrRuntime.PrepareAsciiRuntimeRoot() in C:\Users\z2220\.codex\worktrees\66a9\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Ocr\PaddleOcrRuntime.cs:line 72
+   at AdbMapController.PaddleOcrRuntime.Initialize() in C:\Users\z2220\.codex\worktrees\66a9\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Ocr\PaddleOcrRuntime.cs:line 29
+   at AdbMapController.Program.Main() in C:\Users\z2220\.codex\worktrees\66a9\Cave2Assistant\outputs\adb_map_controller\Program.cs:line 41
+

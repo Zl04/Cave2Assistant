@@ -1,0 +1,68 @@
+[2026-10-11T16:39:19.3296875+08:00] Application entry point
+Process: C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 10612
+Runtime: .NET 8.0.30; Architecture: X64
+Build: 2026-10-11T08:36:23.1655220Z
+System.IO.IOException: The process cannot access the file 'C:\Users\z2220\AppData\Local\Temp\AdbMapController-PaddleOCR-runtime-v4\PaddleOCRSDK.dll' because it is being used by another process.
+   at System.IO.FileSystem.CopyFile(String sourceFullPath, String destFullPath, Boolean overwrite)
+   at AdbMapController.PaddleOcrRuntime.PrepareAsciiRuntimeRoot() in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Ocr\PaddleOcrRuntime.cs:line 72
+   at AdbMapController.PaddleOcrRuntime.Initialize() in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Ocr\PaddleOcrRuntime.cs:line 29
+   at AdbMapController.Program.Main() in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Program.cs:line 41
+
+[2026-10-11T16:45:45.5435041+08:00] Controller operation
+Process: C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 6660
+Runtime: .NET 8.0.30; Architecture: X64
+Build: 2026-10-11T08:42:34.3555808Z
+System.InvalidOperationException: PaddleOCR 初始化失败：实际模型目录=models；检测=models/PP-OCRv5_mobile_det_infer；方向=models/PP-LCNet_x1_0_textline_ori；识别=models/PP-OCRv5_mobile_rec_infer；原始错误=Init failed:Please check whether the model exists. The model path must not contain Chinese characters.
+ ---> PaddleOCRSDK.OCRException: Init failed:Please check whether the model exists. The model path must not contain Chinese characters.
+   at PaddleOCRSDK.OCRService.Init(InitParamater para)
+   at AdbMapController.PaddleOcrEngine.EnsureInitialized() in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Ocr\PaddleOcrEngine.cs:line 152
+   --- End of inner exception stack trace ---
+   at AdbMapController.PaddleOcrEngine.EnsureInitialized() in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Ocr\PaddleOcrEngine.cs:line 159
+   at AdbMapController.PaddleOcrEngine.RecognizeCore(Byte[] imageBytes) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Ocr\PaddleOcrEngine.cs:line 70
+   at AdbMapController.PaddleOcrEngine.<>c__DisplayClass10_0.<RecognizeAsync>b__0() in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Ocr\PaddleOcrEngine.cs:line 60
+   at System.Threading.Tasks.Task`1.InnerInvoke()
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at AdbMapController.PaddleOcrEngine.RecognizeAsync(Bitmap image, CancellationToken token) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Ocr\PaddleOcrEngine.cs:line 60
+   at AdbMapController.AdbScreenAnalyzer.ReadTextAsync(Bitmap image, CancellationToken token) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbScreenAnalyzer.cs:line 27
+   at AdbMapController.AdbScreenAnalyzer.ReadMiningToolQuantityTextAsync(Bitmap source, CancellationToken token) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbScreenAnalyzer.cs:line 91
+   at AdbMapController.AdbScreenAnalyzer.ReadMiningToolStatusAsync(Bitmap source, CancellationToken token) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbScreenAnalyzer.cs:line 41
+   at AdbMapController.AdbClient.ReadMiningToolStatusFromDeviceAsync(CancellationToken token) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbClient.cs:line 91
+   at AdbMapController.MainForm.MineFloorCore(CancellationToken token, MapDump initial) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Mining.cs:line 100
+   at AdbMapController.MainForm.TryMineBeforeFloorTransition(CancellationToken token, Boolean transitionAvailable) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Mining.cs:line 211
+   at AdbMapController.MainForm.RunLoop(CancellationToken owner, MapRunTask runTask, Boolean useInitialSnapshot) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 360
+   at AdbMapController.MainForm.RunLoop(CancellationToken owner, MapRunTask runTask, Boolean useInitialSnapshot) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 516
+   at AdbMapController.MainForm.RunDungeonTaskCore(CancellationToken pipelineToken) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 161
+
+[2026-10-11T16:47:01.3389842+08:00] Controller operation
+Process: C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 32184
+Runtime: .NET 8.0.30; Architecture: X64
+Build: 2026-10-11T08:42:34.3555808Z
+System.InvalidOperationException: PaddleOCR 初始化失败：实际模型目录=models；检测=models/PP-OCRv5_mobile_det_infer；方向=models/PP-LCNet_x1_0_textline_ori；识别=models/PP-OCRv5_mobile_rec_infer；原始错误=Init failed:Please check whether the model exists. The model path must not contain Chinese characters.
+ ---> PaddleOCRSDK.OCRException: Init failed:Please check whether the model exists. The model path must not contain Chinese characters.
+   at PaddleOCRSDK.OCRService.Init(InitParamater para)
+   at AdbMapController.PaddleOcrEngine.EnsureInitialized() in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Ocr\PaddleOcrEngine.cs:line 152
+   --- End of inner exception stack trace ---
+   at AdbMapController.PaddleOcrEngine.EnsureInitialized() in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Ocr\PaddleOcrEngine.cs:line 159
+   at AdbMapController.PaddleOcrEngine.RecognizeCore(Byte[] imageBytes) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Ocr\PaddleOcrEngine.cs:line 70
+   at AdbMapController.PaddleOcrEngine.<>c__DisplayClass10_0.<RecognizeAsync>b__0() in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Ocr\PaddleOcrEngine.cs:line 60
+   at System.Threading.Tasks.Task`1.InnerInvoke()
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at AdbMapController.PaddleOcrEngine.RecognizeAsync(Bitmap image, CancellationToken token) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Ocr\PaddleOcrEngine.cs:line 60
+   at AdbMapController.AdbScreenAnalyzer.ReadTextAsync(Bitmap image, CancellationToken token) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbScreenAnalyzer.cs:line 27
+   at AdbMapController.AdbScreenAnalyzer.ReadMiningToolQuantityTextAsync(Bitmap source, CancellationToken token) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbScreenAnalyzer.cs:line 91
+   at AdbMapController.AdbScreenAnalyzer.ReadMiningToolStatusAsync(Bitmap source, CancellationToken token) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbScreenAnalyzer.cs:line 41
+   at AdbMapController.AdbClient.ReadMiningToolStatusFromDeviceAsync(CancellationToken token) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\AdbClient.cs:line 91
+   at AdbMapController.MainForm.MineFloorCore(CancellationToken token, MapDump initial) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Mining.cs:line 100
+   at AdbMapController.MainForm.TryMineBeforeFloorTransition(CancellationToken token, Boolean transitionAvailable) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Mining.cs:line 211
+   at AdbMapController.MainForm.RunLoop(CancellationToken owner, MapRunTask runTask, Boolean useInitialSnapshot) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 360
+   at AdbMapController.MainForm.RunLoop(CancellationToken owner, MapRunTask runTask, Boolean useInitialSnapshot) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 516
+   at AdbMapController.MainForm.RunDungeonTaskCore(CancellationToken pipelineToken) in C:\Users\z2220\.codex\worktrees\eac0\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 161
+

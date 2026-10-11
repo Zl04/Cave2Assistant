@@ -1,0 +1,60 @@
+[2026-10-11T11:19:00.1174639+08:00] Controller operation
+Process: E:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 18076
+Runtime: .NET 8.0.30; Architecture: X64
+Build: 2026-10-10T16:51:38.5622706Z
+System.OperationCanceledException: The operation was canceled.
+   at System.Threading.CancellationToken.ThrowOperationCanceledException()
+   at AdbMapController.DungeonSnapshotUseCase.RefreshAsync(CancellationToken token) in F:\Cave2Assistant\outputs\adb_map_controller\Application\DungeonSnapshotUseCase.cs:line 19
+   at AdbMapController.MainForm.RefreshMapSnapshot(Boolean writeLog) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.DeviceMap.cs:line 195
+
+[2026-10-11T13:57:34.3609959+08:00] Controller operation
+Process: E:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 13796
+Runtime: .NET 8.0.30; Architecture: X64
+Build: 2026-10-10T16:51:38.5622706Z
+System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values. (Parameter 'delta')
+   at AdbMapController.TouchCoordinateMapper.Normalize(Cell delta) in F:\Cave2Assistant\outputs\adb_map_controller\Navigation\DirectionMapper.cs:line 61
+   at AdbMapController.TouchController.PulseOneCell(Cell delta, Int32 milliseconds, CancellationToken cancellationToken) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 72
+
+[2026-10-11T13:57:34.3747161+08:00] Controller operation
+Process: E:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 13796
+Runtime: .NET 8.0.30; Architecture: X64
+Build: 2026-10-10T16:51:38.5622706Z
+System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values. (Parameter 'delta')
+   at AdbMapController.TouchCoordinateMapper.Normalize(Cell delta) in F:\Cave2Assistant\outputs\adb_map_controller\Navigation\DirectionMapper.cs:line 61
+   at AdbMapController.TouchController.PulseOneCell(Cell delta, Int32 milliseconds, CancellationToken cancellationToken) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 72
+   at AdbMapController.MovementExecution.ExecuteInteractionAsync(Func`2 action, CancellationToken owner) in F:\Cave2Assistant\outputs\adb_map_controller\Application\MovementExecution.cs:line 56
+   at AdbMapController.MainForm.SendInteraction(ValueTuple`2 interaction, CancellationToken ownerToken) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Planning.cs:line 22
+   at AdbMapController.MainForm.RunLoop(CancellationToken owner, MapRunTask runTask, Boolean useInitialSnapshot) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 391
+   at AdbMapController.MainForm.RunLoop(CancellationToken owner, MapRunTask runTask, Boolean useInitialSnapshot) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 176
+   at AdbMapController.MainForm.RunDungeonTaskCore(CancellationToken pipelineToken) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 161
+
+[2026-10-11T15:59:45.2449878+08:00] Controller operation
+Process: E:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 13796
+Runtime: .NET 8.0.30; Architecture: X64
+Build: 2026-10-10T16:51:38.5622706Z
+System.OperationCanceledException: The operation was canceled.
+   at System.Threading.CancellationToken.ThrowOperationCanceledException()
+   at AdbMapController.DungeonSnapshotUseCase.RefreshAsync(CancellationToken token) in F:\Cave2Assistant\outputs\adb_map_controller\Application\DungeonSnapshotUseCase.cs:line 19
+   at AdbMapController.MainForm.RefreshMapSnapshot(Boolean writeLog) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.DeviceMap.cs:line 195
+
+[2026-10-11T16:29:06.7602756+08:00] Controller operation
+Process: E:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 14356
+Runtime: .NET 8.0.30; Architecture: X64
+Build: 2026-10-10T16:51:38.5622706Z
+System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values. (Parameter 'delta')
+   at AdbMapController.TouchCoordinateMapper.Normalize(Cell delta) in F:\Cave2Assistant\outputs\adb_map_controller\Navigation\DirectionMapper.cs:line 61
+   at AdbMapController.TouchController.PulseOneCell(Cell delta, Int32 milliseconds, CancellationToken cancellationToken) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 72
+
+[2026-10-11T16:29:06.7686558+08:00] Controller operation
+Process: E:\Cave2Assistant\outputs\adb_map_controller\publish\洞窟地图控制器.exe; PID: 14356
+Runtime: .NET 8.0.30; Architecture: X64
+Build: 2026-10-10T16:51:38.5622706Z
+System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values. (Parameter 'delta')
+   at AdbMapController.TouchCoordinateMapper.Normalize(Cell delta) in F:\Cave2Assistant\outputs\adb_map_controller\Navigation\DirectionMapper.cs:line 61
+   at AdbMapController.TouchController.PulseOneCell(Cell delta, Int32 milliseconds, CancellationToken cancellationToken) in F:\Cave2Assistant\outputs\adb_map_controller\Infrastructure\Adb\TouchController.cs:line 72
+   at AdbMapController.MovementExecution.ExecuteInteractionAsync(Func`2 action, CancellationToken owner) in F:\Cave2Assistant\outputs\adb_map_controller\Application\MovementExecution.cs:line 56
+   at AdbMapController.MainForm.SendInteraction(ValueTuple`2 interaction, CancellationToken ownerToken) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Planning.cs:line 22
+   at AdbMapController.MainForm.RunLoop(CancellationToken owner, MapRunTask runTask, Boolean useInitialSnapshot) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 391
+   at AdbMapController.MainForm.RunLoop(CancellationToken owner, MapRunTask runTask, Boolean useInitialSnapshot) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 176
+   at AdbMapController.MainForm.RunDungeonTaskCore(CancellationToken pipelineToken) in F:\Cave2Assistant\outputs\adb_map_controller\Presentation\MainForm.Automation.cs:line 161
+

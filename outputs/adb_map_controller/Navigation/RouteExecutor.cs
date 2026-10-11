@@ -177,6 +177,7 @@ public sealed class RouteExecutor
         {
             map.Player = status.Player;
             map.Confused = status.Confused;
+            map.Reversed = status.Reversed;
             // When confusion ends, discard the old random button order as well.
             // Otherwise a later state update can accidentally reuse the previous
             // mapping if the boolean and direction payload arrive separately.

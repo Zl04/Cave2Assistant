@@ -17,7 +17,11 @@ public sealed partial class MainForm
     Cell InputDelta(Cell desired)
     {
         if (dungeon.Map is null) return desired;
-        var position = DirectionMapper.ButtonPosition(desired, dungeon.Map.Confused, dungeon.Map.ConfuseDirections);
+        var position = DirectionMapper.ButtonPosition(
+            desired,
+            dungeon.Map.Confused,
+            dungeon.Map.Reversed,
+            dungeon.Map.ConfuseDirections);
         return position == 0 ? desired : TouchCoordinateMapper.ButtonPositionToDelta(position);
     }
     async Task<bool> SendInteraction((Cell Delta, string Kind) interaction, CancellationToken ownerToken)

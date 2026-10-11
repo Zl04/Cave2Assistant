@@ -312,16 +312,29 @@ public sealed class MapPanel : Panel
 
     void DrawInfoOverlay(Graphics g)
     {
-        if (string.IsNullOrWhiteSpace(InfoText)) return;
+        var text = CurrentInfoText();
+        if (string.IsNullOrWhiteSpace(text)) return;
         using var font = new Font(FontFamily.GenericSansSerif, 12, FontStyle.Regular, GraphicsUnit.Pixel);
-        var lines = InfoText.Split('\n');
+        var lines = text.Split('\n');
         var width = lines.Max(line => TextRenderer.MeasureText(line, font).Width);
         var lineHeight = TextRenderer.MeasureText("Ag", font).Height;
         var rect = new Rectangle(10, InfoOverlayTop(), width + 18, lineHeight * lines.Length + 10);
         using var back = new SolidBrush(theme.MapOverlayBackground);
         using var border = new Pen(theme.MapOverlayBorder, 1);
         g.FillRectangle(back, rect); g.DrawRectangle(border, rect);
-        TextRenderer.DrawText(g, InfoText, font, new Rectangle(rect.X + 9, rect.Y + 5, width, lineHeight * lines.Length), theme.MapOverlayText, TextFormatFlags.NoPadding);
+        TextRenderer.DrawText(g, text, font, new Rectangle(rect.X + 9, rect.Y + 5, width, lineHeight * lines.Length), theme.MapOverlayText, TextFormatFlags.NoPadding);
+    }
+
+    string CurrentInfoText()
+    {
+        if (Map is null || CompactMode) return InfoText;
+        var status = Map.Confused && Map.Reversed ? "混乱/迷惑"
+            : Map.Confused ? "混乱"
+            : Map.Reversed ? "迷惑"
+            : "正常";
+        return string.IsNullOrWhiteSpace(InfoText)
+            ? $"状态：{status}"
+            : $"{InfoText}\n状态：{status}";
     }
 
     void DrawStatusOverlay(Graphics g)
@@ -364,7 +377,7 @@ public sealed class MapPanel : Panel
     {
         using var infoFont = new Font(FontFamily.GenericSansSerif, 12, FontStyle.Regular, GraphicsUnit.Pixel);
         var lineHeight = TextRenderer.MeasureText("Ag", infoFont).Height;
-        return Math.Max(8, Height - lineHeight * InfoText.Split('\n').Length - 22);
+        return Math.Max(8, Height - lineHeight * CurrentInfoText().Split('\n').Length - 22);
     }
 
     void DrawWarningOverlay(Graphics g, BossSealInfo seal)

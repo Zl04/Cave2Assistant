@@ -258,6 +258,7 @@ public sealed class MapDump
     public bool InBattle { get; set; }
     public bool IsDead { get; set; }
     public bool Confused { get; set; }
+    public bool Reversed { get; set; }
     // 游戏拥有的迷雾状态。这是 MapData.ISeeDeadPeople 的序列化形式，
     // 不是控制器维护的访问集合。
     // 为 true 时，所有可通行格对玩家都已可见，即使每格的 hasExplored 缓存尚未填充。
@@ -322,5 +323,6 @@ public sealed class PlayerStatus
     // 转换该值，然后积分计算移动。
     public double MoveSpeed { get; set; }
     public bool Confused { get; set; }
+    public bool Reversed { get; set; }
     public List<int> ConfuseDirections { get; set; } = [];
 }

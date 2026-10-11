@@ -12,7 +12,7 @@ public static class DirectionMapper
     // 这里只描述游戏控件槽位在屏幕上的布局，不包含任何混乱方向排列。
     static readonly int[] GamePadSlotToScreenPosition = [1, 3, 4, 2];
 
-    public static int ButtonPosition(Cell desired, bool confused, IReadOnlyList<int> currentConfuseDirections)
+    public static int ButtonPosition(Cell desired, bool confused, bool reversed, IReadOnlyList<int> currentConfuseDirections)
     {
         var direction = desired switch
         {
@@ -22,15 +22,30 @@ public static class DirectionMapper
             { X: -1, Y: 0 } => 4,
             _ => 0
         };
-        if (direction == 0 || !confused || currentConfuseDirections.Count < 4) return direction;
+        if (direction == 0) return 0;
 
-        for (var slot = 0; slot < 4; slot++)
+        // 游戏方向盘在两种状态同时出现时优先使用随机混乱排列。
+        if (confused)
         {
-            if (currentConfuseDirections[slot] == direction)
-                return GamePadSlotToScreenPosition[slot];
+            if (currentConfuseDirections.Count < 4) return direction;
+            for (var slot = 0; slot < 4; slot++)
+            {
+                if (currentConfuseDirections[slot] == direction)
+                    return GamePadSlotToScreenPosition[slot];
+            }
+            return direction;
         }
 
-        return direction;
+        // 扭曲空间固定迷惑：每个方向按相反方向的键。
+        if (!reversed) return direction;
+        return direction switch
+        {
+            1 => 3,
+            2 => 4,
+            3 => 1,
+            4 => 2,
+            _ => direction
+        };
     }
 }
 

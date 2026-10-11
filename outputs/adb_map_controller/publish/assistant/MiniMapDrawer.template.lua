@@ -7,16 +7,20 @@ local function codexSafeCall(object, method, default)
     return default
 end
 
--- 混乱状态和按钮排列必须来自同一次人物状态读取。
+-- 混乱、固定反转和随机按钮排列必须来自同一次人物状态读取。
 -- 方向排列是洞窟内缓存，不能只看残留的排列数组判断混乱是否仍然生效。
 local function codexReadConfusionState()
     local confused = false
+    local reversed = false
     local confuseDirections = {}
     pcall(function()
         local GameDataManager = require "app.game.GameDataManager"
         local gameDataManager = GameDataManager and GameDataManager:getInstance() or nil
         local masterData = gameDataManager and codexSafeCall(gameDataManager, "getMaster", nil) or nil
         confused = masterData and codexSafeCall(masterData, "isConfuse", false) == true or false
+        -- getIsReverse 包含固定 Reverse 状态；精神错乱时也可能为 true，
+        -- 但控制盘优先使用 confuseDirections，桌面端同样按混乱优先处理。
+        reversed = masterData and codexSafeCall(masterData, "getIsReverse", false) == true or false
     end)
     pcall(function()
         -- MasterDataManager 通过全局表暴露接口；显式 require，避免轻量导出
@@ -28,7 +32,7 @@ local function codexReadConfusionState()
         for i, direction in ipairs(arr or {}) do confuseDirections[i] = direction end
     end)
     if not confused then confuseDirections = {} end
-    return confused, confuseDirections
+    return confused, reversed, confuseDirections
 end
 
 local function codexRoleOccupySize(role)
@@ -306,7 +310,7 @@ local function codexExportCurrentMap()
             rows[y + 1] = row
         end
 
-        local confused, confuseDirections = codexReadConfusionState()
+        local confused, reversed, confuseDirections = codexReadConfusionState()
         local snapshot = {
             schema = 1, timestamp = os.time(),
             width = width, height = height,
@@ -320,6 +324,7 @@ local function codexExportCurrentMap()
             inBattle = masterFsmState == 3,
             isDead = masterDead or masterFsmState == 4,
             confused = confused,
+            reversed = reversed,
             confuseDirections = confuseDirections,
             townIcons = townIcons,
         }
@@ -368,7 +373,7 @@ local function codexExportPlayerStatus()
             if player then break end
         end
         codexPlayerSequence = codexPlayerSequence + 1
-        local confused, confuseDirections = codexReadConfusionState()
+        local confused, reversed, confuseDirections = codexReadConfusionState()
         local gameDataManager = GameDataManager and GameDataManager:getInstance() or nil
         local moveSpeed = codexSafeCall(gameDataManager, "getMoveSpeed", 0)
         local snapshot = {
@@ -379,6 +384,7 @@ local function codexExportPlayerStatus()
             player = player,
             moveSpeed = tonumber(moveSpeed) or 0,
             confused = confused,
+            reversed = reversed,
             confuseDirections = confuseDirections,
         }
         local target = "/data/user/0/com.avalon.caveonline.cn.huawei/files/CaveOnline/codex_player_status.json"

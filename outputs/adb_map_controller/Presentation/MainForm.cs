@@ -55,7 +55,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     readonly CheckBox cardMining = Box("卡矿（自动匹配）");
     readonly CheckBox cardLayer = Box("卡层（自动匹配）");
     readonly CheckBox attackBoss = Box("攻击Boss"), monsters = Box("全清小怪"), elites = Box("清除精英"), chests = Box("箱子"), pots = Box("罐子"), bones = Box("石堆"), gold = Box("金币"), runes = Box("符文/点金台"), chambers = Box("密室");
-    readonly TextBox log = new ThemedTextBox { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Tag = ThemeRole.Log };
+    readonly ThemedRichTextBox log = new() { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = RichTextBoxScrollBars.Vertical, Tag = ThemeRole.Log };
     readonly System.Windows.Forms.Timer refreshTimer = new() { Interval = 500 };
     readonly SemaphoreSlim refreshLock = new(1, 1);
     long lastOverlayUnknownLogAt;
@@ -385,6 +385,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             stats.ForeColor = currentPalette.MutedText;
             assistantState.ForeColor = currentPalette.WarningText;
             if (miniMapForm is { IsDisposed: false }) miniMapForm.ApplyTheme(currentPalette);
+            RenderLogs();
         }
         finally { applyingTheme = false; }
     }

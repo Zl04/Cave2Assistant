@@ -15,7 +15,7 @@
   "ChallengeButton": {
     "algorithm": "OcrDetect",
     "text": ["挑战"],
-    "roi": [0, 518, 1280, 202],
+    "roi": [120, 540, 360, 150],
     "fullMatch": false
   }
 }

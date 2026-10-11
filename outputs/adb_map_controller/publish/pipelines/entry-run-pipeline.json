@@ -1,0 +1,38 @@
+{
+  "$schema": "https://github.com/MaaAssistantArknights/MaaAssistantArknights/raw/dev-v2/docs/maa_tasks_schema.json",
+  "AlreadyInDungeon": {
+    "algorithm": "Custom",
+    "action": "DoNothing",
+    "handler": "EntryRunCycle",
+    "next": ["RunDungeonCycle"],
+    "maxTimes": 1
+  },
+  "StartFromTown": {
+    "algorithm": "JustReturn",
+    "action": "DoNothing",
+    "handler": "EntryRunCycle",
+    "next": ["EnterDungeon"],
+    "maxTimes": 1
+  },
+  "EnterDungeon": {
+    "algorithm": "JustReturn",
+    "action": "DoNothing",
+    "handler": "EntryRunCycle",
+    "next": ["RunDungeonCycle"],
+    "maxTimes": 2147483647
+  },
+  "RunDungeonCycle": {
+    "algorithm": "JustReturn",
+    "action": "DoNothing",
+    "handler": "EntryRunCycle",
+    "next": ["LoopGate"],
+    "maxTimes": 2147483647
+  },
+  "LoopGate": {
+    "algorithm": "JustReturn",
+    "action": "DoNothing",
+    "handler": "EntryRunCycle",
+    "next": ["EnterDungeon"],
+    "maxTimes": 2147483647
+  }
+}

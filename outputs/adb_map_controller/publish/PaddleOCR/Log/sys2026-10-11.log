@@ -1,0 +1,45 @@
+2026-10-11-18:06:10: Received Init request!
+2026-10-11-18:06:10: json:{"cls_batch_num":1,"cls_thresh":0.8999999761581421,"cpu_mem":0,"cpu_threads":12,"det_db_box_thresh":0.3499999940395355,"det_db_score_mode":false,"det_db_thresh":0.20000000298023224,"det_db_unclip_ratio":1.600000023841858,"enable_mkldnn":true,"gpu_id":0,"gpu_mem":4000,"max_side_len":960,"ocr_instance_count":1,"rec_batch_num":6,"rec_img_h":48,"rec_img_w":320,"return_word_box":false,"use_angle_cls":false,"use_dilation":false,"use_gpu":false,"use_tensorrt":false,"visualize":false}
+2026-10-11-18:06:10: Received det_infer: C:\Users\z2220\AppData\Local\Temp\AdbMapController-PaddleOCR-runtime-v6-models-26416-485de47a05e8442f9cfb2234352c9ebf\PP-OCRv5_mobile_det_infer
+2026-10-11-18:06:10: Received cls_infer: C:\Users\z2220\AppData\Local\Temp\AdbMapController-PaddleOCR-runtime-v6-models-26416-485de47a05e8442f9cfb2234352c9ebf\PP-LCNet_x1_0_textline_ori
+2026-10-11-18:06:10: Received rec_infer: C:\Users\z2220\AppData\Local\Temp\AdbMapController-PaddleOCR-runtime-v6-models-26416-485de47a05e8442f9cfb2234352c9ebf\PP-OCRv5_mobile_rec_infer
+2026-10-11-18:06:10: Received gpu_id: 0
+2026-10-11-18:06:10: Received gpu_mem: 4000
+2026-10-11-18:06:10: Received rec_img_h: 48
+2026-10-11-18:06:10: Received rec_img_w: 320
+2026-10-11-18:06:10: Received ocr_instance_count: 1
+2026-10-11-18:06:10: Set OCR instance count to: 1
+2026-10-11-18:06:10: OCR init exception:
+
+--------------------------------------
+C++ Traceback (most recent call last):
+--------------------------------------
+Not support stack backtrace yet.
+
+----------------------
+Error Message Summary:
+----------------------
+PreconditionNotMetError: The third-party dynamic library (mklml.dll) that Paddle depends on is not configured correctly. (error code is 126)
+  Suggestions:
+  1. Check if the third-party dynamic library (e.g. CUDA, CUDNN) is installed correctly and its version is matched with paddlepaddle you installed.
+  2. Configure third-party dynamic library environment variables as follows:
+  - Linux: set LD_LIBRARY_PATH by `export LD_LIBRARY_PATH=...`
+  - Windows: set PATH by `set PATH=XXX;%PATH%`
+  - Mac: set  DYLD_LIBRARY_PATH by `export DYLD_LIBRARY_PATH=...` [Note: After Mac OS 10.11, using the DYLD_LIBRARY_PATH is impossible unless System Integrity Protection (SIP) is disabled.] (at D:\Paddle\paddle\phi\backends\dynload\dynamic_loader.cc:421)
+
+2026-10-11-18:06:10: Init failed:Please check whether the model exists. The model path must not contain Chinese characters.
+2026-10-11-18:06:10: All OCR instances freed
+2026-10-11-18:06:39: Received Init request!
+2026-10-11-18:06:39: json:{"cls_batch_num":1,"cls_thresh":0.8999999761581421,"cpu_mem":0,"cpu_threads":12,"det_db_box_thresh":0.3499999940395355,"det_db_score_mode":false,"det_db_thresh":0.20000000298023224,"det_db_unclip_ratio":1.600000023841858,"enable_mkldnn":true,"gpu_id":0,"gpu_mem":4000,"max_side_len":960,"ocr_instance_count":1,"rec_batch_num":6,"rec_img_h":48,"rec_img_w":320,"return_word_box":false,"use_angle_cls":false,"use_dilation":false,"use_gpu":false,"use_tensorrt":false,"visualize":false}
+2026-10-11-18:06:39: Received det_infer: C:\Users\z2220\AppData\Local\Temp\AdbMapController-PaddleOCR-runtime-v6-models-32036-20b6be68626f4a62890d4edc276b51ab\PP-OCRv5_mobile_det_infer
+2026-10-11-18:06:39: Received cls_infer: C:\Users\z2220\AppData\Local\Temp\AdbMapController-PaddleOCR-runtime-v6-models-32036-20b6be68626f4a62890d4edc276b51ab\PP-LCNet_x1_0_textline_ori
+2026-10-11-18:06:39: Received rec_infer: C:\Users\z2220\AppData\Local\Temp\AdbMapController-PaddleOCR-runtime-v6-models-32036-20b6be68626f4a62890d4edc276b51ab\PP-OCRv5_mobile_rec_infer
+2026-10-11-18:06:39: Received gpu_id: 0
+2026-10-11-18:06:39: Received gpu_mem: 4000
+2026-10-11-18:06:39: Received rec_img_h: 48
+2026-10-11-18:06:39: Received rec_img_w: 320
+2026-10-11-18:06:39: Received ocr_instance_count: 1
+2026-10-11-18:06:39: Set OCR instance count to: 1
+2026-10-11-18:06:40: Created OCR instance #1
+2026-10-11-18:06:40: Init success
+2026-10-11-18:06:40: All OCR instances freed

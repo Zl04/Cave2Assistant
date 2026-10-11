@@ -28,13 +28,13 @@
   "EntryDifficulty": "Elite",
   "EntryEliteMode": true,
   "BonusPriority": [
+    "\u953B\u9020\u6750\u6599",
+    "\u7269\u8D44",
+    "\u9053\u5177",
+    "\u9644\u9B54\u6750\u6599",
     "\u589E\u76CA\u6548\u679C",
     "\u9B54\u6CD5\u6750\u6599",
-    "\u56DE\u590D\u836F\u5242",
-    "\u9053\u5177",
-    "\u7269\u8D44",
-    "\u953B\u9020\u6750\u6599",
-    "\u9644\u9B54\u6750\u6599"
+    "\u56DE\u590D\u836F\u5242"
   ],
   "Device": "emulator-5554"
 }

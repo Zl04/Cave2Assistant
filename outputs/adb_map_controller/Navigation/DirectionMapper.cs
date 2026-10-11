@@ -4,34 +4,33 @@ using System.Collections.Generic;
 namespace AdbMapController;
 
 /// <summary>
-/// 将目标地图方向转换为游戏卡顿时必须按下的物理方向按钮。
-/// 映射值 1..4 是游戏导出的逻辑方向（上、右、下、左）。
+/// 每次用当前的混乱方向表查出游戏哪个按键代表目标方向，再返回该按键的固定屏幕位置。
+/// 屏幕位置编号：左上=1、右上=2、右下=3、左下=4。游戏方向表槽位顺序是上、下、左、右。
 /// </summary>
 public static class DirectionMapper
 {
-    public static Cell ApplyConfusion(Cell desired, bool confused, IReadOnlyList<int> confuseDirections)
+    // 这里只描述游戏控件槽位在屏幕上的布局，不包含任何混乱方向排列。
+    static readonly int[] GamePadSlotToScreenPosition = [1, 3, 4, 2];
+
+    public static int ButtonPosition(Cell desired, bool confused, IReadOnlyList<int> currentConfuseDirections)
     {
-        if (!confused || confuseDirections.Count < 4) return desired;
-        var actual = desired switch
+        var direction = desired switch
         {
-            { X: 0, Y: -1 } => 1,
+            { X: 0, Y: 1 } => 1,  // 默认上
             { X: 1, Y: 0 } => 2,
-            { X: 0, Y: 1 } => 3,
+            { X: 0, Y: -1 } => 3, // 默认下
             { X: -1, Y: 0 } => 4,
             _ => 0
         };
-        if (actual == 0) return desired;
-        var button = -1;
-        for (var i = 0; i < confuseDirections.Count; i++)
-            if (confuseDirections[i] == actual) { button = i; break; }
-        return button switch
+        if (direction == 0 || !confused || currentConfuseDirections.Count < 4) return direction;
+
+        for (var slot = 0; slot < 4; slot++)
         {
-            0 => new(0, -1),
-            1 => new(0, 1),
-            2 => new(-1, 0),
-            3 => new(1, 0),
-            _ => desired
-        };
+            if (currentConfuseDirections[slot] == direction)
+                return GamePadSlotToScreenPosition[slot];
+        }
+
+        return direction;
     }
 }
 
@@ -49,6 +48,15 @@ public static class TouchCoordinateMapper
     // 与 ControlPadNormal 的关系，并防止设备旋转导致触摸偏离方向键区域。
     static (double X, double Y) FromGamePoint(double x, double y)
         => (x / DesignWidth, (DesignHeight - 1d - y) / DesignHeight);
+
+    public static Cell ButtonPositionToDelta(int position) => position switch
+    {
+        1 => new(0, 1),  // 左上
+        2 => new(1, 0),  // 右上
+        3 => new(0, -1), // 右下
+        4 => new(-1, 0), // 左下
+        _ => throw new ArgumentOutOfRangeException(nameof(position))
+    };
 
     public static (double X, double Y) Normalize(Cell delta) => delta switch
     {

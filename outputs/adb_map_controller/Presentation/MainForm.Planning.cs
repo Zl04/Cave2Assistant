@@ -15,7 +15,11 @@ public sealed partial class MainForm
 {
     static bool IsCombatInteraction(string kind) => kind is "小怪" or "群怪" or "精英" or "小Boss" or "Boss";
     Cell InputDelta(Cell desired)
-        => dungeon.Map is null ? desired : DirectionMapper.ApplyConfusion(desired, dungeon.Map.Confused, dungeon.Map.ConfuseDirections);
+    {
+        if (dungeon.Map is null) return desired;
+        var position = DirectionMapper.ButtonPosition(desired, dungeon.Map.Confused, dungeon.Map.ConfuseDirections);
+        return position == 0 ? desired : TouchCoordinateMapper.ButtonPositionToDelta(position);
+    }
     async Task<bool> SendInteraction((Cell Delta, string Kind) interaction, CancellationToken ownerToken)
     {
         var duration = (int)interactionHold.Value;

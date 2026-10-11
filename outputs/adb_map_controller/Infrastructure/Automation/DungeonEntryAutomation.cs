@@ -17,16 +17,22 @@ public sealed class DungeonEntryAutomation
     readonly VisionTaskCatalog? visionTasks;
     readonly Action<string> log;
     readonly Action<string> state;
+    readonly Func<int, bool>? difficultyAttemptsRecognized;
+    readonly int? requiredDifficultyAttempts;
     MapDump? mapBeforeChallenge;
     string? lastDungeonMapProbe;
 
     public DungeonEntryAutomation(AdbClient adb, EntryTemplateStore templates,
-        Action<string> log, Action<string> state)
+        Action<string> log, Action<string> state,
+        Func<int, bool>? difficultyAttemptsRecognized = null,
+        int? requiredDifficultyAttempts = null)
     {
         this.adb = adb;
         this.templates = templates;
         this.log = log;
         this.state = state;
+        this.difficultyAttemptsRecognized = difficultyAttemptsRecognized;
+        this.requiredDifficultyAttempts = requiredDifficultyAttempts;
         vision = new VisionPipeline(adb.ReadOcrWordsAsync);
         var taskPath = Path.Combine(AppContext.BaseDirectory, "vision", "tasks.json");
         if (File.Exists(taskPath))
@@ -132,7 +138,11 @@ public sealed class DungeonEntryAutomation
             async (task, recognition, _, token) =>
             {
                 if (task.Name == "检查所选难度次数")
+                {
+                    if (recognition.Detail == "自动跑图次数已耗尽，正常结束")
+                        return MaaPipelineActionResult.Stop();
                     return MaaPipelineActionResult.Failure(recognition.Detail ?? "未能确认所选难度的剩余次数，未点击挑战");
+                }
                 if (task.Name == "点击小地图按钮")
                 {
                     if (recognition.Box is not { } marker)
@@ -225,6 +235,14 @@ public sealed class DungeonEntryAutomation
         }
 
         log($"挑战前检查次数：{difficultyName}可挑战{remaining}次");
+        if (difficultyAttemptsRecognized?.Invoke(remaining) == true)
+            return MaaPipelineRecognitionResult.Hit(text: countText, detail: "自动跑图次数已耗尽，正常结束");
+        if (requiredDifficultyAttempts is > 0 && remaining < requiredDifficultyAttempts.Value)
+        {
+            var insufficient = $"所选关卡的{difficultyName}剩余{remaining}次，少于本次任务尚需的{requiredDifficultyAttempts.Value}次；未点击挑战";
+            log(insufficient);
+            return MaaPipelineRecognitionResult.Hit(text: countText, detail: insufficient);
+        }
         if (remaining > 0)
             return MaaPipelineRecognitionResult.Miss(detail: $"{difficultyName}剩余{remaining}次，允许挑战");
 

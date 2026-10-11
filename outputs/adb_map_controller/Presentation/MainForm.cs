@@ -37,7 +37,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     readonly ComboBox entryMapChoice = new ThemedComboBox { Width = 110, DropDownStyle = ComboBoxStyle.DropDownList };
     readonly ComboBox entryChoice = new ThemedComboBox { Width = 90, DropDownStyle = ComboBoxStyle.DropDownList };
     readonly ComboBox entryDifficulty = new ThemedComboBox { Width = 78, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "自动进图难度" };
-    readonly CheckBox loopEntryAndRun = Box("循环进图/跑图");
+    readonly ThemedNumericUpDown entryRunCount = new() { Minimum = 0, Maximum = 9999, Increment = 1, Value = 0, Width = 62 };
     readonly ComboBox themeChoice = new ThemedComboBox { Width = 105, DropDownStyle = ComboBoxStyle.DropDownList };
     readonly CheckBox alwaysOnTop = Box("窗口置顶");
     readonly ListBox bonusPriority = new()
@@ -220,7 +220,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         var floorStop = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
         floorStop.Controls.AddRange([new Label { Text = "指定层停住：", AutoSize = true }, targetStopFloor, new Label { Text = "层（0=关闭，完成所选目标后自动停住）", AutoSize = true }, mining, cardMining, cardLayer]);
         var entryOptions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
-        entryOptions.Controls.AddRange([new Label { Text = "自动进图：", AutoSize = true }, entryMapChoice, entryChoice, entryDifficulty, loopEntryAndRun, new Label { Text = "入口识别：内置图标或当前地图场景模板", AutoSize = true, Padding = new(4, 5, 0, 0), Tag = ThemeRole.WarningText }]);
+        entryOptions.Controls.AddRange([new Label { Text = "自动进图：", AutoSize = true }, entryMapChoice, entryChoice, entryDifficulty, new Label { Text = "跑图次数（0=自动）", AutoSize = true, Padding = new(4, 5, 0, 0) }, entryRunCount, new Label { Text = "自动时：普通无限；限次难度按关卡余量", AutoSize = true, Padding = new(4, 5, 0, 0), Tag = ThemeRole.WarningText }, new Label { Text = "入口识别：内置图标或当前地图场景模板", AutoSize = true, Padding = new(4, 5, 0, 0), Tag = ThemeRole.WarningText }]);
         var timing = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 7, 10, 5), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
         timing.Controls.AddRange([new Label { Text = "时间参数：", AutoSize = true }, new Label { Text = "单格脉冲按住(ms)", AutoSize = true }, singleCellPulseHold, new Label { Text = "提前/延迟松开(ms)", AutoSize = true }, movementReleaseLead, new Label { Text = "交互按住(ms)", AutoSize = true }, interactionHold, new Label { Text = "卡住超时(ms)", AutoSize = true }, stallTimeout, new Label { Text = "新层启动延迟(ms)", AutoSize = true }, newFloorStartDelay, new Label { Text = "规划容错次数", AutoSize = true }, routeRecoveryAttempts]);
         var runPage = new ThemedTabPage { Text = "运行", Padding = new(0), Tag = ThemeRole.Default };
@@ -239,7 +239,6 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         miniWindow.Click += (_, _) => ToggleMiniWindowMode();
         openWebMonitor.Click += (_, _) => OpenPipelineWebMonitor();
         alwaysOnTop.CheckedChanged += (_, _) => { ApplyAlwaysOnTop(); SaveSettings(); };
-        loopEntryAndRun.CheckedChanged += (_, _) => SaveSettings();
         detectAssistant.Click += async (_, _) => await RunUi(DetectAssistant); installAssistant.Click += async (_, _) => await RunUi(InstallAssistant); restoreAssistant.Click += async (_, _) => await RunUi(RestoreAssistant); openTestPanel.Click += async (_, _) => await RunUi(OpenTestPanel);
         bonusPriorityToggle.Click += (_, _) =>
         {
@@ -277,7 +276,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             if (activeMovement is null && activeEntry is null && !uiOperations.IsBusy)
                 await RefreshMap(false, lockDeviceSelection: false);
         }; Shown += async (_, _) => await RunUi(async () => { await Scan(); await RefreshMap(); if (!closing) refreshTimer.Start(); });
-        foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, mining, cardMining, cardLayer, entryMapChoice, entryChoice, entryDifficulty, loopEntryAndRun })
+        foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, mining, cardMining, cardLayer, entryMapChoice, entryChoice, entryDifficulty, entryRunCount })
             control.Validated += (_, _) => SaveSettings();
         foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers })
         {
@@ -438,7 +437,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         if (s is null) return;
         themeChoice.SelectedIndex = Math.Clamp((int)s.Theme, 0, 2);
         alwaysOnTop.Checked = s.AlwaysOnTop;
-        loopEntryAndRun.Checked = s.LoopEntryAndRun;
+        SetValue(entryRunCount, s.EntryRunCount ?? 0);
         attackBoss.Checked = s.AttackBoss; monsters.Checked = s.Monsters; elites.Checked = s.Elites; chests.Checked = s.Chests; pots.Checked = s.Pots;
         bones.Checked = s.Bones; gold.Checked = s.Gold; runes.Checked = s.Runes; chambers.Checked = s.Chambers;
         SetValue(singleCellPulseHold, s.SingleCellPulseHold); SetValue(movementReleaseLead, s.MovementReleaseLead);
@@ -475,7 +474,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         {
             Theme = CurrentThemeMode,
             AlwaysOnTop = alwaysOnTop.Checked,
-            LoopEntryAndRun = loopEntryAndRun.Checked,
+            EntryRunCount = (int)entryRunCount.Value,
             AttackBoss = attackBoss.Checked,
             Monsters = monsters.Checked,
             Elites = elites.Checked,

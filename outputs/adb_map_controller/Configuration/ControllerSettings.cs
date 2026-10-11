@@ -45,6 +45,9 @@ public sealed class ControllerSettings
     public int EntryId { get; set; } = 1;
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public DungeonDifficulty EntryDifficulty { get; set; } = DungeonDifficulty.Normal;
+    // null 表示旧版配置没有跑图次数字段；载入时根据旧循环开关迁移。
+    public int? EntryRunCount { get; set; }
+    // 兼容旧版配置；新界面已由 EntryRunCount 替代。
     public bool LoopEntryAndRun { get; set; }
     // 兼容旧版本配置：旧字段为 true 时迁移为精英难度。
     public bool EntryEliteMode { get; set; }

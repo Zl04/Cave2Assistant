@@ -178,8 +178,12 @@ public sealed partial class MainForm
                     Log(returnAtTargetFloor
                         ? $"弹窗按钮点击已发送：第 {cardIndex + 1} 张回城卡，已选择‘安全回城’"
                         : $"弹窗按钮点击已发送：{preferred}，已选择‘安全回城’");
+                    floorPhase = FloorPhase.WaitingReturnTown;
+                    route = []; plannedInteractions = []; plannedTargetUniverse.Clear();
+                    mapPanel.Route = route; mapPanel.Invalidate();
                     State("已选择安全回城，等待返回城镇");
-                    operations.Cancel(ControllerOperationKind.Movement);
+                    // 弹窗由主循环接管时，路线移动片段已经结束。保留 owner operation，
+                    // 让 RunLoop 等待城镇地图并完成战利品弹窗检查。
                     yield break;
                 }
                 Log($"弹窗按钮点击已发送：{preferred}，等待界面关闭");
@@ -225,7 +229,7 @@ public sealed partial class MainForm
 
     async Task StepCore()
     {
-        var owner = operations.MovementToken;
+        var owner = operations.CurrentToken;
         try
         {
             await RefreshMap(false);

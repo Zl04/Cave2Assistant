@@ -46,7 +46,7 @@ public sealed partial class MainForm
 
     async Task MineCore()
     {
-        var owner = operations.MovementToken;
+        var owner = operations.CurrentToken;
         try
         {
             State("挖矿：检查地图和弹窗");

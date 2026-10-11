@@ -14,18 +14,22 @@ public static class OpenCvVisualNodeLocator
     {
         using var image = OpenCvImage.ToMat(source, ImreadModes.Color);
         using var hsv = image.CvtColor(ColorConversionCodes.BGR2HSV);
-        using var colourMask = hsv.InRange(new Scalar(0, 45, 90), new Scalar(180, 255, 255));
+        // 地图底色和岩石也有一定饱和度；提高 S 阈值可压掉大部分背景色，只保留高饱和度节点徽章。
+        using var colourMask = hsv.InRange(new Scalar(0, 120, 100), new Scalar(180, 255, 255));
 
         var x0 = Math.Clamp((int)(image.Width * .33), 0, image.Width - 1);
         var x1 = Math.Clamp((int)(image.Width * .90), x0 + 1, image.Width);
         var y0 = Math.Clamp((int)(image.Height * .10), 0, image.Height - 1);
         var y1 = Math.Clamp((int)(image.Height * .78), y0 + 1, image.Height);
         using var roi = new Mat(colourMask, new Rect(x0, y0, x1 - x0, y1 - y0)).Clone();
+        // 剑形图标与彩色徽章的高饱和度区域可能被白色剑刃分开，先连接近邻像素再提取整枚徽章。
+        using var closeKernel = Cv2.GetStructuringElement(MorphShapes.Ellipse, new OpenCvSharp.Size(11, 11));
+        Cv2.MorphologyEx(roi, roi, MorphTypes.Close, closeKernel);
         using var labels = new Mat();
         using var stats = new Mat();
         using var centroids = new Mat();
         var count = Cv2.ConnectedComponentsWithStats(roi, labels, stats, centroids, PixelConnectivity.Connectivity8);
-        var components = new List<Blob>();
+        var candidates = new List<VisualNodeCandidate>();
         for (var label = 1; label < count; label++)
         {
             var area = stats.Get<int>(label, (int)ConnectedComponentsTypes.Area);
@@ -40,23 +44,12 @@ public static class OpenCvVisualNodeLocator
 
             var center = new DrawingPoint(left + width / 2, top + height / 2);
             if (center.X > image.Width * .86 || center.Y > image.Height * .68) continue;
-            var weightedX = (int)Math.Round(centroids.Get<double>(label, 0) + x0);
-            var weightedY = (int)Math.Round(centroids.Get<double>(label, 1) + y0);
-            components.Add(new Blob(area, new DrawingRectangle(left, top, width, height), center,
-                new DrawingPoint(weightedX, weightedY)));
+            candidates.Add(new VisualNodeCandidate(center,
+                new DrawingRectangle(left, top, width, height), area));
         }
 
-        var merged = new List<Blob>();
-        foreach (var component in components.OrderByDescending(x => x.Area))
-        {
-            var index = merged.FindIndex(x => CanMerge(x, component));
-            if (index < 0) merged.Add(component);
-            else merged[index] = Merge(merged[index], component);
-        }
-
-        return merged
+        return candidates
             .Where(x => x.Bounds.Width >= 48 && x.Bounds.Height >= 48)
-            .Select(x => new VisualNodeCandidate(x.Center, x.Bounds, x.Area))
             .OrderBy(x => x.Center.X)
             .ThenBy(x => x.Center.Y)
             .ToArray();
@@ -81,27 +74,4 @@ public static class OpenCvVisualNodeLocator
         return new VisualIconCandidate(center, bounds, Cv2.CountNonZero(roi));
     }
 
-    static bool CanMerge(Blob a, Blob b)
-    {
-        var union = DrawingRectangle.Union(a.Bounds, b.Bounds);
-        var dx = Math.Max(0, Math.Max(a.Bounds.Left - b.Bounds.Right, b.Bounds.Left - a.Bounds.Right));
-        var dy = Math.Max(0, Math.Max(a.Bounds.Top - b.Bounds.Bottom, b.Bounds.Top - a.Bounds.Bottom));
-        return dx <= 24 && dy <= 24 && union.Width <= 180 && union.Height <= 180 &&
-            Distance(a.Center, b.Center) <= 100;
-    }
-
-    static Blob Merge(Blob a, Blob b)
-    {
-        var bounds = DrawingRectangle.Union(a.Bounds, b.Bounds);
-        var area = a.Area + b.Area;
-        return new Blob(area, bounds,
-            new DrawingPoint((a.Center.X + b.Center.X) / 2, (a.Center.Y + b.Center.Y) / 2),
-            new DrawingPoint((a.WeightedCenter.X * a.Area + b.WeightedCenter.X * b.Area) / Math.Max(1, area),
-                (a.WeightedCenter.Y * a.Area + b.WeightedCenter.Y * b.Area) / Math.Max(1, area)));
-    }
-
-    static double Distance(DrawingPoint a, DrawingPoint b)
-        => Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2));
-
-    sealed record Blob(int Area, DrawingRectangle Bounds, DrawingPoint Center, DrawingPoint WeightedCenter);
 }

@@ -20,6 +20,10 @@ public sealed class ControllerOperations
     {
         get { lock (gate) return current?.Kind == ControllerOperationKind.Movement ? current.Cancellation.Token : default; }
     }
+    public CancellationToken CurrentToken
+    {
+        get { lock (gate) return current?.Cancellation.Token ?? default; }
+    }
     public Task? TaskFor(ControllerOperationKind kind)
     {
         lock (gate) return current?.Kind == kind ? current.Completion.Task : null;
@@ -58,7 +62,9 @@ public sealed class ControllerOperations
     public void Cancel(ControllerOperationKind kind)
     {
         lock (gate)
-            if (current?.Kind == kind) current.Cancellation.Cancel();
+            if (current?.Kind == kind ||
+                (kind == ControllerOperationKind.Movement && current?.Kind == ControllerOperationKind.Entry))
+                current.Cancellation.Cancel();
     }
 
     public Task StopAsync(bool closeAdmission = false)

@@ -13,8 +13,9 @@ namespace AdbMapController;
 
 public sealed partial class MainForm
 {
-    async Task StartRunCore()
+    async Task StartRunCore(CancellationToken owner)
     {
+        lastMapRunSucceeded = false;
         MaaPipelineCatalog catalog;
         try
         {
@@ -73,7 +74,8 @@ public sealed partial class MainForm
             new MaaPipelineExecutionOptions { TaskChain = "MapRun", RetryTimes = 0 },
             new MaaPipelineTraceMultiplexer([trace, liveTrace, pipelineWebServer]));
 
-        var result = await pipeline.RunAsync(this, ["RunDungeon"], operations.MovementToken);
+        var result = await pipeline.RunAsync(this, ["RunDungeon"], owner);
+        lastMapRunSucceeded = result.Succeeded;
         try
         {
             var tracePath = runtime.Paths.Trace($"map-run-{result.RunId}.json");
@@ -132,6 +134,7 @@ public sealed partial class MainForm
             if ((!ready || dungeon.Map is null) && !runeSelectionVisible && floorPhase != FloorPhase.SelectBonus)
             {
                 State("地图未就绪");
+                Log($"跑图启动地图刷新失败：refresh={(ready ? "完成" : "未完成")}，map={(dungeon.Map is null ? "缺失" : "已加载")}，Entry跑图授权={entryRunMovementScope}", LogLevel.Error);
                 return TaskPipelineNodeResult.Failure("地图未就绪");
             }
             if (dungeon.Map is not null) runTask.Observe(dungeon.Map);
@@ -200,10 +203,20 @@ public sealed partial class MainForm
                 {
                     if (runTask.Observe(observedMap))
                     {
+                        var finalized = await CloseReturnTownDialogsAsync(owner);
                         route = []; plannedInteractions = []; plannedTargetUniverse.Clear();
                         mapPanel.Route = route; mapPanel.Invalidate();
-                        State("跑图任务完成：已返回主城或公会");
-                        Log($"跑图任务完成：{observedMap.MapName}，地图 {observedMap.Level}，同屏场景 {observedMap.TownMapId}");
+                        if (finalized)
+                        {
+                            runTask.MarkCompleted();
+                            State("跑图任务完成：已返回主城并完成弹窗检查");
+                            Log($"跑图任务完成：{observedMap.MapName}，地图 {observedMap.Level}，同屏场景 {observedMap.TownMapId}");
+                        }
+                        else
+                        {
+                            State("跑图收尾失败：战利品弹窗未确认");
+                            Log("已返回主城，但战利品弹窗标题出现后未能识别并点击确定；本轮未标记完成", LogLevel.Error);
+                        }
                         break;
                     }
                     if (MapRunTask.IsReturnDestination(observedMap))
@@ -212,6 +225,12 @@ public sealed partial class MainForm
                         await Task.Delay(180, owner);
                         continue;
                     }
+                }
+                if (floorPhase == FloorPhase.WaitingReturnTown)
+                {
+                    State("已选择安全回城，等待主城地图加载");
+                    await Task.Delay(120, owner);
+                    continue;
                 }
                 // 看门狗在宝石选择锁存期间暂停探测；由主循环复用同一套
                 // OCR/弹窗管线确认它已关闭，避免点击后永久停留在宝石状态。
@@ -516,5 +535,45 @@ public sealed partial class MainForm
                 throw;
             }
         }
+    }
+
+    async Task<bool> CloseReturnTownDialogsAsync(CancellationToken token)
+    {
+        var deadline = Stopwatch.StartNew();
+        var sawLoot = false;
+        while (deadline.Elapsed < TimeSpan.FromSeconds(3))
+        {
+            token.ThrowIfCancellationRequested();
+            using var frame = await adb.CaptureMovementPopupFrameAsync(token);
+            var words = await adb.ReadOcrWordsAsync(frame, token);
+            var text = string.Concat(words.Select(word => OcrTextLocator.Compact(word.Text)));
+            var loot = text.Contains("战利品", StringComparison.Ordinal);
+            if (loot)
+            {
+                sawLoot = true;
+                var lootConfirm = OcrTextLocator.Find(words, "确定", word => word.Center.Y >= frame.Height * .68);
+                if (lootConfirm is null)
+                {
+                    await Task.Delay(150, token);
+                    continue;
+                }
+                var x = Math.Clamp((double)lootConfirm.Center.X / frame.Width, 0, 1);
+                var y = Math.Clamp((double)lootConfirm.Center.Y / frame.Height, 0, 1);
+                await adb.TapScreen(x, y);
+                Log($"返回主城后识别到战利品标题并点击确定：({lootConfirm.Center.X},{lootConfirm.Center.Y})");
+                return true;
+            }
+            else
+            {
+                await Task.Delay(150, token);
+            }
+        }
+        if (!sawLoot)
+        {
+            Log("返回主城后 3 秒内未检测到战利品弹窗，跑图收尾完成");
+            return true;
+        }
+        Warn("3 秒内识别到战利品标题，但未能识别并点击确定；跑图任务不标记完成");
+        return false;
     }
 }

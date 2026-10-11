@@ -5,6 +5,7 @@ public sealed class MapRunTask
 {
     public bool HasEnteredMap { get; private set; }
     public bool Completed { get; private set; }
+    public bool IsAtReturnDestination { get; private set; }
 
     public static bool IsReturnDestination(MapDump map) =>
         map.TownMapId is 10001 or 10002 ||
@@ -13,8 +14,13 @@ public sealed class MapRunTask
 
     public bool Observe(MapDump map)
     {
-        if (IsReturnDestination(map)) Completed |= HasEnteredMap;
-        else if (map.SceneType >= 0 && map.Width > 0 && map.Height > 0) HasEnteredMap = true;
-        return Completed;
+        var isReturnDestination = IsReturnDestination(map);
+        IsAtReturnDestination = isReturnDestination && HasEnteredMap;
+        // 初次启动时就在城镇，不应把起始点当成“跑完后返回”；只有离开后再回来才完成。
+        if (!isReturnDestination && map.SceneType >= 0 && map.Width > 0 && map.Height > 0)
+            HasEnteredMap = true;
+        return IsAtReturnDestination;
     }
+
+    public void MarkCompleted() => Completed = true;
 }

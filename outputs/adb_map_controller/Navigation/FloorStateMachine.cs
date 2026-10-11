@@ -5,7 +5,7 @@ namespace AdbMapController;
 public enum FloorPhase
 {
     Explore, CollectWarning, FightGuard, ConfirmPortal, GoToPortal,
-    InteractPortal, SelectBonus, VerifyTransition, WaitingFloorLoad
+    InteractPortal, SelectBonus, VerifyTransition, WaitingFloorLoad, WaitingReturnTown
 }
 
 /// <summary>
@@ -38,9 +38,10 @@ public sealed class FloorStateMachine
         FloorPhase.ConfirmPortal => to is FloorPhase.GoToPortal or FloorPhase.Explore or FloorPhase.WaitingFloorLoad,
         FloorPhase.GoToPortal => to is FloorPhase.InteractPortal or FloorPhase.Explore or FloorPhase.WaitingFloorLoad,
         FloorPhase.InteractPortal => to is FloorPhase.SelectBonus or FloorPhase.VerifyTransition or FloorPhase.GoToPortal or FloorPhase.WaitingFloorLoad,
-        FloorPhase.SelectBonus => to is FloorPhase.VerifyTransition or FloorPhase.GoToPortal or FloorPhase.WaitingFloorLoad,
+        FloorPhase.SelectBonus => to is FloorPhase.VerifyTransition or FloorPhase.GoToPortal or FloorPhase.WaitingFloorLoad or FloorPhase.WaitingReturnTown,
         FloorPhase.VerifyTransition => to is FloorPhase.GoToPortal or FloorPhase.WaitingFloorLoad or FloorPhase.Explore,
         FloorPhase.WaitingFloorLoad => to is FloorPhase.Explore,
+        FloorPhase.WaitingReturnTown => to is FloorPhase.Explore,
         _ => false
     };
 }

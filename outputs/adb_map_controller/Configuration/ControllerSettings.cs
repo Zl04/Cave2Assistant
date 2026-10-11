@@ -45,6 +45,7 @@ public sealed class ControllerSettings
     public int EntryId { get; set; } = 1;
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public DungeonDifficulty EntryDifficulty { get; set; } = DungeonDifficulty.Normal;
+    public bool LoopEntryAndRun { get; set; }
     // 兼容旧版本配置：旧字段为 true 时迁移为精英难度。
     public bool EntryEliteMode { get; set; }
     public List<string> BonusPriority { get; set; } = [];

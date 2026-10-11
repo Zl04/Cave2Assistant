@@ -54,7 +54,7 @@ public sealed partial class MainForm
 
     async Task<bool> RefreshMap(bool writeLog = true, bool waitForLock = false, Action? onMapReady = null, bool lockDeviceSelection = true)
     {
-        if (closing || activeEntry is { IsCompleted: false }) return false;
+        if (closing || (activeEntry is { IsCompleted: false } && !entryRunMovementScope)) return false;
         // WinForms Timer 不会等待异步 Tick 处理程序。如果 ADB 卡住，
         // 过去每 500 毫秒就会启动一次新的刷新，每次都可能留下一个
         // adb screencap 进程，直到 Windows 耗尽提交内存。
@@ -74,7 +74,7 @@ public sealed partial class MainForm
         {
             var ready = await NavigationStartupUseCase.PrepareAsync(
                 () => RefreshMapSnapshot(writeLog), () => RefreshOverlayState(writeLog, failSafe: true),
-                onMapReady, operations.MovementToken);
+                onMapReady, operations.CurrentToken);
             if (!ready || runeSelectionVisible) return ready;
 
             // OCR 在冷启动时可能耗时数秒。在允许输入前只重新读取开销较低的
@@ -114,7 +114,7 @@ public sealed partial class MainForm
             adb.Serial = devices.Text;
             // 在同一帧检查两个覆盖层，避免重复截图。
             var frameId = adb.NextPopupFrameId();
-            using var screen = await adb.CaptureMovementPopupFrameAsync(frameId, operations.MovementToken);
+            using var screen = await adb.CaptureMovementPopupFrameAsync(frameId, operations.CurrentToken);
             var runPopupPipeline = writeLog || runeSelectionVisible;
             var popup = MovementPopupKind.None;
             PopupUiPipelineResult? popupPipeline = null;
@@ -192,7 +192,7 @@ public sealed partial class MainForm
         try
         {
             adb.Serial = devices.Text;
-            var result = await new DungeonSnapshotUseCase(dungeon, adb).RefreshAsync(operations.MovementToken);
+            var result = await new DungeonSnapshotUseCase(dungeon, adb).RefreshAsync(operations.CurrentToken);
             var map = result.Map;
             foreach (var diagnostic in result.Diagnostics) runtime.Diagnostics.Record("JSON: " + diagnostic);
             foreach (var message in result.Messages) Log(message);

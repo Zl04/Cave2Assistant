@@ -37,6 +37,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     readonly ComboBox entryMapChoice = new ThemedComboBox { Width = 110, DropDownStyle = ComboBoxStyle.DropDownList };
     readonly ComboBox entryChoice = new ThemedComboBox { Width = 90, DropDownStyle = ComboBoxStyle.DropDownList };
     readonly ComboBox entryDifficulty = new ThemedComboBox { Width = 78, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "自动进图难度" };
+    readonly CheckBox loopEntryAndRun = Box("循环进图/跑图");
     readonly ComboBox themeChoice = new ThemedComboBox { Width = 105, DropDownStyle = ComboBoxStyle.DropDownList };
     readonly CheckBox alwaysOnTop = Box("窗口置顶");
     readonly ListBox bonusPriority = new()
@@ -67,6 +68,8 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     Task? shutdownTask;
     readonly OperationTracker uiOperations = new();
     bool closing, closeReady, stopping, scanning;
+    bool lastMapRunSucceeded;
+    bool entryRunMovementScope;
     List<Cell> route { get => dungeon.Route.Route; set => dungeon.Route.Route = value; }
     List<PlannedInteraction> plannedInteractions { get => dungeon.Route.Interactions; set => dungeon.Route.Interactions = value; }
     HashSet<TargetKey> plannedTargetUniverse { get => dungeon.Route.TargetUniverse; set => dungeon.Route.TargetUniverse = value; }
@@ -145,12 +148,11 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         attackBoss.Checked = true;
         themeChoice.Items.AddRange(["浅色", "深色", "跟随系统"]);
         themeChoice.SelectedIndex = 0;
-        entryDifficulty.Items.AddRange(["普通", "精英", "噩梦"]);
-        entryDifficulty.SelectedIndex = (int)DungeonDifficulty.Normal;
         bonusPriority.Items.AddRange(BonusKinds); bonusPriority.SelectedIndex = 0;
         entryMapChoice.Items.AddRange(DungeonEntryCatalog.Maps.Select(x => x.Name).Cast<object>().ToArray());
         entryChoice.Items.AddRange(DungeonEntryCatalog.EntriesForMap(DungeonEntryCatalog.TimeGateMapId).Select(x => x.Name).Cast<object>().ToArray());
         entryMapChoice.SelectedIndex = 0; entryChoice.SelectedIndex = 0;
+        RefreshEntryDifficulties(SelectedEntryMap, DungeonDifficulty.Normal);
         entryMapChoice.SelectedIndexChanged += (_, _) =>
         {
             var selectedEntryId = Math.Max(1, entryChoice.SelectedIndex + 1);
@@ -159,8 +161,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             entryChoice.Items.AddRange(DungeonEntryCatalog.EntriesForMap(map.Id)
                 .Select(x => x.Name).Cast<object>().ToArray());
             entryChoice.SelectedIndex = Math.Clamp(selectedEntryId - 1, 0, Math.Max(0, entryChoice.Items.Count - 1));
-            entryDifficulty.Enabled = map.SupportsDifficulty;
-            if (!map.SupportsDifficulty) entryDifficulty.SelectedIndex = (int)DungeonDifficulty.Normal;
+            RefreshEntryDifficulties(map, SelectedEntryDifficulty);
         };
         LoadSettings();
         TopMost = alwaysOnTop.Checked;
@@ -190,7 +191,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         };
         var scan = Btn("扫描设备", ThemeRole.SecondaryButton); var refresh = Btn("刷新地图", ThemeRole.SecondaryButton);
         var plan = Btn("规划路线", ThemeRole.InfoButton); var start = Btn("开始", ThemeRole.SuccessButton); var pause = Btn("暂停", ThemeRole.WarningButton); var step = Btn("单步", ThemeRole.InfoButton); var stop = Btn("急停", ThemeRole.DangerButton);
-        var autoEnter = Btn("识图自动进图", ThemeRole.SuccessButton); var calibrateEntry = Btn("更新入口模板", ThemeRole.UtilityButton);
+        var autoEnter = Btn("进图并跑图", ThemeRole.SuccessButton); var calibrateEntry = Btn("更新入口模板", ThemeRole.UtilityButton);
         var miniWindow = Btn("小窗口", ThemeRole.SecondaryButton); var openWebMonitor = Btn("Web监控", ThemeRole.InfoButton);
         var detectAssistant = Btn("检测助手", ThemeRole.UtilityButton); var installAssistant = Btn("安装助手", ThemeRole.UtilityButton); var restoreAssistant = Btn("恢复原版", ThemeRole.DangerButton); var openTestPanel = Btn("打开测试面板", ThemeRole.WarningButton);
         var mine = Btn("挖矿", ThemeRole.WarningButton);
@@ -219,7 +220,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         var floorStop = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
         floorStop.Controls.AddRange([new Label { Text = "指定层停住：", AutoSize = true }, targetStopFloor, new Label { Text = "层（0=关闭，完成所选目标后自动停住）", AutoSize = true }, mining, cardMining, cardLayer]);
         var entryOptions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
-        entryOptions.Controls.AddRange([new Label { Text = "自动进图：", AutoSize = true }, entryMapChoice, entryChoice, entryDifficulty, new Label { Text = "入口识别：内置图标或当前地图场景模板", AutoSize = true, Padding = new(4, 5, 0, 0), Tag = ThemeRole.WarningText }]);
+        entryOptions.Controls.AddRange([new Label { Text = "自动进图：", AutoSize = true }, entryMapChoice, entryChoice, entryDifficulty, loopEntryAndRun, new Label { Text = "入口识别：内置图标或当前地图场景模板", AutoSize = true, Padding = new(4, 5, 0, 0), Tag = ThemeRole.WarningText }]);
         var timing = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 7, 10, 5), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
         timing.Controls.AddRange([new Label { Text = "时间参数：", AutoSize = true }, new Label { Text = "单格脉冲按住(ms)", AutoSize = true }, singleCellPulseHold, new Label { Text = "提前/延迟松开(ms)", AutoSize = true }, movementReleaseLead, new Label { Text = "交互按住(ms)", AutoSize = true }, interactionHold, new Label { Text = "卡住超时(ms)", AutoSize = true }, stallTimeout, new Label { Text = "新层启动延迟(ms)", AutoSize = true }, newFloorStartDelay, new Label { Text = "规划容错次数", AutoSize = true }, routeRecoveryAttempts]);
         var runPage = new ThemedTabPage { Text = "运行", Padding = new(0), Tag = ThemeRole.Default };
@@ -238,6 +239,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         miniWindow.Click += (_, _) => ToggleMiniWindowMode();
         openWebMonitor.Click += (_, _) => OpenPipelineWebMonitor();
         alwaysOnTop.CheckedChanged += (_, _) => { ApplyAlwaysOnTop(); SaveSettings(); };
+        loopEntryAndRun.CheckedChanged += (_, _) => SaveSettings();
         detectAssistant.Click += async (_, _) => await RunUi(DetectAssistant); installAssistant.Click += async (_, _) => await RunUi(InstallAssistant); restoreAssistant.Click += async (_, _) => await RunUi(RestoreAssistant); openTestPanel.Click += async (_, _) => await RunUi(OpenTestPanel);
         bonusPriorityToggle.Click += (_, _) =>
         {
@@ -275,7 +277,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             if (activeMovement is null && activeEntry is null && !uiOperations.IsBusy)
                 await RefreshMap(false, lockDeviceSelection: false);
         }; Shown += async (_, _) => await RunUi(async () => { await Scan(); await RefreshMap(); if (!closing) refreshTimer.Start(); });
-        foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, mining, cardMining, cardLayer, entryMapChoice, entryChoice, entryDifficulty })
+        foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, mining, cardMining, cardLayer, entryMapChoice, entryChoice, entryDifficulty, loopEntryAndRun })
             control.Validated += (_, _) => SaveSettings();
         foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers })
         {
@@ -369,6 +371,39 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     ThemeMode CurrentThemeMode => (ThemeMode)Math.Clamp(themeChoice.SelectedIndex, 0, 2);
     DungeonMapOption SelectedEntryMap => DungeonEntryCatalog.Maps[Math.Clamp(
         entryMapChoice.SelectedIndex, 0, DungeonEntryCatalog.Maps.Count - 1)];
+    DungeonDifficulty SelectedEntryDifficulty => entryDifficulty.SelectedItem is string name
+        ? name switch
+        {
+            "精英" => DungeonDifficulty.Elite,
+            "噩梦" => DungeonDifficulty.Nightmare,
+            _ => DungeonDifficulty.Normal
+        }
+        : DungeonDifficulty.Normal;
+
+    void RefreshEntryDifficulties(DungeonMapOption map, DungeonDifficulty preferred)
+    {
+        var difficulties = map.Difficulties;
+        var names = difficulties.Select(difficulty => difficulty switch
+        {
+            DungeonDifficulty.Elite => "精英",
+            DungeonDifficulty.Nightmare => "噩梦",
+            _ => "普通"
+        }).ToArray();
+        if (names.Length == 0)
+            names = ["不分难度"];
+
+        entryDifficulty.BeginUpdate();
+        try
+        {
+            entryDifficulty.Items.Clear();
+            entryDifficulty.Items.AddRange(names);
+            var selected = difficulties.Contains(preferred) ? preferred : DungeonDifficulty.Normal;
+            var selectedIndex = Array.IndexOf(difficulties.ToArray(), selected);
+            entryDifficulty.SelectedIndex = selectedIndex >= 0 ? selectedIndex : 0;
+            entryDifficulty.Enabled = map.SupportsDifficulty;
+        }
+        finally { entryDifficulty.EndUpdate(); }
+    }
 
     void ApplyTheme()
     {
@@ -403,6 +438,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         if (s is null) return;
         themeChoice.SelectedIndex = Math.Clamp((int)s.Theme, 0, 2);
         alwaysOnTop.Checked = s.AlwaysOnTop;
+        loopEntryAndRun.Checked = s.LoopEntryAndRun;
         attackBoss.Checked = s.AttackBoss; monsters.Checked = s.Monsters; elites.Checked = s.Elites; chests.Checked = s.Chests; pots.Checked = s.Pots;
         bones.Checked = s.Bones; gold.Checked = s.Gold; runes.Checked = s.Runes; chambers.Checked = s.Chambers;
         SetValue(singleCellPulseHold, s.SingleCellPulseHold); SetValue(movementReleaseLead, s.MovementReleaseLead);
@@ -427,7 +463,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         var entryDifficultyIndex = Math.Clamp((int)s.EntryDifficulty, (int)DungeonDifficulty.Normal, (int)DungeonDifficulty.Nightmare);
         if (entryDifficultyIndex == (int)DungeonDifficulty.Normal && s.EntryEliteMode)
             entryDifficultyIndex = (int)DungeonDifficulty.Elite;
-        entryDifficulty.SelectedIndex = entryDifficultyIndex;
+        RefreshEntryDifficulties(SelectedEntryMap, (DungeonDifficulty)entryDifficultyIndex);
         if (s.BonusPriority is { Count: > 0 } && s.BonusPriority.All(x => BonusKinds.Contains(x))) { bonusPriority.Items.Clear(); bonusPriority.Items.AddRange(s.BonusPriority.Concat(BonusKinds.Where(x => !s.BonusPriority.Contains(x))).ToArray()); bonusPriority.SelectedIndex = 0; }
         if (!string.IsNullOrWhiteSpace(s.Device)) devices.Text = s.Device;
     }
@@ -439,6 +475,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         {
             Theme = CurrentThemeMode,
             AlwaysOnTop = alwaysOnTop.Checked,
+            LoopEntryAndRun = loopEntryAndRun.Checked,
             AttackBoss = attackBoss.Checked,
             Monsters = monsters.Checked,
             Elites = elites.Checked,

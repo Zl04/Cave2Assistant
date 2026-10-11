@@ -13,7 +13,7 @@ namespace AdbMapController;
 
 public sealed partial class MainForm
 {
-    Task StartRun() => RunMovement(StartRunCore, startupProbePaused: true);
+    Task StartRun() => RunMovement(() => StartRunCore(operations.CurrentToken), startupProbePaused: true);
 
     async Task NavigateToMapCell(Cell target)
     {
@@ -80,7 +80,7 @@ public sealed partial class MainForm
 
     async Task NavigateToMapCellCore(Cell target, int requestVersion)
     {
-        var owner = operations.MovementToken;
+        var owner = operations.CurrentToken;
         try
         {
             var startup = Stopwatch.StartNew();
@@ -298,29 +298,32 @@ public sealed partial class MainForm
     async Task RunMovement(Func<Task> action, bool startupProbePaused = false)
     {
         if (closing || stopping || scanning || activeMovement is { IsCompleted: false } || activeEntry is { IsCompleted: false }) return;
-        await operations.RunAsync(ControllerOperationKind.Movement, async owner =>
-        {
-            if (startupProbePaused) startupPreparing = true;
-            devices.Enabled = false;
-            dungeon.MotionInterrupt.Clear();
-            using var watchdogCts = new CancellationTokenSource();
-            var watchdog = new PopupWatchdog(adb, touch, dungeon.MotionInterrupt, PopupProbeEnabled, movementExecution.Interrupt,
-                popup => Log($"弹窗监控已锁存：{popup}，等待主循环接管"),
-                ex => Warn($"移动弹窗监控暂时失败：{ex.Message}"),
-                message => Log(message),
-                PopupProbeDisabledReason);
-            var watchdogTask = watchdog.RunAsync(watchdogCts.Token);
-            try { await action(); }
-            finally
-            {
-                watchdogCts.Cancel();
-                try { await watchdogTask; } catch (OperationCanceledException) { }
-                dungeon.MotionInterrupt.Clear();
-                if (startupProbePaused) startupPreparing = false;
-                UpdateDeviceAvailability();
-            }
-        });
+        await operations.RunAsync(ControllerOperationKind.Movement, owner =>
+            RunMovementScope(owner, _ => action(), startupProbePaused));
         UpdateDeviceAvailability();
+    }
+
+    async Task RunMovementScope(CancellationToken owner, Func<CancellationToken, Task> action, bool startupProbePaused = false)
+    {
+        if (startupProbePaused) startupPreparing = true;
+        devices.Enabled = false;
+        dungeon.MotionInterrupt.Clear();
+        using var watchdogCts = CancellationTokenSource.CreateLinkedTokenSource(owner);
+        var watchdog = new PopupWatchdog(adb, touch, dungeon.MotionInterrupt, PopupProbeEnabled, movementExecution.Interrupt,
+            popup => Log($"弹窗监控已锁存：{popup}，等待主循环接管"),
+            ex => Warn($"移动弹窗监控暂时失败：{ex.Message}"),
+            message => Log(message),
+            PopupProbeDisabledReason);
+        var watchdogTask = watchdog.RunAsync(watchdogCts.Token);
+        try { await action(owner); }
+        finally
+        {
+            watchdogCts.Cancel();
+            try { await watchdogTask; } catch (OperationCanceledException) { }
+            dungeon.MotionInterrupt.Clear();
+            if (startupProbePaused) startupPreparing = false;
+            UpdateDeviceAvailability();
+        }
     }
 
     async Task StopMovement()

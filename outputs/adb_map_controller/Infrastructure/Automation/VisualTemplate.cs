@@ -745,7 +745,7 @@ public static class BuiltInEntryTemplateCatalog
 public static class BuiltInUiTemplateCatalog
 {
     static readonly object sync = new();
-    static VisualTemplate? playerMarker;
+    static IReadOnlyList<VisualTemplate> playerMarkers = [];
     static bool playerLoaded;
     static VisualTemplate? bastanTitle;
     static bool bastanTitleLoaded;
@@ -767,33 +767,41 @@ public static class BuiltInUiTemplateCatalog
 
     public static VisualMatch? FindMinimapPlayer(Bitmap screen)
     {
-        var template = GetPlayerMarker();
-        if (template is null) return null;
-        var candidates = template.FindAll(screen, .55, 24)
-            .Where(x => x.Center.X >= screen.Width * .78 && x.Center.X <= screen.Width * .99 &&
-                        x.Center.Y >= screen.Height * .08 && x.Center.Y <= screen.Height * .30 &&
-                        x.Score >= .65)
+        var left = Math.Clamp((int)Math.Round(screen.Width * .74), 0, screen.Width - 1);
+        var top = Math.Clamp((int)Math.Round(screen.Height * .03), 0, screen.Height - 1);
+        var width = Math.Max(1, screen.Width - left);
+        var height = Math.Min(screen.Height - top, Math.Max(1, (int)Math.Round(screen.Height * .36)));
+        using var minimapRegion = screen.Clone(new Rectangle(left, top, width, height),
+            System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        var candidates = GetPlayerMarkers().SelectMany(template => template.FindAll(minimapRegion, .40, 24))
+            .Where(x => x.Score >= .52)
             .OrderByDescending(x => x.Score)
             .ToArray();
         if (candidates.Length == 0) return null;
-        var score = candidates[0].Score;
+        var best = candidates[0];
+        var score = best.Score;
         var second = candidates.Length > 1
             ? candidates[1].Score
             : 0;
-        return new VisualMatch(candidates[0].Center, score, second);
+        return new VisualMatch(new Point(best.Center.X + left, best.Center.Y + top), score, second);
     }
 
-    static VisualTemplate? GetPlayerMarker()
+    static IReadOnlyList<VisualTemplate> GetPlayerMarkers()
     {
         lock (sync)
         {
-            if (playerLoaded) return playerMarker;
+            if (playerLoaded) return playerMarkers;
             playerLoaded = true;
             var path = Path.Combine(AppContext.BaseDirectory, "icons", "player.png");
-            if (!File.Exists(path)) return null;
-            try { playerMarker = VisualTemplate.FromFile(path, .037, .037); }
-            catch { playerMarker = null; }
-            return playerMarker;
+            if (!File.Exists(path)) return playerMarkers;
+            // 不同设备 DPI/游戏渲染比例会让小地图玩家标记尺寸变化；并行尝试常见比例。
+            // 小地图 ROI 的最短边约为屏幕高度的三分之一，故这里按裁剪后尺寸换算比例。
+            foreach (var ratio in new[] { .085, .10, .115, .13, .145 })
+            {
+                try { playerMarkers = playerMarkers.Append(VisualTemplate.FromFile(path, ratio, ratio)).ToArray(); }
+                catch { }
+            }
+            return playerMarkers;
         }
     }
 

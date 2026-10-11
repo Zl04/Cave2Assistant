@@ -7,9 +7,11 @@ public sealed record DungeonMapOption(
     int Id,
     string Name,
     bool UsesSharedEntrance,
-    bool SupportsDifficulty = true,
+    IReadOnlyList<DungeonDifficulty>? AvailableDifficulties = null,
     int? TemplateOverrideId = null)
 {
+    public IReadOnlyList<DungeonDifficulty> Difficulties => AvailableDifficulties ?? DungeonEntryCatalog.AllDifficulties;
+    public bool SupportsDifficulty => Difficulties.Count > 1;
     public bool IsTimeGate => Id is DungeonEntryCatalog.TimeGateMapId or DungeonEntryCatalog.TimeGateHeroMapId;
     public bool IsHeroVariant => Id == DungeonEntryCatalog.TimeGateHeroMapId;
     public int TemplateId => TemplateOverrideId ?? (UsesSharedEntrance ? DungeonEntryCatalog.SharedEntranceMapId : Id);
@@ -48,15 +50,21 @@ public static class DungeonEntryCatalog
     public const int SharedEntranceMapId = 2;
     public const int TimeGateHeroMapId = 6;
 
+    static readonly IReadOnlyList<DungeonDifficulty> NoDifficulty = [];
+    static readonly IReadOnlyList<DungeonDifficulty> StandardDifficulties =
+        [DungeonDifficulty.Normal, DungeonDifficulty.Elite];
+    internal static readonly IReadOnlyList<DungeonDifficulty> AllDifficulties =
+        [DungeonDifficulty.Normal, DungeonDifficulty.Elite, DungeonDifficulty.Nightmare];
+
     public static readonly IReadOnlyList<DungeonMapOption> Maps =
     [
-        new(TimeGateMapId, "时光之门", false, false),
-        new(TimeGateHeroMapId, "时光之门(英雄)", false, false, TimeGateMapId),
-        new(1, "沙之眼", false),
-        new(2, "扭曲空间", true),
+        new(TimeGateMapId, "时光之门", false, NoDifficulty),
+        new(TimeGateHeroMapId, "时光之门(英雄)", false, NoDifficulty, TimeGateMapId),
+        new(1, "沙之眼", false, NoDifficulty),
+        new(2, "扭曲空间", true, StandardDifficulties),
         new(3, "元素炼狱", true),
         new(4, "虚空秘境", true),
-        new(5, "原初试炼", false, false)
+        new(5, "原初试炼", false)
     ];
 
     static readonly IReadOnlyDictionary<int, IReadOnlyList<DungeonEntryOption>> entries =
@@ -74,7 +82,7 @@ public static class DungeonEntryCatalog
             [2] = [new(1, "1层"), new(2, "11层"), new(3, "21层"), new(4, "31层"), new(5, "41层"), new(6, "51层"), new(7, "61层")],
             [3] = [new(1, "1层"), new(2, "11层"), new(3, "21层"), new(4, "31层"), new(5, "41层")],
             [4] = [new(1, "1层"), new(2, "11层")],
-            [5] = Enumerable.Range(0, 22)
+            [5] = Enumerable.Range(0, 1)
                 .Select(index => new DungeonEntryOption(index + 1, $"{index * 10 + 1}层"))
                 .ToArray(),
             [TimeGateHeroMapId] =

@@ -5,7 +5,8 @@ namespace AdbMapController;
 
 /// <summary>
 /// 将目标地图方向转换为游戏卡顿时必须按下的物理方向按钮。
-/// 映射值 1..4 是游戏导出的逻辑方向（上、右、下、左）。
+/// confuseDirections 保存的是游戏 DirectionType 枚举：North=1、East=2、South=3、West=4。
+/// 数组下标对应物理按钮顺序：上、下、左、右；地图 Y 正方向对应游戏 NORTH。
 /// </summary>
 public static class DirectionMapper
 {
@@ -14,22 +15,22 @@ public static class DirectionMapper
         if (!confused || confuseDirections.Count < 4) return desired;
         var actual = desired switch
         {
-            { X: 0, Y: -1 } => 1,
+            { X: 0, Y: 1 } => 1,
             { X: 1, Y: 0 } => 2,
-            { X: 0, Y: 1 } => 3,
+            { X: 0, Y: -1 } => 3,
             { X: -1, Y: 0 } => 4,
-            _ => 0
+            _ => -1
         };
-        if (actual == 0) return desired;
+        if (Math.Abs(desired.X) + Math.Abs(desired.Y) != 1) return desired;
         var button = -1;
         for (var i = 0; i < confuseDirections.Count; i++)
             if (confuseDirections[i] == actual) { button = i; break; }
         return button switch
         {
-            0 => new(0, -1),
-            1 => new(0, 1),
-            2 => new(-1, 0),
-            3 => new(1, 0),
+            0 => new(0, 1),  // up button; map Y positive
+            1 => new(0, -1), // down button; map Y negative
+            2 => new(-1, 0), // left button; map X negative
+            3 => new(1, 0),  // right button; map X positive
             _ => desired
         };
     }

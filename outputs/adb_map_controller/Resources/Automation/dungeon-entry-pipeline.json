@@ -1,100 +1,135 @@
 {
   "$schema": "https://github.com/MaaAssistantArknights/MaaAssistantArknights/raw/dev-v2/docs/maa_tasks_schema.json",
-  "DungeonEntry": {
+  "开始自动进图": {
     "recognition": "DirectHit",
     "action": "DoNothing",
     "handler": "DungeonEntryStep",
-    "next": ["EnsureMapOpen"],
+    "next": ["确保主城地图已打开"],
     "maxTimes": 1
   },
-  "EnsureMapOpen": {
+  "确保主城地图已打开": {
     "recognition": "DirectHit",
     "action": "DoNothing",
     "handler": "MaaAdb",
     "timeout": 3000,
     "rate_limit": 300,
-    "next": ["BastanMapOpened", "OpenMapButton"],
-    "on_error": ["EntryOpenMapFailed"],
-    "exceeded_next": ["EntryOpenMapFailed"],
+    "next": ["主城标题已识别", "点击小地图按钮"],
+    "on_error": ["主城地图打开失败"],
+    "exceeded_next": ["主城地图打开失败"],
     "maxTimes": 11
   },
-  "BastanMapOpened": {
+  "主城标题已识别": {
     "recognition": "TemplateMatch",
     "template": ["templates/ui/ui_title_bastan.png"],
     "roi": [538, 36, 230, 180],
     "threshold": 0.75,
     "action": "DoNothing",
     "handler": "DungeonEntryStep",
-    "next": ["EnterDungeon"],
+    "next": ["进入目标地图"],
     "maxTimes": 1
   },
-  "OpenMapButton": {
-    "recognition": "TemplateMatch",
-    "template": ["player.png"],
-    "roi": [998, 58, 270, 158],
-    "threshold": 0.65,
-    "action": "Click",
-    "handler": "MaaAdb",
+  "点击小地图按钮": {
+    "recognition": "Custom",
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep",
     "post_delay": 700,
-    "next": ["EnsureMapOpen"],
-    "exceeded_next": ["EntryOpenMapFailed"],
+    "next": ["确保主城地图已打开"],
+    "exceeded_next": ["主城地图打开失败"],
     "max_hit": 10
   },
-  "EntryOpenMapFailed": {
+  "主城地图打开失败": {
     "recognition": "DirectHit",
-    "action": "Stop",
-    "handler": "MaaAdb"
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep"
   },
-  "EnterDungeon": {
+  "进入目标地图": {
     "recognition": "DirectHit",
     "action": "DoNothing",
     "handler": "DungeonEntryStep",
-    "next": ["SelectMapVariant"],
+    "next": ["判断当前地图类型"],
     "maxTimes": 1
   },
-  "SelectMapVariant": {
+  "判断当前地图类型": {
     "recognition": "DirectHit",
     "action": "DoNothing",
     "handler": "DungeonEntryStep",
-    "next": ["SelectDifficulty"],
+    "next": ["当前地图标题匹配目标", "切换地图类型"],
     "maxTimes": 1
   },
-  "SelectDifficulty": {
+  "当前地图标题匹配目标": {
+    "recognition": "OCR",
+    "text": ["扭曲空间", "元素炼狱", "虚空秘境"],
+    "roi": [0, 28, 435, 205],
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep",
+    "next": ["选择关卡难度"],
+    "maxTimes": 1
+  },
+  "切换地图类型": {
     "recognition": "DirectHit",
     "action": "DoNothing",
     "handler": "DungeonEntryStep",
-    "next": ["SelectLayer"],
+    "next": ["选择关卡难度"],
     "maxTimes": 1
   },
-  "SelectLayer": {
+  "选择关卡难度": {
     "recognition": "DirectHit",
     "action": "DoNothing",
     "handler": "DungeonEntryStep",
-    "next": ["ChallengeAndEnter"],
+    "next": ["识别并选择关卡"],
     "maxTimes": 1
   },
-  "ChallengeAndEnter": {
+  "识别并选择关卡": {
+    "recognition": "DirectHit",
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep",
+    "next": ["检查所选难度次数", "点击挑战"],
+    "maxTimes": 1
+  },
+  "检查所选难度次数": {
+    "recognition": "Custom",
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep",
+    "maxTimes": 1
+  },
+  "点击挑战": {
     "recognition": "OCR",
     "text": ["挑战"],
+    "roi": [120, 540, 360, 150],
     "action": "Click",
     "handler": "MaaAdb",
-    "timeout": 20000,
+    "timeout": 30000,
     "rate_limit": 500,
+    "pre_delay": 300,
     "post_delay": 500,
-    "next": ["WaitForMapLoad", "ConfirmEnter"],
+    "next": ["等待副本地图加载", "确认噩梦继续挑战", "确认进入地图"],
     "maxTimes": 1
   },
-  "ConfirmEnter": {
+  "确认噩梦继续挑战": {
+    "recognition": "Custom",
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep",
+    "next": ["点击噩梦继续绿色勾"],
+    "maxTimes": 1
+  },
+  "点击噩梦继续绿色勾": {
+    "recognition": "DirectHit",
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep",
+    "next": ["等待副本地图加载"],
+    "maxTimes": 1
+  },
+  "确认进入地图": {
     "recognition": "OCR",
     "text": ["进入地图", "确定", "确认", "进入"],
     "action": "Click",
     "handler": "MaaAdb",
     "timeout": 20000,
     "rate_limit": 500,
-    "next": ["WaitForMapLoad"],
+    "next": ["等待副本地图加载"],
     "maxTimes": 1
   },
-  "WaitForMapLoad": {
+  "等待副本地图加载": {
     "recognition": "Custom",
     "action": "DoNothing",
     "handler": "DungeonEntryStep",

@@ -70,22 +70,33 @@ GET /api/runs/{trace-file-name}
 自动进图使用 `Resources/Automation/dungeon-entry-pipeline.json`，节点链为：
 
 ```text
-DungeonEntry
-  -> EnsureMapOpen
-  -> BastanMapOpened / OpenMapButton
-  -> EntryOpenMapFailed（超时或次数耗尽）
-  -> EnterDungeon
-  -> SelectMapVariant
-  -> SelectDifficulty
-  -> SelectLayer
-  -> ChallengeAndEnter
-  -> ConfirmEnter（可选，超时后走 on_error）
-  -> WaitForMapLoad
+开始自动进图
+  -> 确保主城地图已打开
+  -> 主城标题已识别 / 点击小地图按钮
+  -> 主城地图打开失败（超时或次数耗尽）
+  -> 进入目标地图
+  -> 判断当前地图类型
+      -> 当前地图标题匹配目标（OCR命中，跳过切换）
+      -> 切换地图类型（OCR未命中时）
+  -> 选择关卡难度
+  -> 识别并选择关卡
+  -> 点击挑战
+  -> 确认进入地图（可选，超时后走 on_error）
+  -> 等待副本地图加载
 ```
 
 Pipeline 负责节点顺序、候选循环、超时回退、取消、生命周期和 trace；挑战按钮、确认按钮和等待加载已经使用通用 `MaaAdbPipelineHandler`，而地图入口候选、地图节点等游戏特有逻辑仍由 `DungeonEntryAutomation` 的领域 handler 执行。
 
-其中 `BastanMapOpened` 由领域 handler 识别巴萨坦主城标题；标题模板命中即认为地图面板已打开，不额外依赖地图节点数量或其它面板元素。
+点击“进图并跑图”会执行 `Resources/Automation/entry-run-pipeline.json`：
+
+```text
+EnterDungeon -> RunDungeonCycle -> LoopGate
+                                  └─ 循环开启时回到 EnterDungeon
+```
+
+`LoopGate` 根据“循环进图/跑图”选项选择继续或正常停止。进图或跑图失败时 Pipeline 直接失败，不会自动开启下一轮。可通过修改该资源的 `next` 关系调整任务顺序；具体游戏动作仍由已注册的 `EntryRunCycle` handler 执行。
+
+其中“主城标题已识别”由领域 handler 识别巴萨坦主城标题；标题模板命中即认为地图面板已打开，不额外依赖地图节点数量或其它面板元素。“当前地图标题匹配目标”会 OCR 关卡面板左上角标题；命中目标地图时直接进入难度与关卡识别，未命中时才运行“切换地图类型”。
 
 自动进图目录中，`时光之门` 与 `时光之门(英雄)` 是两个独立的地图选项：普通项提供 `1层`～`171层`，英雄项提供 `图一[遗忘之穴]`、`图二[巨石旷野]`、`图三[淤泥回廊]`、`图四[大裂缝]`、`图五[旧神庇护所]`、`图六[幽魂废都]`。英雄项复用时光之门入口模板，但进入后会按左上角标题确认英雄页签；只有当前页签不符合目标时才打开上方切换入口并选择卡片。
 

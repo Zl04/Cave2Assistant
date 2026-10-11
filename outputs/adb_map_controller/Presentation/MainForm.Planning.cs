@@ -630,7 +630,7 @@ public sealed partial class MainForm
         // 按独立的节奏导出。强制/手动重新规划前始终获取新的设备快照，
         // 否则规划器可能复用运行开始时捕获的迷雾状态。
         await RefreshMap(false, waitForLock: true);
-        if (serverErrorDialogVisible || operations.MovementToken.IsCancellationRequested) return;
+        if (serverErrorDialogVisible || operations.CurrentToken.IsCancellationRequested) return;
         ReplanFromCurrentMap();
     }
 

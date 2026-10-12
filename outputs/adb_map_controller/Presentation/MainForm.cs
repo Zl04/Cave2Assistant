@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -231,7 +231,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         settingsPage.Controls.Add(CreateMiningSettings());
         settingsPage.Controls.Add(timing); settingsPage.Controls.Add(floorStop); settingsPage.Controls.Add(entryOptions); settingsPage.Controls.Add(options); settingsPage.Controls.Add(settingsTop);
         var tabs = new ThemedTabControl { Dock = DockStyle.Fill, Tag = ThemeRole.Default };
-        tabs.TabPages.Add(runPage); tabs.TabPages.Add(settingsPage); tabs.TabPages.Add(logPage);
+        tabs.TabPages.Add(runPage); tabs.TabPages.Add(CreateTaskListPage()); tabs.TabPages.Add(settingsPage); tabs.TabPages.Add(logPage);
         Controls.Add(tabs);
         scan.Click += async (_, _) => await RunUi(Scan); refresh.Click += async (_, _) => await RunUi(() => RefreshMap()); plan.Click += async (_, _) => await RunUi(Replan); start.Click += async (_, _) => await RunUi(StartRun); pause.Click += async (_, _) => await RunUi(async () => { await StopMovement(); State("已暂停"); }); step.Click += async (_, _) => await RunUi(Step); stop.Click += async (_, _) => await RunUi(EmergencyStopAndClear);
         autoEnter.Click += async (_, _) => await RunUi(AutoEnter); calibrateEntry.Click += async (_, _) => await RunUi(CalibrateEntry);
@@ -435,6 +435,11 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     {
         var s = settingsStore.Load();
         if (s is null) return;
+        scheduledTasks.AddRange(s.ExecutionTasks ?? []);
+        ApplySettings(s);
+    }
+    void ApplySettings(ControllerSettings s)
+    {
         themeChoice.SelectedIndex = Math.Clamp((int)s.Theme, 0, 2);
         alwaysOnTop.Checked = s.AlwaysOnTop;
         SetValue(entryRunCount, s.EntryRunCount ?? 0);
@@ -470,7 +475,13 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         => control.Value = Math.Clamp(value, control.Minimum, control.Maximum);
     void SaveSettings()
     {
-        var s = new ControllerSettings
+        var s = CaptureSettings();
+        s.ExecutionTasks = scheduledTasks.ToList();
+        settingsStore.Save(s);
+    }
+    ControllerSettings CaptureSettings()
+    {
+        return new ControllerSettings
         {
             Theme = CurrentThemeMode,
             AlwaysOnTop = alwaysOnTop.Checked,
@@ -504,7 +515,6 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             Device = devices.Text,
             BonusPriority = bonusPriority.Items.Cast<string>().ToList()
         };
-        settingsStore.Save(s);
     }
 
     void ResetDeviceState()

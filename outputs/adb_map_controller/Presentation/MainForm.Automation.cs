@@ -214,8 +214,8 @@ public sealed partial class MainForm
                         }
                         else
                         {
-                            State("跑图收尾失败：战利品弹窗未确认");
-                            Log("已返回主城，但战利品弹窗标题出现后未能识别并点击确定；本轮未标记完成", LogLevel.Error);
+                            State("跑图收尾失败：回城弹窗未关闭");
+                            Log("已返回主城，但回城弹窗未能关闭；本轮未标记完成", LogLevel.Error);
                         }
                         break;
                     }
@@ -540,17 +540,35 @@ public sealed partial class MainForm
     async Task<bool> CloseReturnTownDialogsAsync(CancellationToken token)
     {
         var deadline = Stopwatch.StartNew();
-        var sawLoot = false;
-        while (deadline.Elapsed < TimeSpan.FromSeconds(3))
+        var sawPopup = false;
+        var clickedPopup = false;
+        while (deadline.Elapsed < TimeSpan.FromSeconds(10))
         {
             token.ThrowIfCancellationRequested();
             using var frame = await adb.CaptureMovementPopupFrameAsync(token);
             var words = await adb.ReadOcrWordsAsync(frame, token);
             var text = string.Concat(words.Select(word => OcrTextLocator.Compact(word.Text)));
             var loot = text.Contains("战利品", StringComparison.Ordinal);
+            var advancement = PopupRecognition.IsCharacterAdvancementDialogText(text);
+            var popupVisible = loot || advancement;
+            if (popupVisible) sawPopup = true;
+            if (advancement)
+            {
+                var close = PopupRecognition.FindCharacterAdvancementCloseButton(frame,
+                    Path.Combine(AppContext.BaseDirectory, "templates", "ui", "character-advancement-close.png"));
+                if (close is null)
+                {
+                    await Task.Delay(150, token);
+                    continue;
+                }
+                await adb.TapScreen((double)close.Center.X / frame.Width, (double)close.Center.Y / frame.Height);
+                clickedPopup = true;
+                Log($"返回主城后识别到角色进阶提示，已点击 × 关闭：({close.Center.X},{close.Center.Y})，匹配分数 {close.Score:F3}");
+                await Task.Delay(250, token);
+                continue;
+            }
             if (loot)
             {
-                sawLoot = true;
                 var lootConfirm = OcrTextLocator.Find(words, "确定", word => word.Center.Y >= frame.Height * .68);
                 if (lootConfirm is null)
                 {
@@ -560,20 +578,26 @@ public sealed partial class MainForm
                 var x = Math.Clamp((double)lootConfirm.Center.X / frame.Width, 0, 1);
                 var y = Math.Clamp((double)lootConfirm.Center.Y / frame.Height, 0, 1);
                 await adb.TapScreen(x, y);
+                clickedPopup = true;
                 Log($"返回主城后识别到战利品标题并点击确定：({lootConfirm.Center.X},{lootConfirm.Center.Y})");
-                return true;
+                await Task.Delay(250, token);
             }
             else
             {
+                if (clickedPopup)
+                {
+                    Log("返回主城后已确认回城弹窗关闭，跑图收尾完成");
+                    return true;
+                }
+                if (!sawPopup && deadline.Elapsed >= TimeSpan.FromSeconds(3))
+                {
+                    Log("返回主城后 3 秒内未检测到待处理弹窗，跑图收尾完成");
+                    return true;
+                }
                 await Task.Delay(150, token);
             }
         }
-        if (!sawLoot)
-        {
-            Log("返回主城后 3 秒内未检测到战利品弹窗，跑图收尾完成");
-            return true;
-        }
-        Warn("3 秒内识别到战利品标题，但未能识别并点击确定；跑图任务不标记完成");
+        Warn("回城弹窗在 10 秒内未能关闭；跑图任务不标记完成");
         return false;
     }
 }

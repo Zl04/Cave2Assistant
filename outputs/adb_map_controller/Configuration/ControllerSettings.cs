@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
@@ -10,6 +10,8 @@ public enum ThemeMode
     Dark,
     System,
 }
+
+public enum ExecutionTaskKind { EntryAndRun, CurrentMapRun }
 
 public sealed class ControllerSettings
 {
@@ -53,4 +55,9 @@ public sealed class ControllerSettings
     public bool EntryEliteMode { get; set; }
     public List<string> BonusPriority { get; set; } = [];
     public string Device { get; set; } = "";
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public ExecutionTaskKind TaskKind { get; set; }
+    // 旧配置未保存此字段时，维持所有任务启用的行为。
+    public bool TaskEnabled { get; set; } = true;
+    public List<ControllerSettings> ExecutionTasks { get; set; } = [];
 }

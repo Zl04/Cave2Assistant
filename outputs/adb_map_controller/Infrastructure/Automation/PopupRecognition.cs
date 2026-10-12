@@ -12,6 +12,28 @@ namespace AdbMapController;
 /// </summary>
 public static class PopupRecognition
 {
+    public static VisualMatch? FindCharacterAdvancementCloseButton(Bitmap frame, string templatePath)
+    {
+        // 只在中央弹窗的左下方搜索取消按钮，避免命中其它界面的 ×。
+        var bounds = Rectangle.FromLTRB((int)(frame.Width * .30), (int)(frame.Height * .54),
+            (int)(frame.Width * .50), (int)(frame.Height * .72));
+        using var crop = frame.Clone(bounds, frame.PixelFormat);
+        using var asset = new Bitmap(templatePath);
+        var baseSize = Math.Min(crop.Width, crop.Height);
+        var screenScale = Math.Min(frame.Width, frame.Height) / 565d;
+        VisualMatch? best = null;
+        foreach (var scale in new[] { .9, 1.0, 1.1 })
+        {
+            var template = VisualTemplate.FromFile(templatePath,
+                asset.Width * screenScale * scale / baseSize,
+                asset.Height * screenScale * scale / baseSize);
+            var match = template.Find(crop, .85);
+            if (match is not null && (best is null || match.Score > best.Score))
+                best = match with { Center = new Point(match.Center.X + bounds.Left, match.Center.Y + bounds.Top) };
+        }
+        return best;
+    }
+
     public static NextFloorDialogKind ClassifyNextFloorDialog(Bitmap source, string? ocrText)
         => ClassifyNextFloorDialog(source, ocrText, ocrText);
 
@@ -81,6 +103,12 @@ public static class PopupRecognition
             normalized.Contains("进入下层", StringComparison.Ordinal) ||
             (normalized.Contains("下层", StringComparison.Ordinal) &&
              normalized.Contains("进入", StringComparison.Ordinal));
+    }
+
+    public static bool IsCharacterAdvancementDialogText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        return NormalizeText(text).Contains("勇敢的冒险者角色进阶已开启", StringComparison.Ordinal);
     }
 
     static string NormalizeText(string text)

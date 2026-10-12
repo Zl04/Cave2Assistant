@@ -17,10 +17,12 @@ public static class OpenCvVisualNodeLocator
         // 地图底色和岩石也有一定饱和度；提高 S 阈值可压掉大部分背景色，只保留高饱和度节点徽章。
         using var colourMask = hsv.InRange(new Scalar(0, 120, 100), new Scalar(180, 255, 255));
 
-        var x0 = Math.Clamp((int)(image.Width * .33), 0, image.Width - 1);
-        var x1 = Math.Clamp((int)(image.Width * .90), x0 + 1, image.Width);
-        var y0 = Math.Clamp((int)(image.Height * .10), 0, image.Height - 1);
-        var y1 = Math.Clamp((int)(image.Height * .78), y0 + 1, image.Height);
+        // 用户标注的选关红框：1004×565 截图中的 (326,97) 至 (933,411)。
+        // 按屏幕比例裁剪，排除顶部扫荡说明栏、左侧信息面板和底部掉落道具栏。
+        var x0 = Math.Clamp((int)(image.Width * (326.0 / 1004)), 0, image.Width - 1);
+        var x1 = Math.Clamp((int)(image.Width * (933.0 / 1004)), x0 + 1, image.Width);
+        var y0 = Math.Clamp((int)(image.Height * (97.0 / 565)), 0, image.Height - 1);
+        var y1 = Math.Clamp((int)(image.Height * (411.0 / 565)), y0 + 1, image.Height);
         using var roi = new Mat(colourMask, new Rect(x0, y0, x1 - x0, y1 - y0)).Clone();
         // 剑形图标与彩色徽章的高饱和度区域可能被白色剑刃分开，先连接近邻像素再提取整枚徽章。
         using var closeKernel = Cv2.GetStructuringElement(MorphShapes.Ellipse, new OpenCvSharp.Size(11, 11));
@@ -43,7 +45,6 @@ public static class OpenCvVisualNodeLocator
                 continue;
 
             var center = new DrawingPoint(left + width / 2, top + height / 2);
-            if (center.X > image.Width * .86 || center.Y > image.Height * .68) continue;
             candidates.Add(new VisualNodeCandidate(center,
                 new DrawingRectangle(left, top, width, height), area));
         }

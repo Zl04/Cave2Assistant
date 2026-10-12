@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -43,6 +43,7 @@ public sealed partial class MainForm
     }
     async Task RunEntryRunPipelineAsync(CancellationToken owner)
     {
+        lastEntryRunSucceeded = false;
         var configuredRunCount = (int)entryRunCount.Value;
         var selection = new DungeonEntrySelection(
             SelectedEntryMap.Id,
@@ -191,6 +192,7 @@ public sealed partial class MainForm
         }
         else
         {
+            lastEntryRunSucceeded = true;
             State("进图跑图任务完成");
         }
     }

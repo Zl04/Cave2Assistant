@@ -57,8 +57,8 @@ public sealed partial class MainForm
         taskList.ItemCheck += (_, e) =>
         {
             if (synchronizingTaskChecks) return;
-            if (!Editable()) { e.NewValue = e.CurrentValue; return; }
-            SetEnabled(e.Index, e.NewValue == CheckState.Checked);
+            // 仅允许 SetEnabled 发起状态变更，取消原生 ListView 在行双击等操作中产生的自动切换。
+            e.NewValue = e.CurrentValue;
         };
         taskList.KeyDown += (_, e) =>
         {

@@ -363,14 +363,11 @@ local function codexExportPlayerStatus()
                         for _, role in ipairs(codexSafeCall(tile, "getRoleDatas", {}) or {}) do
                             if codexSafeCall(role, "isMasterHero", false) then
                                 player = {x = x, y = y}
-                                break
                             end
                         end
                     end
-                    if player then break end
                 end
             end
-            if player then break end
         end
         codexPlayerSequence = codexPlayerSequence + 1
         local confused, reversed, confuseDirections = codexReadConfusionState()

@@ -1,2 +1,5 @@
 /outputs/adb_map_controller/test/
 /outputs/adb_map_controller/tests/
+/outputs/adb_map_controller/publish/pipeline-traces/
+/outputs/__pycache__/
+/outputs/adb_map_controller/publish/logs/errors-*.log

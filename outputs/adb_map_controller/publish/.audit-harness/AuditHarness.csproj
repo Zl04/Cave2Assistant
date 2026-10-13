@@ -1,7 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><TargetFramework>net8.0-windows</TargetFramework><OutputType>Exe</OutputType><UseWindowsForms>true</UseWindowsForms><ImplicitUsings>enable</ImplicitUsings><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup>
-  <ItemGroup><Compile Include="Program.cs"/><Reference Include="Controller"><HintPath>../.build/AdbMapController/bin/Release/net8.0-windows/win-x64/洞窟地图控制器.dll</HintPath></Reference>
-    <Reference Include="Microsoft.CodeAnalysis"><HintPath>../../tests/publish/.build/AdbMapController.Tests/bin/Release/net8.0-windows/Microsoft.CodeAnalysis.dll</HintPath></Reference>
-    <Reference Include="Microsoft.CodeAnalysis.CSharp"><HintPath>../../tests/publish/.build/AdbMapController.Tests/bin/Release/net8.0-windows/Microsoft.CodeAnalysis.CSharp.dll</HintPath></Reference>
-  </ItemGroup>
-</Project>

@@ -27,13 +27,39 @@ public sealed record MovementTuning(int ReleaseLeadMs, int PulseHoldMs, int Stal
 
 public sealed class RouteExecutionRuntime
 {
+    const long OscillationWindowMs = 5000;
+    readonly Queue<Cell> recentPositionChanges = new(4);
+    long? lastPositionChangeAt;
     public double MoveSpeed { get; set; } = 1000;
     public bool PulseFallback { get; set; }
+
+    public bool ObservePosition(Cell position, long? observedAt = null)
+    {
+        var now = observedAt ?? Environment.TickCount64;
+        if (lastPositionChangeAt is long last && now - last > OscillationWindowMs)
+            recentPositionChanges.Clear();
+        if (recentPositionChanges.Count > 0 && recentPositionChanges.Last() == position) return false;
+        if (recentPositionChanges.Count == 4) recentPositionChanges.Dequeue();
+        recentPositionChanges.Enqueue(position);
+        lastPositionChangeAt = now;
+        if (PulseFallback || recentPositionChanges.Count < 4) return false;
+        var positions = recentPositionChanges.ToArray();
+        if (positions[0] != positions[2] || positions[1] != positions[3]) return false;
+        PulseFallback = true;
+        return true;
+    }
+
+    public void ClearPulseFallback()
+    {
+        PulseFallback = false;
+        recentPositionChanges.Clear();
+        lastPositionChangeAt = null;
+    }
 
     public void Reset()
     {
         MoveSpeed = 1000;
-        PulseFallback = false;
+        ClearPulseFallback();
     }
 }
 

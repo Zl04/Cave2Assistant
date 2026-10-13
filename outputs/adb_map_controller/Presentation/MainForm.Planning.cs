@@ -247,7 +247,11 @@ public sealed partial class MainForm
         var newlyCompleted = plannedTargetUniverse.Where(target => Planner.IsCompletedTarget(target, active) && dungeon.ConfirmedCompletedTargets.Add(target)).ToList();
         foreach (var target in newlyCompleted) dungeon.ExpectedTaskRoadChanges.Add(target.Cell);
         var removed = plannedInteractions.RemoveAll(task => dungeon.ConfirmedCompletedTargets.Contains(task.Target));
-        if (newlyCompleted.Count > 0) Log($"已确认完成 {newlyCompleted.Count} 个计划任务，移除 {removed} 个停靠动作并保留剩余完整路线");
+        if (newlyCompleted.Count > 0)
+        {
+            dungeon.RouteExecution.ClearPulseFallback();
+            Log($"已确认完成 {newlyCompleted.Count} 个计划任务，移除 {removed} 个停靠动作并保留剩余完整路线；重置防横跳记录");
+        }
     }
 
     bool PortalPrerequisitesMet(MapDump map)
@@ -273,6 +277,7 @@ public sealed partial class MainForm
         {
             CancelPortalChoiceCoroutine();
             dungeon.ObservedLevel = map.Level; floorPhase = FloorPhase.WaitingFloorLoad; dungeon.FloorChangedAt = Environment.TickCount64;
+            dungeon.RouteExecution.ClearPulseFallback();
             dungeon.FloorMiningCompletedLevel = -1;
             dungeon.FloorMiningSkippedLevel = -1;
             dungeon.RouteRecoveryUsed = 0;

@@ -429,7 +429,7 @@ public sealed partial class MainForm
                     }
                     // 任务停靠点是一个同步点。到达任务且没有再次摆动后，
                     // 恢复常规连续移动模式，执行下一个分段。
-                    dungeon.RouteExecution.PulseFallback = false;
+                    dungeon.RouteExecution.ClearPulseFallback();
                     Log($"触发计划任务 {plannedTask.Target.Kind} {plannedTask.Target.Cell}，等待地图确认；不重规划");
                     if (isRoomPortal)
                     {

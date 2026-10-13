@@ -80,7 +80,7 @@ public sealed class DungeonSession
         UnchangedCount = 0;
         ConfirmedCompletedTargets.Clear();
         ExpectedTaskRoadChanges.Clear();
-        RouteExecution.PulseFallback = false;
+        RouteExecution.ClearPulseFallback();
         ShortcutDeferredByTargets = false;
         TargetFloorStopped = false;
         FloorMiningCompletedLevel = -1;

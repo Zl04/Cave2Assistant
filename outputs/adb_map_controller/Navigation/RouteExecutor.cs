@@ -38,7 +38,7 @@ public sealed class RouteExecutor
             return new(RouteExecutionStatus.Replan);
         }
         var index = 0; var held = false; Cell? heldDelta = null; var segmentStart = route[0]; var completed = false;
-        var recentPositions = new Queue<Cell>(4);
+        runtime.ObservePosition(actualStart);
         var executionLimit = route.Count;
         foreach (var task in interactions.Where(task => context.TargetExists(task.Target) || PortalRouting.IsPortalKind(task.Target.Kind)))
         {
@@ -97,15 +97,11 @@ public sealed class RouteExecutor
                     observer.MapChanged();
                     var positionChanged = after != lastPosition;
                     if (positionChanged) { lastPosition = after; lastChange = Environment.TickCount64; }
-                    if (recentPositions.Count == 4) recentPositions.Dequeue(); recentPositions.Enqueue(after);
-                    if (!runtime.PulseFallback && recentPositions.Count == 4)
+                    if (runtime.ObservePosition(after))
                     {
-                        var p = recentPositions.ToArray();
-                        if (p[0] == p[2] && p[1] == p[3] && p[0] != p[1])
-                        {
-                            runtime.PulseFallback = true; if (held) { await movement.TouchUp(); held = false; heldDelta = null; }
-                            observer.WriteLog($"检测到人物反复横跳：{p[0]} <-> {p[1]}，切换为单格脉冲"); return new(RouteExecutionStatus.Replan);
-                        }
+                        if (held) { await movement.TouchUp(); held = false; heldDelta = null; }
+                        observer.WriteLog($"检测到人物反复横跳：切换为单格脉冲，当前位置 {after}");
+                        return new(RouteExecutionStatus.Replan);
                     }
                     var routeIndex = route.FindIndex(index + 1, end - index, cell => cell == after);
                     if (after != segmentStart && routeIndex < index + 1)
@@ -152,6 +148,11 @@ public sealed class RouteExecutor
                     }
                     if (boundary.MoveSpeed > 0) runtime.MoveSpeed = boundary.MoveSpeed;
                     var boundaryCell = new Cell(boundary.Player.X, boundary.Player.Y); map.Player = boundary.Player; observer.MapChanged();
+                    if (runtime.ObservePosition(boundaryCell))
+                    {
+                        observer.WriteLog($"检测到人物反复横跳：切换为单格脉冲，当前位置 {boundaryCell}");
+                        return new(RouteExecutionStatus.Replan);
+                    }
                     if (boundaryCell != expected) { observer.WriteLog($"转角坐标复核不一致：期望 {expected}，实际 {boundaryCell}，重新规划"); return new(RouteExecutionStatus.Replan); }
                 }
                 segmentStart = expected; index = end;

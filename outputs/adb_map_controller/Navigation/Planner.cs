@@ -438,7 +438,7 @@ public static class Planner
             .SelectMany(t => t.Roles.Where(r => PortalRouting.IsFloorTransition(r) && !r.Locked)
                 .Select(r => new TargetKey(new Cell(t.X, t.Y), r.Kind))).Distinct().ToList();
         if (portals.Count == 0) return new RoutePlan { WalkableCells = walkableCount, FailureReason = "地图中没有层间出口" };
-        var (distance, previous, encounters) = Search(start, tiles, blocked, avoidMonsters);
+        var (distance, previous, encounters) = Search(start, tiles, blocked, avoidMonsters, allowPortalStops: true);
         TargetKey? chosen = null; Cell? stop = null; var best = (Encounters: int.MaxValue, Distance: int.MaxValue);
         foreach (var portal in portals)
             foreach (var candidate in TaskStops(portal, tiles))
@@ -473,7 +473,7 @@ public static class Planner
             .Select(item => new TargetKey(item.Cell, item.Role.Kind)).Distinct().ToList();
         if (portals.Count == 0) return new RoutePlan { WalkableCells = walkableCount, FailureReason = "没有未尝试的层内传送门" };
 
-        var (distance, previous, encounters) = Search(start, tiles, blocked, avoidMonsters);
+        var (distance, previous, encounters) = Search(start, tiles, blocked, avoidMonsters, allowPortalStops: true);
         TargetKey? chosen = null; Cell? stop = null; var best = (Encounters: int.MaxValue, Distance: int.MaxValue);
         foreach (var portal in portals)
             foreach (var candidate in TaskStops(portal, tiles))
@@ -503,7 +503,8 @@ public static class Planner
         var targetRole = targetTile.Roles.Select(role => role.Kind)
             .FirstOrDefault(kind => IsClickableRole(kind));
         var clickedTarget = string.IsNullOrEmpty(targetRole) ? (TargetKey?)null : new TargetKey(target, targetRole);
-        var (distance, previous, _) = Search(start, tiles, blocked, !clearRoadMonsters);
+        var (distance, previous, _) = Search(start, tiles, blocked, !clearRoadMonsters,
+            allowPortalStops: targetTile.Roles.Any(IsNavigationPortal));
         Cell? stop = null;
         if (clickedTarget is { } task)
         {
@@ -575,13 +576,16 @@ public static class Planner
 
     static int Manhattan(Cell a, Cell b) => Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
 
+    static bool IsNavigationPortal(RoleInfo role)
+        => PortalRouting.IsPortalRole(role) || PortalRouting.IsPortalKind(role.Kind);
+
     // 绕开一个道路怪物最多值得多走七步。
     // 这样既保持安全偏好，又不会为了单场普通战斗让玩家大幅绕路。
     // 完全相同的情况下，优先选择遭遇更少的路线。
     // 当所有路线都需要战斗时，怪物所在格仍可通行。
     static (Dictionary<Cell, int> Distance, Dictionary<Cell, Cell> Previous, Dictionary<Cell, int> Encounters) Search(
         Cell start, Dictionary<Cell, TileInfo> tiles, IReadOnlySet<Cell>? blocked,
-        bool avoidMonsters = false, IReadOnlySet<Cell>? clearedMonsters = null)
+        bool avoidMonsters = false, IReadOnlySet<Cell>? clearedMonsters = null, bool allowPortalStops = false)
     {
         var queue = new PriorityQueue<Cell, (int Cost, int Encounters, int Distance, int Order)>();
         var order = 0;
@@ -595,6 +599,10 @@ public static class Planner
             {
                 var next = new Cell(current.X + d.X, current.Y + d.Y);
                 if (blocked?.Contains(next) == true || !tiles.TryGetValue(next, out var tile) || !tile.Walkable) continue;
+                // 踩门可能立即离开当前房间，收集和探索不能把它当作普通道路。
+                // 专门的传送路线可以到门上，但不能假设穿门后仍在原坐标系行走。
+                var isPortal = tile.Roles.Any(IsNavigationPortal);
+                if (isPortal && !allowPortalStops) continue;
                 var nextEncounters = encounters[current] +
                     (avoidMonsters && HasRoadMonster(tile) && clearedMonsters?.Contains(next) != true ? 1 : 0);
                 var nextDistance = distance[current] + 1;
@@ -606,7 +614,7 @@ public static class Planner
                     if ((nextCost, nextEncounters, nextDistance).CompareTo((oldCost, oldEncounters, oldDistance)) >= 0) continue;
                 }
                 encounters[next] = nextEncounters; distance[next] = nextDistance; previous[next] = current;
-                queue.Enqueue(next, (nextCost, nextEncounters, nextDistance, order++));
+                if (!isPortal) queue.Enqueue(next, (nextCost, nextEncounters, nextDistance, order++));
             }
         }
         return (distance, previous, encounters);

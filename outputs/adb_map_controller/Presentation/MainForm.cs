@@ -192,10 +192,10 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         var scan = Btn("扫描设备", ThemeRole.SecondaryButton); var refresh = Btn("刷新地图", ThemeRole.SecondaryButton);
         var plan = Btn("规划路线", ThemeRole.InfoButton); var start = Btn("开始", ThemeRole.SuccessButton); var pause = Btn("暂停", ThemeRole.WarningButton); var step = Btn("单步", ThemeRole.InfoButton); var stop = Btn("急停", ThemeRole.DangerButton);
         var autoEnter = Btn("进图并跑图", ThemeRole.SuccessButton); var calibrateEntry = Btn("更新入口模板", ThemeRole.UtilityButton);
-        var miniWindow = Btn("小窗口", ThemeRole.SecondaryButton); var openWebMonitor = Btn("Web监控", ThemeRole.InfoButton);
+        var openWebMonitor = Btn("Web监控", ThemeRole.InfoButton);
         var detectAssistant = Btn("检测助手", ThemeRole.UtilityButton); var installAssistant = Btn("安装助手", ThemeRole.UtilityButton); var restoreAssistant = Btn("恢复原版", ThemeRole.DangerButton); var openTestPanel = Btn("打开测试面板", ThemeRole.WarningButton);
         var mine = Btn("挖矿", ThemeRole.WarningButton);
-        top.Controls.AddRange([refresh, plan, start, mine, pause, step, stop, autoEnter, calibrateEntry, miniWindow, openWebMonitor, alwaysOnTop]);
+        top.Controls.AddRange([refresh, plan, start, mine, pause, step, stop, autoEnter, calibrateEntry, openWebMonitor]);
         var settingsTop = new FlowLayoutPanel
         {
             Dock = DockStyle.Top,
@@ -236,7 +236,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         scan.Click += async (_, _) => await RunUi(Scan); refresh.Click += async (_, _) => await RunUi(() => RefreshMap()); plan.Click += async (_, _) => await RunUi(Replan); start.Click += async (_, _) => await RunUi(StartRun); pause.Click += async (_, _) => await RunUi(async () => { await StopMovement(); State("已暂停"); }); step.Click += async (_, _) => await RunUi(Step); stop.Click += async (_, _) => await RunUi(EmergencyStopAndClear);
         autoEnter.Click += async (_, _) => await RunUi(AutoEnter); calibrateEntry.Click += async (_, _) => await RunUi(CalibrateEntry);
         mine.Click += async (_, _) => await RunUi(StartMining);
-        miniWindow.Click += (_, _) => ToggleMiniWindowMode();
+        BuildWindowCaption();
         openWebMonitor.Click += (_, _) => OpenPipelineWebMonitor();
         alwaysOnTop.CheckedChanged += (_, _) => { ApplyAlwaysOnTop(); SaveSettings(); };
         detectAssistant.Click += async (_, _) => await RunUi(DetectAssistant); installAssistant.Click += async (_, _) => await RunUi(InstallAssistant); restoreAssistant.Click += async (_, _) => await RunUi(RestoreAssistant); openTestPanel.Click += async (_, _) => await RunUi(OpenTestPanel);
@@ -412,6 +412,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         {
             currentPalette = ThemePalette.Resolve(CurrentThemeMode);
             ThemeManager.Apply(this, currentPalette);
+            ApplyWindowCaptionTheme();
             ThemeManager.Apply(bonusPriorityPopup, currentPalette);
             mapPanel.ApplyTheme(currentPalette);
             state.ForeColor = currentPalette.AccentText;
@@ -547,6 +548,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     void ApplyAlwaysOnTop()
     {
         TopMost = alwaysOnTop.Checked;
+        captionPin.Selected = alwaysOnTop.Checked;
         if (miniMapForm is { IsDisposed: false }) miniMapForm.TopMost = alwaysOnTop.Checked;
     }
 
@@ -602,7 +604,12 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
+        if (disposing)
+        {
+            SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
+            captionToolTip.Dispose();
+            alwaysOnTop.Dispose();
+        }
         base.Dispose(disposing);
     }
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -80,7 +80,7 @@ public sealed class MiniMapForm : Form
         if (mapPanel.ContextMenuStrip is { } menu) ThemeManager.Apply(menu, palette);
         captionBar.BackColor = Color.FromArgb(32, 32, 43);
         foreach (Control button in captionBar.Controls)
-            button.BackColor = captionBar.BackColor;
+            { button.BackColor = captionBar.BackColor; button.ForeColor = Color.White; }
     }
 
     public void CloseFromOwner()
@@ -176,61 +176,12 @@ public sealed class MiniMapForm : Form
             m.Result = (IntPtr)2;
     }
 
-    enum CaptionIcon { Pin, Restore, Minimize, Close }
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     static extern bool ReleaseCapture();
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wParam, IntPtr lParam);
-
-    sealed class CaptionButton(CaptionIcon icon) : Button
-    {
-        bool hovered;
-        bool selected;
-        public bool Selected
-        {
-            get => selected;
-            set { if (selected == value) return; selected = value; Invalidate(); }
-        }
-
-        protected override void OnMouseEnter(EventArgs e) { hovered = true; base.OnMouseEnter(e); Invalidate(); }
-        protected override void OnMouseLeave(EventArgs e) { hovered = false; base.OnMouseLeave(e); Invalidate(); }
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            e.Graphics.Clear(hovered ? icon == CaptionIcon.Close ? Color.FromArgb(190, 48, 58) : Color.FromArgb(51, 51, 66) : BackColor);
-            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            using var pen = new Pen(selected || hovered ? Color.White : Color.FromArgb(159, 159, 177), 1);
-            var cx = Width / 2f;
-            var cy = Height / 2f;
-            e.Graphics.TranslateTransform(cx - 6, cy - 6);
-            switch (icon)
-            {
-                case CaptionIcon.Pin:
-                    if (selected)
-                    {
-                        using var fill = new SolidBrush(Color.FromArgb(159, 159, 177));
-                        e.Graphics.FillPolygon(fill, [new PointF(7, 0), new PointF(12, 5), new PointF(9, 7), new PointF(8, 10), new PointF(2, 4), new PointF(5, 3)]);
-                    }
-                    e.Graphics.DrawLines(pen, [new PointF(7, 0), new PointF(12, 5), new PointF(9, 7), new PointF(8, 10), new PointF(2, 4), new PointF(5, 3), new PointF(7, 0)]);
-                    e.Graphics.DrawLine(pen, 5, 7, 1, 11);
-                    break;
-                case CaptionIcon.Restore:
-                    e.Graphics.DrawLines(pen, [new PointF(5, 2), new PointF(2, 2), new PointF(2, 10), new PointF(10, 10), new PointF(10, 7)]);
-                    e.Graphics.DrawLines(pen, [new PointF(7, 1), new PointF(11, 1), new PointF(11, 5)]);
-                    e.Graphics.DrawLine(pen, 6, 6, 11, 1);
-                    break;
-                case CaptionIcon.Minimize: e.Graphics.DrawLine(pen, 2, 6, 10, 6); break;
-                case CaptionIcon.Close:
-                    e.Graphics.DrawLine(pen, 2, 2, 10, 10);
-                    e.Graphics.DrawLine(pen, 10, 2, 2, 10);
-                    break;
-            }
-            e.Graphics.ResetTransform();
-            if (Focused && ShowFocusCues) ControlPaint.DrawFocusRectangle(e.Graphics, new Rectangle(4, 4, Width - 8, Height - 8));
-        }
-    }
 
     void OnFormClosing(object? sender, FormClosingEventArgs e)
     {

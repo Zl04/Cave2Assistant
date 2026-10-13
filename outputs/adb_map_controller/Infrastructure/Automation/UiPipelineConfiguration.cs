@@ -21,7 +21,6 @@ public sealed class UiPipelineNodeDefinition
     public int Priority { get; set; }
     public bool Enabled { get; set; } = true;
     public int MaxAttempts { get; set; } = 1;
-    public int TimeoutMs { get; set; } = 2500;
 }
 
 public static class UiPipelineDefinitionLoader
@@ -79,8 +78,6 @@ public static class UiPipelineDefinitionLoader
                 throw new InvalidDataException($"节点 {node.Name} 缺少 recognizer：{path}");
             if (node.MaxAttempts < 1 || node.MaxAttempts > 10)
                 throw new InvalidDataException($"节点 {node.Name} 的 maxAttempts 必须在 1~10：{path}");
-            if (node.TimeoutMs != -1 && (node.TimeoutMs < 50 || node.TimeoutMs > 30000))
-                throw new InvalidDataException($"节点 {node.Name} 的 timeoutMs 必须为 -1 或 50~30000：{path}");
         }
     }
 }

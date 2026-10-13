@@ -71,8 +71,7 @@ public static class PopupUiPipeline
                 result,
                 CreateRecognizer(adb, node, path, fullFrameTextObserved, nextFloorDialogDetected),
                 node.MaxAttempts,
-                node.TimeoutMs == -1 ? System.Threading.Timeout.InfiniteTimeSpan :
-                    TimeSpan.FromMilliseconds(node.TimeoutMs)));
+                System.Threading.Timeout.InfiniteTimeSpan));
         }
 
         return new UiPipeline<Bitmap, MovementPopupKind>(MovementPopupKind.None, nodes);

@@ -186,7 +186,7 @@ public sealed partial class MainForm
                 // 当该读取确认已到达规划的任务停靠点时，直接使用该结果，
                 // 不必在发送交互前再次进行完整的地图/弹窗刷新。
                 // 下面的交互分支仍会执行自己的最终释放和坐标检查。
-                if (skipRefreshForConfirmedTaskStop)
+                if (skipRefreshForConfirmedTaskStop || floorPhase == FloorPhase.SelectBonus)
                 {
                     skipRefreshForConfirmedTaskStop = false;
                 }
@@ -515,7 +515,7 @@ public sealed partial class MainForm
                     var arrived = new Cell(dungeon.Map.Player.X, dungeon.Map.Player.Y);
                     skipRefreshForConfirmedTaskStop = plannedInteractions.Any(task => task.Stop == arrived &&
                         (HasTarget(task.Target) || PortalRouting.IsPortalKind(task.Target.Kind)));
-                    if (skipRefreshForConfirmedTaskStop) continue;
+                    if (skipRefreshForConfirmedTaskStop || floorPhase == FloorPhase.SelectBonus) continue;
                 }
                 await Task.Delay(10, owner);
             }

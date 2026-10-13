@@ -28,11 +28,6 @@ public enum DungeonDifficulty
 
 public sealed record DungeonEntrySelection(int MapId, int EntryId, DungeonDifficulty Difficulty = DungeonDifficulty.Normal)
 {
-    // 保留旧调用方的构造方式，旧的勾选项只对应精英难度。
-    public DungeonEntrySelection(int mapId, int entryId, bool eliteMode)
-        : this(mapId, entryId, eliteMode ? DungeonDifficulty.Elite : DungeonDifficulty.Normal) { }
-
-    public bool EliteMode => Difficulty == DungeonDifficulty.Elite;
     public DungeonMapOption Map => DungeonEntryCatalog.MapOrDefault(MapId);
     public DungeonEntryOption Entry => DungeonEntryCatalog.EntryOrDefault(MapId, EntryId);
 }
@@ -108,7 +103,4 @@ public static class DungeonEntryCatalog
         return options.FirstOrDefault(x => x.Id == id) ?? options[0];
     }
 
-    // 为使用历史共用入口目录（地图 2）的调用方提供兼容性重载。
-    public static DungeonEntryOption EntryOrDefault(int id)
-        => EntryOrDefault(SharedEntranceMapId, id);
 }

@@ -4,9 +4,9 @@
 
 ## 入口与隔离
 
-MainForm.Automation 构造 MaaPipeline<MainForm>，入口 RunDungeon；DungeonEntryAutomation 构造自己的 MaaPipeline，入口“开始自动进图”。PopupWatchdog 使用 UiPipeline 单帧节点。生产源码检索未发现 TaskPipeline<T> 的业务构造调用；TaskPipeline、定义加载器及 MaaPipelineHandlerAdapter 仍为兼容代码，不删除。
+MainForm.Automation 构造 MaaPipeline<MainForm>，入口 RunDungeon；DungeonEntryAutomation 构造自己的 MaaPipeline，入口“开始自动进图”。PopupWatchdog 使用 UiPipeline 单帧节点。2026-10-13 已删除无业务调用的 TaskPipeline、定义加载器、适配器及旧 schema；跑图动作直接返回 MaaPipelineActionResult。
 
-MAA 实例包含 runId、taskId、transitions 和 executionCounts，必须顺序复用或每次新建。计数锁不代表整个 RunAsync 可并发。运行时不拥有设备，handler 负责释放自身资源并观察 token。TaskPipeline 计数为单次运行局部；UiPipeline 一次运行共用 frame/context。
+MAA 实例包含 runId、taskId、transitions 和 executionCounts，必须顺序复用或每次新建。计数锁不代表整个 RunAsync 可并发。运行时不拥有设备，handler 负责释放自身资源并观察 token。UiPipeline 一次运行共用 frame/context。
 
 ## 资源与离线黄金路径
 
@@ -15,7 +15,7 @@ MAA 实例包含 runId、taskId、transitions 和 executionCounts，必须顺序
 | map-run-pipeline.json | MaaPipelineCatalogLoader | RunDungeon，JustReturn、handler、maxTimes；fake handler 完成一次链 |
 | dungeon-entry-pipeline.json | MaaPipelineCatalogLoader | 两种协议字段规范化，所有引用提前编译；特殊地图在“判断当前地图类型”后先走“当前地图标题匹配目标”OCR，命中时直接去“选择关卡难度”，未命中时通过“切换地图类型”切页；fake hit 路径“开始自动进图”→“确保主城地图已打开”→“主城标题已识别”→“进入目标地图”→“判断当前地图类型”→“当前地图标题匹配目标”→“选择关卡难度”→“识别并选择关卡”→“点击挑战”→“确认进入地图”→“等待副本地图加载” |
 | popup-watchdog.json | UiPipelineDefinitionLoader | ServerError→RiftGemSelection→NextFloorDialog，优先级10/20/30、各1次、3500ms |
-| task-pipeline.schema.json、ui-pipeline.schema.json | schema说明文件 | 不是可运行任务资源，不传入 catalog 执行；实际加载器的验证规则仍以源码为准 |
+| ui-pipeline.schema.json | schema说明文件 | 不是可运行任务资源，不传入 catalog 执行；实际加载器的验证规则仍以源码为准 |
 
 两份 MAA 资源的测试只替换 handler，不修改资源中的 delay 或分支。它们不证明识别正确率或 Android 收到点击。复制资源采用测试工程 None 项，测试行为始终引用生产程序集。
 

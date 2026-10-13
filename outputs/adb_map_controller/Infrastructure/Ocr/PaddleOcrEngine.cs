@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -17,7 +18,7 @@ namespace AdbMapController;
 public sealed class PaddleOcrEngine : IDisposable
 {
     const string DetectionModel = "PP-OCRv5_mobile_det_infer";
-    const string RecognitionModel = "PP-OCRv5_mobile_rec_infer";
+    const string RecognitionModel = "PP-OCRv4_mobile_rec_infer";
     const string OrientationModel = "PP-LCNet_x1_0_textline_ori";
 
     readonly string modelsPath;
@@ -25,6 +26,7 @@ public sealed class PaddleOcrEngine : IDisposable
     readonly OcrFrameCache frameCache = new();
     OCRService? service;
     int disposed;
+    internal Action<string>? TimingLog { get; set; }
 
     public PaddleOcrEngine(string? modelsPath = null)
     {
@@ -43,31 +45,61 @@ public sealed class PaddleOcrEngine : IDisposable
         ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
         token.ThrowIfCancellationRequested();
 
+        var timingLog = TimingLog;
+        var timer = Stopwatch.StartNew();
         using var copy = new Bitmap(image);
         using var encoded = new MemoryStream();
         copy.Save(encoded, ImageFormat.Png);
         var imageBytes = encoded.ToArray();
+        var encodingMs = timer.ElapsedMilliseconds;
 
         await gate.WaitAsync(token).ConfigureAwait(false);
+        var admittedMs = timer.ElapsedMilliseconds;
+        long initializationMs = 0, inferenceMs = 0, dispatchMs = 0;
+        var cacheHit = false;
+        var coldStart = false;
+        var succeeded = false;
         try
         {
             ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
             token.ThrowIfCancellationRequested();
-            if (frameCache.Find(imageBytes) is { } cached) return cached;
+            if (frameCache.Find(imageBytes) is { } cached)
+            {
+                cacheHit = true;
+                succeeded = true;
+                return cached;
+            }
             // OCRService.Detect is synchronous and enters native inference. Keep
             // it off the WinForms synchronization context while preserving the
             // single-engine guarantee required by the native runtime.
-            var result = await Task.Run(() => RecognizeCore(imageBytes), CancellationToken.None)
+            var queuedMs = timer.ElapsedMilliseconds;
+            var result = await Task.Run(() =>
+            {
+                dispatchMs = timer.ElapsedMilliseconds - queuedMs;
+                coldStart = service is null;
+                var initialization = Stopwatch.StartNew();
+                try { EnsureInitialized(); }
+                finally { initializationMs = initialization.ElapsedMilliseconds; }
+                var inference = Stopwatch.StartNew();
+                try { return RecognizeCore(imageBytes); }
+                finally { inferenceMs = inference.ElapsedMilliseconds; }
+            }, CancellationToken.None)
                 .ConfigureAwait(false);
             frameCache.Store(imageBytes, result);
+            succeeded = true;
             return result;
         }
-        finally { gate.Release(); }
+        finally
+        {
+            gate.Release();
+            timingLog?.Invoke($"OCR {image.Width}x{image.Height}，总计={timer.ElapsedMilliseconds}ms，" +
+                $"PNG编码={encodingMs}ms，引擎锁等待={admittedMs - encodingMs}ms，线程调度={dispatchMs}ms，" +
+                $"冷启动={coldStart}，模型初始化={initializationMs}ms，推理及结果转换={inferenceMs}ms，缓存命中={cacheHit}，成功={succeeded}");
+        }
     }
 
     PaddleOcrRecognition RecognizeCore(byte[] imageBytes)
     {
-        EnsureInitialized();
         var result = service!.Detect(imageBytes);
         if (result.Code == 0)
             throw new InvalidOperationException(

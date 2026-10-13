@@ -47,17 +47,13 @@ public sealed class ControllerSettings
     public int EntryId { get; set; } = 1;
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public DungeonDifficulty EntryDifficulty { get; set; } = DungeonDifficulty.Normal;
-    // null 表示旧版配置没有跑图次数字段；载入时根据旧循环开关迁移。
-    public int? EntryRunCount { get; set; }
-    // 兼容旧版配置；新界面已由 EntryRunCount 替代。
-    public bool LoopEntryAndRun { get; set; }
-    // 兼容旧版本配置：旧字段为 true 时迁移为精英难度。
-    public bool EntryEliteMode { get; set; }
+    // 0 表示自动次数：普通难度无限，其它难度使用剩余次数。
+    public int EntryRunCount { get; set; }
     public List<string> BonusPriority { get; set; } = [];
     public string Device { get; set; } = "";
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public ExecutionTaskKind TaskKind { get; set; }
-    // 旧配置未保存此字段时，维持所有任务启用的行为。
+    // 新任务默认启用。
     public bool TaskEnabled { get; set; } = true;
     public List<ControllerSettings> ExecutionTasks { get; set; } = [];
 }

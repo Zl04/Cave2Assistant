@@ -18,7 +18,7 @@
     <!-- ORB/BFMatcher/RANSAC backend for MAA-style FeatureMatch tasks. -->
     <PackageReference Include="OpenCvSharp4" Version="4.10.0.20240616" />
     <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.10.0.20240616" />
-    <!-- In-process PaddleOCR PP-OCRv5 runtime. The x64 native runtime is
+    <!-- In-process PaddleOCR with v5 detection and lightweight v4 recognition. The x64 native runtime is
          shipped by NuGet beside the application; no Python sidecar is used. -->
     <PackageReference Include="PaddleOCRSDK" Version="4.5.3" />
     <PackageReference Include="PaddleOCRRuntime_x64" Version="4.5.3" />
@@ -68,8 +68,8 @@
              Link="$(PaddleOCRPublishDirectory)paddle-models\PP-OCRv5_mobile_det_infer\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="Always" />
-    <Content Include="Resources\OcrModels\PP-OCRv5_mobile_rec_infer\**\*"
-             Link="$(PaddleOCRPublishDirectory)paddle-models\PP-OCRv5_mobile_rec_infer\%(RecursiveDir)%(Filename)%(Extension)"
+    <Content Include="Resources\OcrModels\PP-OCRv4_mobile_rec_infer\**\*"
+             Link="$(PaddleOCRPublishDirectory)paddle-models\PP-OCRv4_mobile_rec_infer\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="Always" />
     <Content Include="Resources\OcrModels\PP-LCNet_x1_0_textline_ori_infer\**\*"

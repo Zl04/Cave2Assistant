@@ -58,7 +58,8 @@ public static class PopupRecognition
     public static bool IsGreedySelectionTitle(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
-        var normalized = Regex.Replace(text, @"[^\p{L}\p{N}]", "");
+        var corrected = GreedyTitleCorrector.CorrectTitleLines(text)!;
+        var normalized = Regex.Replace(corrected, @"[^\p{L}\p{N}]", "");
         return normalized.Contains("贪婪抉择", StringComparison.Ordinal);
     }
 

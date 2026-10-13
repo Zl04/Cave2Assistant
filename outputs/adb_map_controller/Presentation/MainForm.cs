@@ -276,7 +276,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             if (activeMovement is null && activeEntry is null && !uiOperations.IsBusy)
                 await RefreshMap(false, lockDeviceSelection: false);
         }; Shown += async (_, _) => await RunUi(async () => { await Scan(); await RefreshMap(); if (!closing) refreshTimer.Start(); });
-        foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, mining, cardMining, cardLayer, entryMapChoice, entryChoice, entryDifficulty, entryRunCount })
+        foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, autoEquipmentSale, sellBlueWhite, sellPurple, sellDarkGold, sellGold, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, mining, cardMining, cardLayer, entryMapChoice, entryChoice, entryDifficulty, entryRunCount })
             control.Validated += (_, _) => SaveSettings();
         foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers })
         {
@@ -443,7 +443,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     {
         themeChoice.SelectedIndex = Math.Clamp((int)s.Theme, 0, 2);
         alwaysOnTop.Checked = s.AlwaysOnTop;
-        SetValue(entryRunCount, s.EntryRunCount ?? 0);
+        SetValue(entryRunCount, s.EntryRunCount);
         attackBoss.Checked = s.AttackBoss; monsters.Checked = s.Monsters; elites.Checked = s.Elites; chests.Checked = s.Chests; pots.Checked = s.Pots;
         bones.Checked = s.Bones; gold.Checked = s.Gold; runes.Checked = s.Runes; chambers.Checked = s.Chambers;
         SetValue(singleCellPulseHold, s.SingleCellPulseHold); SetValue(movementReleaseLead, s.MovementReleaseLead);
@@ -453,21 +453,12 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         SetValue(miningTileWidth, s.MiningTileWidth); SetValue(miningTileHeight, s.MiningTileHeight); SetValue(miningInterval, s.MiningInterval);
         var savedMapId = s.EntryMapId;
         var savedEntryId = s.EntryId;
-        // 旧版本把时光之门英雄图存成普通时光之门的第 19～24 个节点，
-        // 迁移到独立的“时光之门(英雄)”地图选项。
-        if (savedMapId == DungeonEntryCatalog.TimeGateMapId && savedEntryId is >= 19 and <= 24)
-        {
-            savedMapId = DungeonEntryCatalog.TimeGateHeroMapId;
-            savedEntryId -= 18;
-        }
         var savedMapIndex = DungeonEntryCatalog.Maps
             .Select((map, index) => (map, index))
             .FirstOrDefault(x => x.map.Id == savedMapId).index;
         entryMapChoice.SelectedIndex = Math.Clamp(savedMapIndex, 0, Math.Max(0, entryMapChoice.Items.Count - 1));
         entryChoice.SelectedIndex = Math.Clamp(savedEntryId - 1, 0, Math.Max(0, entryChoice.Items.Count - 1));
         var entryDifficultyIndex = Math.Clamp((int)s.EntryDifficulty, (int)DungeonDifficulty.Normal, (int)DungeonDifficulty.Nightmare);
-        if (entryDifficultyIndex == (int)DungeonDifficulty.Normal && s.EntryEliteMode)
-            entryDifficultyIndex = (int)DungeonDifficulty.Elite;
         RefreshEntryDifficulties(SelectedEntryMap, (DungeonDifficulty)entryDifficultyIndex);
         if (s.BonusPriority is { Count: > 0 } && s.BonusPriority.All(x => BonusKinds.Contains(x))) { bonusPriority.Items.Clear(); bonusPriority.Items.AddRange(s.BonusPriority.Concat(BonusKinds.Where(x => !s.BonusPriority.Contains(x))).ToArray()); bonusPriority.SelectedIndex = 0; }
         if (!string.IsNullOrWhiteSpace(s.Device)) devices.Text = s.Device;
@@ -512,7 +503,6 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             EntryMapId = SelectedEntryMap.Id,
             EntryId = Math.Max(1, entryChoice.SelectedIndex + 1),
             EntryDifficulty = (DungeonDifficulty)Math.Clamp(entryDifficulty.SelectedIndex, (int)DungeonDifficulty.Normal, (int)DungeonDifficulty.Nightmare),
-            EntryEliteMode = entryDifficulty.SelectedIndex == (int)DungeonDifficulty.Elite,
             Device = devices.Text,
             BonusPriority = bonusPriority.Items.Cast<string>().ToList()
         };

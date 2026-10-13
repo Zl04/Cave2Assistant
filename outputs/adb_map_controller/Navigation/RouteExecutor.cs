@@ -17,10 +17,6 @@ public sealed class RouteExecutor
         this.movement = movement ?? throw new ArgumentNullException(nameof(movement));
     }
 
-    // 为只需要旧版重新规划标志的调用方提供兼容性包装器。
-    public async Task<bool> Execute(RouteExecutionContext context, CancellationToken token)
-        => (await ExecuteDetailed(context, token)).RequiresReplan;
-
     // 弹窗中断与错误路线有意区分。调用方必须先让弹窗处理程序消耗覆盖层，
     // 然后从权威位置构建新路线。
     public async Task<RouteExecutionResult> ExecuteDetailed(

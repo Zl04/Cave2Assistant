@@ -178,7 +178,7 @@ public sealed class DungeonEntryAutomation
                 await SelectMapVariantIfNeeded(selection, token);
                 return;
             case "选择关卡难度":
-                if (selection.Difficulty != DungeonDifficulty.Normal && selection.Map.SupportsDifficulty)
+                if (selection.Map.SupportsDifficulty)
                     await SelectDifficulty(selection.Difficulty, token);
                 else
                     log("当前进图不需要切换难度");
@@ -576,17 +576,7 @@ public sealed class DungeonEntryAutomation
                 return;
             }
 
-            // 保留弹窗 OCR 作为较慢/旧版 UI 状态的回退。
-            // 它不再是主要成功条件，因为特殊地图界面可能完全省略“扭曲空间”文字。
-            if (await ConfirmCityPopup("扭曲空间", token))
-            {
-                state($"已确认特殊入口坐标 ({candidate.Center.X},{candidate.Center.Y})");
-                log($"OCR确认共享入口为“扭曲空间”：({candidate.Center.X},{candidate.Center.Y})");
-                await Delay(token, 1500);
-                return;
-            }
-
-            log($"点击候选 ({candidate.Center.X},{candidate.Center.Y}) 后未确认“扭曲空间”，关闭当前弹窗并尝试下一个");
+            log($"点击候选 ({candidate.Center.X},{candidate.Center.Y}) 后未确认特殊地图切换图标，关闭当前弹窗并尝试下一个");
             await adb.PressBack();
             await Delay(token, 250);
             using var frame = await adb.CaptureScreenForAutomationAsync();
@@ -654,29 +644,6 @@ public sealed class DungeonEntryAutomation
             if (pass < 4) await Delay(token, 180);
         }
 
-        return false;
-    }
-
-    async Task<bool> ConfirmCityPopup(string expected, CancellationToken token)
-    {
-        var target = OcrTextLocator.Compact(expected);
-        for (var pass = 0; pass < 3; pass++)
-        {
-            token.ThrowIfCancellationRequested();
-            using var frame = await adb.CaptureScreenForAutomationAsync();
-            var x = (int)(frame.Width * .20);
-            var y = (int)(frame.Height * .30);
-            var width = Math.Min(frame.Width - x, (int)(frame.Width * .60));
-            var height = Math.Min(frame.Height - y, (int)(frame.Height * .42));
-            using var crop = frame.Clone(new Rectangle(x, y, width, height),
-                System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-            var words = await adb.ReadOcrWordsAsync(crop);
-            if (OcrTextLocator.Find(words, expected) is not null) return true;
-            var text = OcrTextLocator.Compact(string.Concat(words.OrderBy(word => word.Top).ThenBy(word => word.Left).Select(word => word.Text)));
-            if (text.Contains(target, StringComparison.Ordinal)) return true;
-            if (text.Contains("符文", StringComparison.Ordinal)) return false;
-            if (pass < 2) await Delay(token, 120);
-        }
         return false;
     }
 

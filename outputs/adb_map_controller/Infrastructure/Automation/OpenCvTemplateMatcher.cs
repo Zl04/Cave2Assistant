@@ -22,8 +22,7 @@ public sealed class OpenCvTemplateMatcher
         using var mask = template.LoadMaskMat();
         if (scene.Empty() || source.Empty()) return [];
 
-        var drawingSize = template.GetSearchSize(screen,
-            new System.Drawing.Size(source.Width, source.Height));
+        var drawingSize = template.GetSearchSize(screen);
         var size = new OpenCvSharp.Size(drawingSize.Width, drawingSize.Height);
         if (size.Width < 4 || size.Height < 4 || size.Width > scene.Width || size.Height > scene.Height)
             return [];

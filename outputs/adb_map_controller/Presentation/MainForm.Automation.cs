@@ -64,13 +64,7 @@ public sealed partial class MainForm
             [new DelegateMaaPipelineHandler<MainForm>(
                 "RunDungeon",
                 (_, _, _) => Task.FromResult(MaaPipelineRecognitionResult.Hit(detail: "JustReturn")),
-                async (_, _, context, token) =>
-                {
-                    var result = await context.State.RunDungeonTaskCore(token);
-                    return result.Succeeded
-                        ? MaaPipelineActionResult.Success()
-                        : MaaPipelineActionResult.Failure(result.Error ?? "跑图任务失败");
-                })],
+                (_, _, context, token) => context.State.RunDungeonTaskCore(token))],
             new MaaPipelineExecutionOptions { TaskChain = "MapRun", RetryTimes = 0 },
             new MaaPipelineTraceMultiplexer([trace, liveTrace, pipelineWebServer]));
 
@@ -90,7 +84,7 @@ public sealed partial class MainForm
         }
     }
 
-    async Task<TaskPipelineNodeResult> RunDungeonTaskCore(CancellationToken pipelineToken)
+    async Task<MaaPipelineActionResult> RunDungeonTaskCore(CancellationToken pipelineToken)
     {
         // 停层标记只属于上一次运行。停止后玩家可能已手动重新进图，
         // 每次开始都必须刷新地图，再按当前楼层和剩余目标判断是否停住。
@@ -126,7 +120,7 @@ public sealed partial class MainForm
             if (serverErrorDialogVisible || owner.IsCancellationRequested)
             {
                 return serverErrorDialogVisible
-                    ? TaskPipelineNodeResult.Failure("服务器连接异常")
+                    ? MaaPipelineActionResult.Failure("服务器连接异常")
                     : throw new OperationCanceledException(owner);
             }
             // 刷新已经等待完成的标题 OCR（包括模型启动）。
@@ -135,7 +129,7 @@ public sealed partial class MainForm
             {
                 State("地图未就绪");
                 Log($"跑图启动地图刷新失败：refresh={(ready ? "完成" : "未完成")}，map={(dungeon.Map is null ? "缺失" : "已加载")}，Entry跑图授权={entryRunMovementScope}", LogLevel.Error);
-                return TaskPipelineNodeResult.Failure("地图未就绪");
+                return MaaPipelineActionResult.Failure("地图未就绪");
             }
             if (dungeon.Map is not null) runTask.Observe(dungeon.Map);
             // 宝石选择覆盖层会消耗所有触摸输入。不要在其下方构建或启动移动路线；
@@ -151,25 +145,25 @@ public sealed partial class MainForm
                 Log("启动检查已锁存秘境宝石选择，先执行一次专用点击流程");
                 await HandleRiftGemSelection(owner);
                 await RunLoop(owner, runTask, useInitialSnapshot: true);
-                return runTask.Completed ? TaskPipelineNodeResult.Success() : TaskPipelineNodeResult.Failure("跑图已停止，尚未返回主城或公会");
+                return runTask.Completed ? MaaPipelineActionResult.Success() : MaaPipelineActionResult.Failure("跑图已停止，尚未返回主城或公会");
             }
             if (dungeon.Map is not null && !MapRunTask.IsReturnDestination(dungeon.Map) &&
                 floorPhase != FloorPhase.WaitingFloorLoad && await TryStopAtTargetFloor())
             {
-                return TaskPipelineNodeResult.Failure("已在目标楼层暂停，尚未返回主城或公会");
+                return MaaPipelineActionResult.Failure("已在目标楼层暂停，尚未返回主城或公会");
             }
             Log($"导航启动检查完成 {startup.ElapsedMilliseconds} ms");
             owner.ThrowIfCancellationRequested();
             State("运行中");
             await RunLoop(owner, runTask, useInitialSnapshot: true);
-            return runTask.Completed ? TaskPipelineNodeResult.Success() : TaskPipelineNodeResult.Failure("跑图已停止，尚未返回主城或公会");
+            return runTask.Completed ? MaaPipelineActionResult.Success() : MaaPipelineActionResult.Failure("跑图已停止，尚未返回主城或公会");
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             startupPreparing = false;
             Error(ex);
-            return TaskPipelineNodeResult.Failure(ex.Message);
+            return MaaPipelineActionResult.Failure(ex.Message);
         }
     }
     async Task RunLoop(CancellationToken owner, MapRunTask runTask, bool useInitialSnapshot = false)

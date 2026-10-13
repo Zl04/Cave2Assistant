@@ -17,6 +17,11 @@ namespace AdbMapController;
 internal sealed class AdbScreenAnalyzer : IDisposable
 {
     readonly PaddleOcrEngine paddleOcr = new();
+    internal Action<string>? OcrTimingLog
+    {
+        get => paddleOcr.TimingLog;
+        set => paddleOcr.TimingLog = value;
+    }
     readonly Lazy<VisualTemplate?> miningToolTemplate = new(LoadMiningToolTemplate);
 
     public string? LastRiftGemTitle { get; private set; }
@@ -154,8 +159,11 @@ internal sealed class AdbScreenAnalyzer : IDisposable
         return LastNextFloorDialogKind;
     }
 
-    public Task<string?> ReadPopupTitleTextAsync(Bitmap frame, CancellationToken token = default)
-        => ReadScreenTextAsync(frame, (.35, .65, .03, .18), "贪婪抉择标题", token);
+    public async Task<string?> ReadPopupTitleTextAsync(Bitmap frame, CancellationToken token = default)
+    {
+        var rawTitle = await ReadScreenTextAsync(frame, (.35, .65, .03, .18), "贪婪抉择标题", token);
+        return GreedyTitleCorrector.CorrectTitleLines(rawTitle);
+    }
 
     public async Task<bool> HasRiftGemSelectionAsync(Bitmap bitmap)
     {

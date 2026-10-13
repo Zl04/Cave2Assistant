@@ -1,3 +1,5 @@
+> 2026-10-13 清理更新：已移除旧 TaskPipeline 执行器/适配器、旧模板采样字段及扫描实现、旧进图配置和编号迁移。以下历史分析中的相应风险及源码路径不再适用于当前实现。
+
 # adb_map_controller 项目说明书与风险审计
 
 > 第二阶段核验（2026-10-08）：本文为第一阶段静态分析，TD 风险和建议不是已验证事实。当前源码完整构建失败（ADB迁移缺失声明），独立源码子集52用例通过不等于主程序通过；非法状态拒绝、收紧JSON容错、门户持久化及Web认证等建议须按 [REFACTOR_BASELINE.md](../REFACTOR_BASELINE.md) 的逐项结论修正。执行范围与顺序以 [REFACTOR_BACKLOG.md](../REFACTOR_BACKLOG.md) 为准，尚未启动生产重构。
@@ -204,7 +206,7 @@ Domain.RouteSession ──> Navigation.Planner 中的 PlannedInteraction/TargetK
 | 挖矿 | `MiningTileWidth`、`MiningTileHeight`、`MiningInterval`、`Mining`、`CardMining` | 点击网格、间隔和自动匹配卡矿 |
 | 移动 | `SingleCellPulseHold`、`MovementReleaseLead`、`InteractionHold`、`StallTimeout` | 正负 `MovementReleaseLead` 分别表示提前释放/到达后延迟释放；数值范围由控件限制 |
 | 楼层 | `NewFloorStartDelay`、`RouteRecoveryAttempts`、`TargetStopFloor`、`CardLayer` | 换层等待、恢复次数、目标层；0 表示不启用目标层停止 |
-| 进图 | `EntryMapId`、`EntryId`、`EntryDifficulty`、`EntryEliteMode` | 新难度枚举与旧版 `EntryEliteMode` 兼容；地图/入口 ID 来自 `DungeonEntryCatalog` |
+| 进图 | `EntryMapId`、`EntryId`、`EntryDifficulty` | 难度由 `EntryDifficulty` 指定；地图/入口 ID 来自 `DungeonEntryCatalog` |
 | 传送门 | `BonusPriority` | 贪婪抉择加成优先级列表 |
 | 设备 | `Device` | 上次选中的 ADB 序列号 |
 

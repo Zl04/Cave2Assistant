@@ -542,10 +542,27 @@ public sealed partial class MainForm
         {
             token.ThrowIfCancellationRequested();
             using var frame = await adb.CaptureMovementPopupFrameAsync(token);
-            var words = await adb.ReadOcrWordsAsync(frame, token);
-            var text = string.Concat(words.Select(word => OcrTextLocator.Compact(word.Text)));
-            var loot = text.Contains("战利品", StringComparison.Ordinal);
-            var advancement = PopupRecognition.IsCharacterAdvancementDialogText(text);
+            // The loot title occupies the small banner above the reward grid.
+            // Full-frame OCR is slow and can miss the title among item labels.
+            var lootTitleArea = new Rectangle(
+                (int)(frame.Width * .405), (int)(frame.Height * .138),
+                (int)(frame.Width * .190), (int)(frame.Height * .128));
+            using var lootTitle = frame.Clone(lootTitleArea, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            var lootWords = await adb.ReadOcrWordsAsync(lootTitle, token);
+            var lootText = string.Concat(lootWords.Select(word => OcrTextLocator.Compact(word.Text)));
+            var loot = lootText.Contains("战利品", StringComparison.Ordinal);
+            var advancement = false;
+            if (!loot)
+            {
+                var advancementTextArea = new Rectangle(
+                    (int)(frame.Width * .34), (int)(frame.Height * .35),
+                    (int)(frame.Width * .32), (int)(frame.Height * .17));
+                using var advancementText = frame.Clone(advancementTextArea,
+                    System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+                var advancementWords = await adb.ReadOcrWordsAsync(advancementText, token);
+                var text = string.Concat(advancementWords.Select(word => OcrTextLocator.Compact(word.Text)));
+                advancement = PopupRecognition.IsCharacterAdvancementDialogText(text);
+            }
             var popupVisible = loot || advancement;
             if (popupVisible) sawPopup = true;
             if (advancement)
@@ -565,17 +582,9 @@ public sealed partial class MainForm
             }
             if (loot)
             {
-                var lootConfirm = OcrTextLocator.Find(words, "确定", word => word.Center.Y >= frame.Height * .68);
-                if (lootConfirm is null)
-                {
-                    await Task.Delay(150, token);
-                    continue;
-                }
-                var x = Math.Clamp((double)lootConfirm.Center.X / frame.Width, 0, 1);
-                var y = Math.Clamp((double)lootConfirm.Center.Y / frame.Height, 0, 1);
-                await adb.TapScreen(x, y);
+                await adb.TapScreen(.5, .9);
                 clickedPopup = true;
-                Log($"返回主城后识别到战利品标题并点击确定：({lootConfirm.Center.X},{lootConfirm.Center.Y})");
+                Log("返回主城后识别到战利品标题并点击确定");
                 await Task.Delay(250, token);
             }
             else

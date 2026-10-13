@@ -83,4 +83,3 @@ def prepare_recognition(image, boxes, batch_size=6, min_width=320, width_multipl
             batch[i,:,:,:resized_width] = normalized.transpose(2,0,1)
         batches.append(batch)
     return batches, order
-

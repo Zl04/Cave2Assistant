@@ -27,6 +27,11 @@ public sealed class ControllerSettings
     public bool Gold { get; set; }
     public bool Runes { get; set; }
     public bool Chambers { get; set; }
+    public bool AutoEquipmentSale { get; set; }
+    public bool SellBlueWhite { get; set; } = true;
+    public bool SellPurple { get; set; }
+    public bool SellDarkGold { get; set; }
+    public bool SellGold { get; set; }
     public decimal MiningTileWidth { get; set; } = 200;
     public decimal MiningTileHeight { get; set; } = 100;
     public decimal MiningInterval { get; set; } = 3000;

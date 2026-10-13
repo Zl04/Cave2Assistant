@@ -1,0 +1,462 @@
+{
+  "$settings": {
+    "scrollDistance": 90,
+    "scrollDurationMs": 1200,
+    "settleDelayMs": 650,
+    "maxPages": 400,
+    "vision": {
+      "gapCoverage": 0.7,
+      "fitTolerance": 2.1,
+      "qualitySaturation": 0.37,
+      "borderCoverage": 0.3,
+      "purpleHue": [
+        260,
+        320
+      ],
+      "darkGoldHue": [
+        10,
+        34
+      ],
+      "goldHue": [
+        34,
+        70
+      ],
+      "checkboxColor": [
+        183,
+        167,
+        165
+      ],
+      "checkboxTolerance": 12,
+      "emptyStandardDeviation": 3,
+      "selectedCheckTemplate": "templates/ui/EquipmentSale/selected_check.png",
+      "selectedCheckThreshold": 0.97,
+      "borderInset": 4,
+      "borderBandWidth": 2,
+      "borderSideStart": 28
+    },
+    "checkTimeoutMs": 2000,
+    "checkIntervalMs": 150,
+    "scrollGapColumn": 2
+  },
+  "InventoryOpen": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "DoNothing",
+    "next": [
+      "InventoryReady"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 0
+  },
+  "OpenBag": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "ClickSelf",
+    "next": [
+      "InventoryReady"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 700,
+    "template": [
+      "templates/ui/EquipmentSale/bag.png"
+    ],
+    "templThreshold": 0.92,
+    "roi": [
+      885,
+      455,
+      119,
+      110
+    ]
+  },
+  "InventoryReady": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "DoNothing",
+    "next": [
+      "EquipmentActive",
+      "EquipmentTab"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 0
+  },
+  "RoleTitle": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "DoNothing",
+    "next": [],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 0,
+    "template": [
+      "templates/ui/EquipmentSale/role_title.png"
+    ],
+    "templThreshold": 0.92,
+    "roi": [
+      90,
+      3,
+      150,
+      45
+    ]
+  },
+  "EquipmentActive": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "DoNothing",
+    "next": [
+      "BlueWhite",
+      "SkipBlueWhite"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 0,
+    "template": [
+      "templates/ui/EquipmentSale/equipment_tab_active.png"
+    ],
+    "templThreshold": 0.92,
+    "roi": [
+      602,
+      505,
+      64,
+      50
+    ]
+  },
+  "EquipmentTab": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "ClickSelf",
+    "next": [
+      "EquipmentActive"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 450,
+    "template": [
+      "templates/ui/EquipmentSale/equipment_tab_idle.png"
+    ],
+    "templThreshold": 0.92,
+    "roi": [
+      602,
+      505,
+      64,
+      50
+    ]
+  },
+  "BlueWhite": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "ClickSelf",
+    "next": [
+      "BlueWhiteDialog"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 450,
+    "template": [
+      "templates/ui/EquipmentSale/blue_white_sale.png"
+    ],
+    "templThreshold": 0.92,
+    "roi": [
+      815,
+      62,
+      60,
+      43
+    ]
+  },
+  "SkipBlueWhite": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "DoNothing",
+    "next": [
+      "SkipSelective",
+      "ResumeSelection",
+      "EnterSelection"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 0
+  },
+  "BlueWhiteDialog": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "DoNothing",
+    "next": [
+      "GreenConfirm"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 0
+  },
+  "GreenConfirm": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "ClickSelf",
+    "next": [
+      "SkipSelective",
+      "ResumeSelection",
+      "EnterSelection"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 650,
+    "template": [
+      "templates/ui/EquipmentSale/green_confirm.png"
+    ],
+    "templThreshold": 0.92,
+    "roi": [
+      535,
+      331,
+      125,
+      65
+    ]
+  },
+  "SkipSelective": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "DoNothing",
+    "next": [
+      "Back"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 0
+  },
+  "EnterSelection": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "ClickSelf",
+    "next": [
+      "SelectionActive"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 450,
+    "template": [
+      "templates/ui/EquipmentSale/sale_idle.png"
+    ],
+    "templThreshold": 0.92,
+    "roi": [
+      755,
+      60,
+      120,
+      46
+    ]
+  },
+  "SelectionActive": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "DoNothing",
+    "next": [
+      "Scan"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 0,
+    "template": [
+      "templates/ui/EquipmentSale/sale_active.png"
+    ],
+    "templThreshold": 0.92,
+    "roi": [
+      755,
+      60,
+      120,
+      46
+    ]
+  },
+  "SaleIdle": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "DoNothing",
+    "next": [],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 0,
+    "template": [
+      "templates/ui/EquipmentSale/sale_idle.png"
+    ],
+    "templThreshold": 0.92,
+    "roi": [
+      755,
+      60,
+      120,
+      46
+    ]
+  },
+  "Scan": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "DoNothing",
+    "next": [
+      "Scroll",
+      "SelectedSubmit",
+      "EmptySelectionExit"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 0
+  },
+  "Scroll": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "DoNothing",
+    "next": [
+      "Scan"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 0
+  },
+  "SelectedSubmit": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "ClickSelf",
+    "next": [
+      "Back"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 0,
+    "template": [
+      "templates/ui/EquipmentSale/sale_submit.png"
+    ],
+    "templThreshold": 0.92,
+    "roi": [
+      755,
+      60,
+      120,
+      46
+    ]
+  },
+  "EmptySelectionExit": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "ClickSelf",
+    "next": [
+      "SaleNormal"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 450,
+    "template": [
+      "templates/ui/EquipmentSale/sale_active.png"
+    ],
+    "templThreshold": 0.92,
+    "roi": [
+      755,
+      60,
+      120,
+      46
+    ]
+  },
+  "SaleNormal": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "DoNothing",
+    "next": [
+      "Back"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 0,
+    "template": [
+      "templates/ui/EquipmentSale/sale_idle.png"
+    ],
+    "templThreshold": 0.92,
+    "roi": [
+      755,
+      60,
+      120,
+      46
+    ]
+  },
+  "Back": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "ClickSelf",
+    "next": [
+      "InventoryClosed",
+      "Back"
+    ],
+    "timeout": 7000,
+    "rateLimit": 250,
+    "postDelay": 400,
+    "template": [
+      "templates/ui/EquipmentSale/back.png"
+    ],
+    "templThreshold": 0.92,
+    "roi": [
+      818,
+      0,
+      112,
+      60
+    ],
+    "maxTimes": 12,
+    "exceededNext": [
+      "FailClose"
+    ]
+  },
+  "InventoryClosed": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "DoNothing",
+    "next": [],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 0
+  },
+  "FailClose": {
+    "algorithm": "Custom",
+    "action": "DoNothing",
+    "handler": "EquipmentSale"
+  },
+  "Prepare": {
+    "algorithm": "Custom",
+    "action": "DoNothing",
+    "handler": "EquipmentSale",
+    "next": [
+      "InventoryOpen",
+      "OpenBag"
+    ],
+    "timeout": 7000,
+    "rateLimit": 250
+  },
+  "$coordinateSpace": [
+    1004,
+    565
+  ],
+  "ResumeSelection": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "DoNothing",
+    "next": [
+      "Scan"
+    ],
+    "timeout": 5000,
+    "rateLimit": 250,
+    "postDelay": 0,
+    "template": [
+      "templates/ui/EquipmentSale/sale_active.png",
+      "templates/ui/EquipmentSale/sale_submit.png"
+    ],
+    "templThreshold": 0.92,
+    "roi": [
+      755,
+      60,
+      120,
+      46
+    ]
+  },
+  "Cleanup": {
+    "algorithm": "Custom",
+    "handler": "EquipmentSale",
+    "action": "DoNothing",
+    "next": [
+      "InventoryClosed",
+      "Back"
+    ],
+    "timeout": 7000,
+    "rateLimit": 250
+  }
+}

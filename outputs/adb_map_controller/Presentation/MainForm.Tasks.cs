@@ -115,7 +115,7 @@ public sealed partial class MainForm
                         var config = scheduledTasks[i];
                         if (!config.TaskEnabled) continue;
                         config.Theme = original.Theme; config.AlwaysOnTop = original.AlwaysOnTop; config.Device = original.Device;
-                        ApplySettings(config); RefreshTaskList(i);
+                        ApplySettings(config, applyEquipmentSale: false); RefreshTaskList(i);
                         Log($"执行任务列表：第 {i + 1}/{scheduledTasks.Count} 项");
                         if (config.TaskKind == ExecutionTaskKind.EntryAndRun) await RunEntryRunPipelineAsync(token);
                         else if (config.TaskKind == ExecutionTaskKind.CurrentMapRun)

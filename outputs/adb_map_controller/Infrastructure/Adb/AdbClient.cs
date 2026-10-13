@@ -119,6 +119,9 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
     public Task<Bitmap> CaptureScreenForAutomationAsync()
         => CaptureScreenAsync("无法截取设备屏幕");
 
+    public Task<Bitmap> CaptureScreenForAutomationAsync(CancellationToken token)
+        => CaptureScreenAsync("无法截取设备屏幕", token);
+
     public async Task<bool> HasNextFloorButton()
     {
         using var bitmap = await CaptureScreenAsync("无法截取设备屏幕");

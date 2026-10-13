@@ -195,7 +195,13 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         var openWebMonitor = Btn("Web监控", ThemeRole.InfoButton);
         var detectAssistant = Btn("检测助手", ThemeRole.UtilityButton); var installAssistant = Btn("安装助手", ThemeRole.UtilityButton); var restoreAssistant = Btn("恢复原版", ThemeRole.DangerButton); var openTestPanel = Btn("打开测试面板", ThemeRole.WarningButton);
         var mine = Btn("挖矿", ThemeRole.WarningButton);
-        top.Controls.AddRange([refresh, plan, start, mine, pause, step, stop, autoEnter, calibrateEntry, openWebMonitor]);
+        var sell = Btn("一键售出", ThemeRole.WarningButton);
+        sell.Click += async (_, _) => await RunUi(() => RunMovement(async () =>
+        {
+            var result = await RunEquipmentSaleAsync(operations.CurrentToken);
+            State(result ? "装备出售完成" : "装备出售未完成，已停止");
+        }));
+        top.Controls.AddRange([refresh, plan, start, mine, sell, pause, step, stop, autoEnter, calibrateEntry, openWebMonitor]);
         var settingsTop = new FlowLayoutPanel
         {
             Dock = DockStyle.Top,
@@ -216,7 +222,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             new Label { Text = "主题", AutoSize = true, Padding = new(10, 6, 0, 0) },
             themeChoice]);
         var options = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 9, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
-        options.Controls.AddRange([new Label { Text = "目标（钥匙必选）：", AutoSize = true }, attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, bonusPriorityToggle]);
+        options.Controls.AddRange([new Label { Text = "目标（钥匙必选）：", AutoSize = true }, attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, bonusPriorityToggle, autoEquipmentSale, sellBlueWhite, sellPurple, sellDarkGold, sellGold]);
         var floorStop = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
         floorStop.Controls.AddRange([new Label { Text = "指定层停住：", AutoSize = true }, targetStopFloor, new Label { Text = "层（0=关闭，完成所选目标后自动停住）", AutoSize = true }, mining, cardMining, cardLayer]);
         var entryOptions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
@@ -276,7 +282,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             if (activeMovement is null && activeEntry is null && !uiOperations.IsBusy)
                 await RefreshMap(false, lockDeviceSelection: false);
         }; Shown += async (_, _) => await RunUi(async () => { await Scan(); await RefreshMap(); if (!closing) refreshTimer.Start(); });
-        foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, mining, cardMining, cardLayer, entryMapChoice, entryChoice, entryDifficulty, entryRunCount })
+        foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, autoEquipmentSale, sellBlueWhite, sellPurple, sellDarkGold, sellGold, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, mining, cardMining, cardLayer, entryMapChoice, entryChoice, entryDifficulty, entryRunCount })
             control.Validated += (_, _) => SaveSettings();
         foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers })
         {
@@ -439,8 +445,13 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         scheduledTasks.AddRange(s.ExecutionTasks ?? []);
         ApplySettings(s);
     }
-    void ApplySettings(ControllerSettings s)
+    void ApplySettings(ControllerSettings s, bool applyEquipmentSale = true)
     {
+        if (applyEquipmentSale)
+        {
+            autoEquipmentSale.Checked = s.AutoEquipmentSale; sellBlueWhite.Checked = s.SellBlueWhite;
+            sellPurple.Checked = s.SellPurple; sellDarkGold.Checked = s.SellDarkGold; sellGold.Checked = s.SellGold;
+        }
         themeChoice.SelectedIndex = Math.Clamp((int)s.Theme, 0, 2);
         alwaysOnTop.Checked = s.AlwaysOnTop;
         SetValue(entryRunCount, s.EntryRunCount);
@@ -487,6 +498,8 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             Gold = gold.Checked,
             Runes = runes.Checked,
             Chambers = chambers.Checked,
+            AutoEquipmentSale = autoEquipmentSale.Checked, SellBlueWhite = sellBlueWhite.Checked,
+            SellPurple = sellPurple.Checked, SellDarkGold = sellDarkGold.Checked, SellGold = sellGold.Checked,
             SingleCellPulseHold = singleCellPulseHold.Value,
             MovementReleaseLead = movementReleaseLead.Value,
             MiningTileWidth = miningTileWidth.Value,
@@ -609,4 +622,3 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         ApplyTheme();
     }
 }
-

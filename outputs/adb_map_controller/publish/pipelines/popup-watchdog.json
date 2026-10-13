@@ -21,8 +21,7 @@
       "result": "EnchantingDialog",
       "recognizer": "EnchantingDialog",
       "priority": 16,
-      "maxAttempts": 1,
-      "timeoutMs": 1000
+      "maxAttempts": 1
     },
     {
       "name": "RiftGemSelection",

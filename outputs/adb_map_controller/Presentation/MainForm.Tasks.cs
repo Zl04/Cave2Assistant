@@ -56,7 +56,7 @@ public sealed partial class MainForm
         taskList.StateImageClicked += index => SetEnabled(index, !scheduledTasks[index].TaskEnabled);
         taskList.ItemCheck += (_, e) =>
         {
-            if (synchronizingTaskChecks) return;
+            if (synchronizingTaskChecks || taskList.RestoringChecks) return;
             // 仅允许 SetEnabled 发起状态变更，取消原生 ListView 在行双击等操作中产生的自动切换。
             e.NewValue = e.CurrentValue;
         };
@@ -245,6 +245,16 @@ public sealed partial class MainForm
 sealed class TaskSelectionListView : ListView
 {
     public event Action<int>? StateImageClicked;
+    public bool RestoringChecks { get; private set; }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        // 原生列表初始化和重建会重新应用已有项的勾选状态，此时允许恢复。
+        RestoringChecks = true;
+        try { base.OnHandleCreated(e); }
+        finally { RestoringChecks = false; }
+    }
+
 
     protected override void WndProc(ref Message message)
     {

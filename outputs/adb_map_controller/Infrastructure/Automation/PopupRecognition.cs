@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Text.RegularExpressions;
 
 namespace AdbMapController;
@@ -12,6 +13,34 @@ namespace AdbMapController;
 /// </summary>
 public static class PopupRecognition
 {
+    // 临时兼容：跑图误触点金台时仅识别其界面，用于立即关闭。
+    // 后续实现点金台交互时，应移除对应的自动关闭分支，并重新决定是否保留此识别器。
+    public static bool HasAltarDialog(Bitmap frame)
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "templates", "ui", "altar-dialog.png");
+        if (!File.Exists(path)) return false;
+        var bounds = Rectangle.FromLTRB(0, 0, (int)(frame.Width * .32), (int)(frame.Height * .35));
+        using var crop = frame.Clone(bounds, frame.PixelFormat);
+        // 模板来自 1004x565 的游戏截图，固定在左上角装饰区。
+        var scale = Math.Min(frame.Width, frame.Height) / 565d;
+        var cropSize = Math.Min(crop.Width, crop.Height);
+        var template = VisualTemplate.FromFile(path, 98 * scale / cropSize, 105 * scale / cropSize);
+        return template.Find(crop, .88) is not null;
+    }
+
+    // 临时兼容：附魔台同样只识别并关闭；正式交互逻辑接入后重新评估此识别器。
+    public static bool HasEnchantingDialog(Bitmap frame)
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "templates", "ui", "enchanting-dialog.png");
+        if (!File.Exists(path)) return false;
+        var bounds = Rectangle.FromLTRB(0, 0, (int)(frame.Width * .32), (int)(frame.Height * .55));
+        using var crop = frame.Clone(bounds, frame.PixelFormat);
+        var scale = Math.Min(frame.Width, frame.Height) / 565d;
+        var cropSize = Math.Min(crop.Width, crop.Height);
+        var template = VisualTemplate.FromFile(path, 218 * scale / cropSize, 210 * scale / cropSize);
+        return template.Find(crop, .88) is not null;
+    }
+
     public static VisualMatch? FindCharacterAdvancementCloseButton(Bitmap frame, string templatePath)
     {
         // 只在中央弹窗的左下方搜索取消按钮，避免命中其它界面的 ×。

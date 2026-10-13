@@ -107,6 +107,17 @@ public static class PopupUiPipeline
                 var text = await ReadFrameTextAsync(adb, context, token, fullFrameTextObserved);
                 return adb.HasRiftGemSelectionText(text);
             },
+            // 临时兼容识别节点；正式交互接入时同时检查 popup-watchdog.json 与 MainForm.Movement.cs。
+            "AltarDialog" => (context, token) =>
+            {
+                token.ThrowIfCancellationRequested();
+                return Task.FromResult(PopupRecognition.HasAltarDialog(context.Frame));
+            },
+            "EnchantingDialog" => (context, token) =>
+            {
+                token.ThrowIfCancellationRequested();
+                return Task.FromResult(PopupRecognition.HasEnchantingDialog(context.Frame));
+            },
             _ => throw new InvalidDataException(
                 $"节点 {node.Name} 使用了未注册的 recognizer：{node.Recognizer}（{path}）")
         };

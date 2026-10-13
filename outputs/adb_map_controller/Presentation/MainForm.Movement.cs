@@ -269,6 +269,22 @@ public sealed partial class MainForm
                 // 由主循环执行点击并确认覆盖层关闭。
                 LatchRiftGemSelection();
             }
+            else if (kind == MovementPopupKind.AltarDialog)
+            {
+                // 临时兼容：跑图误触点金台后点击空白处关闭。
+                // 实现点金台交互时移除此分支，并同步调整 PopupUiPipeline、popup-watchdog.json 中的识别节点。
+                await adb.TapScreen(.46, .63);
+                Log("检测到点金台界面，已点击空白区域关闭");
+                await Task.Delay(180, ownerToken);
+            }
+            else if (kind == MovementPopupKind.EnchantingDialog)
+            {
+                // 临时兼容：跑图误触附魔台后点击空白处关闭。
+                // 实现附魔台交互时移除此分支，并同步调整 PopupUiPipeline、popup-watchdog.json 中的识别节点。
+                await adb.TapScreen(.44, .18);
+                Log("检测到附魔台界面，已点击空白区域关闭");
+                await Task.Delay(180, ownerToken);
+            }
             else if (kind == MovementPopupKind.NextFloorDialog)
             {
                 // 共享管线已经在同一帧给出了具体子类型。不要丢掉它后再

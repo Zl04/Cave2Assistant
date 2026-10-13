@@ -10,6 +10,20 @@
       "maxAttempts": 1
     },
     {
+      "name": "AltarDialog",
+      "result": "AltarDialog",
+      "recognizer": "AltarDialog",
+      "priority": 15,
+      "maxAttempts": 1
+    },
+    {
+      "name": "EnchantingDialog",
+      "result": "EnchantingDialog",
+      "recognizer": "EnchantingDialog",
+      "priority": 16,
+      "maxAttempts": 1
+    },
+    {
       "name": "RiftGemSelection",
       "result": "RiftGemSelection",
       "recognizer": "RiftGemSelection",

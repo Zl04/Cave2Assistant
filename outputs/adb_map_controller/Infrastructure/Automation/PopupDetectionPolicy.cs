@@ -13,6 +13,7 @@ public static class PopupDetectionPolicy
             MovementPopupKind.ServerError or
             MovementPopupKind.RiftGemSelection or
             MovementPopupKind.NextFloorDialog => 1,
+            MovementPopupKind.AltarDialog or MovementPopupKind.EnchantingDialog => 2,
             _ => 0
         };
 }

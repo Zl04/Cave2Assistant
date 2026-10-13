@@ -147,8 +147,7 @@ public sealed partial class MainForm
                 await RunLoop(owner, runTask, useInitialSnapshot: true);
                 return runTask.Completed ? MaaPipelineActionResult.Success() : MaaPipelineActionResult.Failure("跑图已停止，尚未返回主城或公会");
             }
-            if (dungeon.Map is { } startupSaleMap && !await HandleMerchantEquipmentSale(startupSaleMap, owner))
-                return MaaPipelineActionResult.Failure("商人装备出售流程未完成");
+            if (dungeon.Map is { } startupSaleMap) await HandleMerchantEquipmentSale(startupSaleMap, owner);
             if (dungeon.Map is not null && !MapRunTask.IsReturnDestination(dungeon.Map) &&
                 floorPhase != FloorPhase.WaitingFloorLoad && await TryStopAtTargetFloor())
             {
@@ -222,8 +221,7 @@ public sealed partial class MainForm
                         continue;
                     }
                 }
-                if (dungeon.Map is { } saleMap && !await HandleMerchantEquipmentSale(saleMap, owner))
-                    throw new InvalidOperationException("商人装备出售流程未完成，停止跑图");
+                if (dungeon.Map is { } saleMap) await HandleMerchantEquipmentSale(saleMap, owner);
                 if (floorPhase == FloorPhase.WaitingReturnTown)
                 {
                     State("已选择安全回城，等待主城地图加载");

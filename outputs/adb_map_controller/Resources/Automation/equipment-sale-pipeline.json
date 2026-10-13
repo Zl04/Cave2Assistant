@@ -36,7 +36,8 @@
     },
     "checkTimeoutMs": 2000,
     "checkIntervalMs": 150,
-    "scrollGapColumn": 2
+    "scrollGapColumn": 2,
+    "stateRefreshRetries": 3
   },
   "InventoryOpen": {
     "algorithm": "Custom",

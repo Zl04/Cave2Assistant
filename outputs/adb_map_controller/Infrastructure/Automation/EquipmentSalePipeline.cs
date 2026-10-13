@@ -45,6 +45,7 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
     int scans;
     readonly int scrollDistance, scrollDuration, settleDelay, maxPages;
     readonly int scrollGapColumn;
+    readonly int stateRefreshRetries;
     readonly EquipmentSaleVisionSettings visionSettings;
     readonly int checkTimeoutMs, checkIntervalMs;
     readonly SelectedCheckMatcher checkMatcher;
@@ -73,6 +74,8 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
         scrollDuration = settings.GetProperty("scrollDurationMs").GetInt32();
         settleDelay = settings.GetProperty("settleDelayMs").GetInt32();
         maxPages = settings.GetProperty("maxPages").GetInt32();
+        stateRefreshRetries = settings.TryGetProperty("stateRefreshRetries", out var refreshRetries) ? refreshRetries.GetInt32() : 3;
+        if (stateRefreshRetries is < 1 or > 8) throw new InvalidDataException("装备状态刷新次数必须在 1 至 8 之间");
         scrollGapColumn = settings.TryGetProperty("scrollGapColumn", out var gapColumn) ? gapColumn.GetInt32() : 2;
         if (scrollGapColumn is < 1 or > 4) throw new InvalidDataException("慢拖列间隙配置必须在 1 至 4 之间");
         if (scrollDistance is < 8 or > 180 || scrollDuration is < 600 or > 5000 || settleDelay is < 200 or > 5000 || maxPages is < 1 or > 1000)
@@ -270,7 +273,7 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
         return used is not null && capacity is not null && int.Parse(used) <= int.Parse(capacity) ? $"{used}/{capacity}" : null;
     }
 
-    async Task<MaaPipelineActionResult> Scan(CancellationToken token)
+    async Task<MaaPipelineActionResult> Scan(CancellationToken token, int refreshAttempt = 0)
     {
         if (++scans > maxPages) return MaaPipelineActionResult.Failure("未发现空格，已达到扫描上限");
         using var frame = await Capture(token);
@@ -290,7 +293,7 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
             using var corrected = await Capture(token);
             if (Match(corrected, catalog.Get("SelectionActive")).Matched &&
                 !Match(corrected, catalog.Get("SelectedSubmit")).Matched) selected = 0;
-            return await Scan(token);
+            return await RefreshScan(token, refreshAttempt, "取消勾选后重新拟合网格");
         }
         // 空格需要相隔稳定等待的两帧确认，且仍须处理同页的其余格子。
         end = false;
@@ -303,16 +306,27 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
         }
         var signature = string.Join(";", grid.Cells.Select(c => $"{c.Bounds.Y}:{c.Quality}:{c.Empty}:" +
             frame.GetPixel(c.Bounds.Left + 30, c.Bounds.Top + 30).ToArgb()));
-        stalled = signature == lastPage ? stalled + 1 : 0; lastPage = signature;
+        if (refreshAttempt == 0) { stalled = signature == lastPage ? stalled + 1 : 0; lastPage = signature; }
         if (!end && stalled >= 3) return MaaPipelineActionResult.Failure("慢拖后网格内容连续未变化，未把停滞当作末页");
         foreach (var cell in grid.Cells)
         {
             if (cell.Empty || cell.Selected || cell.Checkbox is null || !options.Allows(cell.Quality)) continue;
             // 每次点击前重新截图；只点当前仍未勾选且品质一致的方框。
-            using var fresh = await Capture(token); var now = EquipmentSaleVision.Inspect(fresh, cell.Bounds, visionSettings);
+            using var fresh = await Capture(token);
+            var currentGrid = EquipmentSaleVision.Detect(fresh, visionSettings);
+            var center = new DrawingPoint(cell.Bounds.Left + cell.Bounds.Width / 2, cell.Bounds.Top + cell.Bounds.Height / 2);
+            var now = currentGrid?.Cells.FirstOrDefault(c => c.Bounds.Contains(center));
+            if (now is null || Math.Abs(now.Bounds.X - cell.Bounds.X) > 2 || Math.Abs(now.Bounds.Y - cell.Bounds.Y) > 2)
+                return await RefreshScan(token, refreshAttempt, $"点击前网格位置变化，原格子={cell.Bounds}");
             if (now.Selected) continue;
+            if (now.Quality == SaleQuality.Unknown)
+            {
+                log($"跳过未知品质装备：格子={now.Bounds}，继续检查后续装备");
+                continue;
+            }
             if (now.Checkbox is not DrawingPoint target || now.Quality != cell.Quality)
-                return MaaPipelineActionResult.Failure("点击前装备状态发生变化");
+                return await RefreshScan(token, refreshAttempt,
+                    $"点击前装备状态变化：格子={cell.Bounds}，品质={cell.Quality}→{now.Quality}，未选方框={now.Checkbox is not null}");
             await device.TapAsync(target.X / 1004d, target.Y / 565d);
             var checkArea = new Rectangle(target.X - 18, target.Y - 18, 36, 36);
             var timer = System.Diagnostics.Stopwatch.StartNew();
@@ -330,6 +344,15 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
             selected++;
         }
         return MaaPipelineActionResult.Success();
+    }
+
+    async Task<MaaPipelineActionResult> RefreshScan(CancellationToken token, int attempt, string reason)
+    {
+        log($"出售重新扫描：{reason}，刷新 {attempt + 1}/{stateRefreshRetries}");
+        if (attempt >= stateRefreshRetries)
+            return MaaPipelineActionResult.Failure($"装备状态连续不稳定，重新扫描达到上限：{reason}");
+        await Task.Delay(settleDelay, token);
+        return await Scan(token, attempt + 1);
     }
 
     async Task<MaaPipelineActionResult> CancelSelection(SaleCell cell, CancellationToken token)

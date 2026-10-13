@@ -1,0 +1,293 @@
+{
+  "x": {
+    "pitch": 64.95714285714281,
+    "boundaries": [
+      563.1904761904763,
+      628.1476190476191,
+      693.1047619047619,
+      758.0619047619048,
+      823.0190476190476,
+      887.9761904761904
+    ],
+    "inlier_bands": [
+      [
+        560,
+        565
+      ],
+      [
+        628,
+        630
+      ],
+      [
+        692,
+        695
+      ],
+      [
+        757,
+        759
+      ],
+      [
+        821,
+        823
+      ],
+      [
+        886,
+        891
+      ]
+    ],
+    "rejected_bands": [],
+    "max_residual": 1.0190476190475692
+  },
+  "y": {
+    "pitch": 64.95,
+    "boundaries": [
+      145.90000000000003,
+      210.85000000000002,
+      275.80000000000007,
+      340.75000000000006,
+      405.70000000000005
+    ],
+    "inlier_bands": [
+      [
+        145,
+        148
+      ],
+      [
+        208,
+        212
+      ],
+      [
+        274,
+        278
+      ],
+      [
+        338,
+        343
+      ],
+      [
+        404,
+        408
+      ]
+    ],
+    "rejected_bands": [
+      [
+        445,
+        469
+      ]
+    ],
+    "max_residual": 0.8500000000000227
+  },
+  "columns": 5,
+  "confirmed_rows": 4,
+  "search_region": [
+    560,
+    145,
+    892,
+    470
+  ],
+  "panel_value": 121.0,
+  "centers": [
+    {
+      "row": 1,
+      "column": 1,
+      "center": [
+        596,
+        178
+      ]
+    },
+    {
+      "row": 1,
+      "column": 2,
+      "center": [
+        661,
+        178
+      ]
+    },
+    {
+      "row": 1,
+      "column": 3,
+      "center": [
+        726,
+        178
+      ]
+    },
+    {
+      "row": 1,
+      "column": 4,
+      "center": [
+        791,
+        178
+      ]
+    },
+    {
+      "row": 1,
+      "column": 5,
+      "center": [
+        855,
+        178
+      ]
+    },
+    {
+      "row": 2,
+      "column": 1,
+      "center": [
+        596,
+        243
+      ]
+    },
+    {
+      "row": 2,
+      "column": 2,
+      "center": [
+        661,
+        243
+      ]
+    },
+    {
+      "row": 2,
+      "column": 3,
+      "center": [
+        726,
+        243
+      ]
+    },
+    {
+      "row": 2,
+      "column": 4,
+      "center": [
+        791,
+        243
+      ]
+    },
+    {
+      "row": 2,
+      "column": 5,
+      "center": [
+        855,
+        243
+      ]
+    },
+    {
+      "row": 3,
+      "column": 1,
+      "center": [
+        596,
+        308
+      ]
+    },
+    {
+      "row": 3,
+      "column": 2,
+      "center": [
+        661,
+        308
+      ]
+    },
+    {
+      "row": 3,
+      "column": 3,
+      "center": [
+        726,
+        308
+      ]
+    },
+    {
+      "row": 3,
+      "column": 4,
+      "center": [
+        791,
+        308
+      ]
+    },
+    {
+      "row": 3,
+      "column": 5,
+      "center": [
+        855,
+        308
+      ]
+    },
+    {
+      "row": 4,
+      "column": 1,
+      "center": [
+        596,
+        373
+      ]
+    },
+    {
+      "row": 4,
+      "column": 2,
+      "center": [
+        661,
+        373
+      ]
+    },
+    {
+      "row": 4,
+      "column": 3,
+      "center": [
+        726,
+        373
+      ]
+    },
+    {
+      "row": 4,
+      "column": 4,
+      "center": [
+        791,
+        373
+      ]
+    },
+    {
+      "row": 4,
+      "column": 5,
+      "center": [
+        855,
+        373
+      ]
+    }
+  ],
+  "synthetic_corner_removal": {
+    "accepted": false,
+    "reason": "没有至少四条连续、等间距的分隔带，拒绝推算网格"
+  },
+  "synthetic_cases": {
+    "scale=1,brightness=0.7": {
+      "accepted": true,
+      "columns": 5,
+      "confirmed_rows": 4,
+      "normalized_pitch": [
+        64.95714285714281,
+        64.95
+      ]
+    },
+    "scale=1,brightness=1.2": {
+      "accepted": true,
+      "columns": 5,
+      "confirmed_rows": 4,
+      "normalized_pitch": [
+        64.95714285714281,
+        64.95
+      ]
+    },
+    "scale=0.75,brightness=1": {
+      "accepted": true,
+      "columns": 5,
+      "confirmed_rows": 4,
+      "normalized_pitch": [
+        64.89523809523814,
+        65.06666666666665
+      ]
+    },
+    "scale=1.5,brightness=1": {
+      "accepted": true,
+      "columns": 5,
+      "confirmed_rows": 4,
+      "normalized_pitch": [
+        64.93333333333335,
+        64.89999999999999
+      ]
+    }
+  }
+}

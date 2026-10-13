@@ -352,6 +352,8 @@ public sealed partial class MainForm
             try { await touch.EmergencyRelease(); } catch (Exception ex) { Error(ex); }
             // The Application operation includes watchdog and final cleanup.
             try { await operations.StopAsync(closeAdmission: closing); } catch (OperationCanceledException) { }
+            // Release again after draining to cover input already in flight.
+            await touch.EmergencyRelease();
         }
         finally
         {

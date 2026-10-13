@@ -1,0 +1,762 @@
+{
+  "image_size": [
+    1004,
+    565
+  ],
+  "roi": [
+    545,
+    141,
+    903,
+    473
+  ],
+  "pitch": [
+    65.0,
+    65.0
+  ],
+  "counts": {
+    "紫色": 1,
+    "暗金": 4,
+    "金色": 4,
+    "其他/未知": 3,
+    "遮挡/灰暗": 13
+  },
+  "items": [
+    {
+      "row": 1,
+      "column": 1,
+      "rect": [
+        20,
+        12,
+        59,
+        57
+      ],
+      "center": [
+        50,
+        40
+      ],
+      "quality": "其他/未知",
+      "border_hsv": [
+        0.0,
+        171.0,
+        102.0
+      ],
+      "image_center": [
+        595,
+        181
+      ],
+      "candidate_only": false,
+      "click_point": null
+    },
+    {
+      "row": 1,
+      "column": 2,
+      "rect": [
+        86,
+        12,
+        59,
+        57
+      ],
+      "center": [
+        116,
+        40
+      ],
+      "quality": "其他/未知",
+      "border_hsv": [
+        0.0,
+        173.0,
+        102.0
+      ],
+      "image_center": [
+        661,
+        181
+      ],
+      "candidate_only": false,
+      "click_point": null
+    },
+    {
+      "row": 1,
+      "column": 3,
+      "rect": [
+        150,
+        12,
+        59,
+        57
+      ],
+      "center": [
+        180,
+        40
+      ],
+      "quality": "其他/未知",
+      "border_hsv": [
+        0.0,
+        173.0,
+        102.0
+      ],
+      "image_center": [
+        725,
+        181
+      ],
+      "candidate_only": false,
+      "click_point": null
+    },
+    {
+      "row": 1,
+      "column": 4,
+      "rect": [
+        216,
+        12,
+        59,
+        57
+      ],
+      "center": [
+        246,
+        40
+      ],
+      "quality": "紫色",
+      "border_hsv": [
+        145.0,
+        115.0,
+        105.0
+      ],
+      "image_center": [
+        791,
+        181
+      ],
+      "candidate_only": true,
+      "click_point": [
+        810,
+        161
+      ],
+      "checkbox_rect": [
+        800,
+        151,
+        20,
+        20
+      ]
+    },
+    {
+      "row": 1,
+      "column": 5,
+      "rect": [
+        280,
+        12,
+        59,
+        57
+      ],
+      "center": [
+        310,
+        40
+      ],
+      "quality": "遮挡/灰暗",
+      "border_hsv": [
+        9.0,
+        76.0,
+        117.0
+      ],
+      "image_center": [
+        855,
+        181
+      ],
+      "candidate_only": false,
+      "click_point": null
+    },
+    {
+      "row": 2,
+      "column": 1,
+      "rect": [
+        20,
+        78,
+        59,
+        57
+      ],
+      "center": [
+        50,
+        106
+      ],
+      "quality": "遮挡/灰暗",
+      "border_hsv": [
+        10.0,
+        93.0,
+        126.0
+      ],
+      "image_center": [
+        595,
+        247
+      ],
+      "candidate_only": false,
+      "click_point": null
+    },
+    {
+      "row": 2,
+      "column": 2,
+      "rect": [
+        86,
+        78,
+        59,
+        57
+      ],
+      "center": [
+        116,
+        106
+      ],
+      "quality": "遮挡/灰暗",
+      "border_hsv": [
+        9.0,
+        88.0,
+        125.0
+      ],
+      "image_center": [
+        661,
+        247
+      ],
+      "candidate_only": false,
+      "click_point": null
+    },
+    {
+      "row": 2,
+      "column": 3,
+      "rect": [
+        150,
+        78,
+        59,
+        57
+      ],
+      "center": [
+        180,
+        106
+      ],
+      "quality": "暗金",
+      "border_hsv": [
+        11.0,
+        184.0,
+        179.0
+      ],
+      "image_center": [
+        725,
+        247
+      ],
+      "candidate_only": true,
+      "click_point": [
+        745,
+        226
+      ],
+      "checkbox_rect": [
+        735,
+        216,
+        20,
+        21
+      ]
+    },
+    {
+      "row": 2,
+      "column": 4,
+      "rect": [
+        216,
+        78,
+        59,
+        57
+      ],
+      "center": [
+        246,
+        106
+      ],
+      "quality": "遮挡/灰暗",
+      "border_hsv": [
+        8.0,
+        75.0,
+        120.0
+      ],
+      "image_center": [
+        791,
+        247
+      ],
+      "candidate_only": false,
+      "click_point": null
+    },
+    {
+      "row": 2,
+      "column": 5,
+      "rect": [
+        280,
+        78,
+        59,
+        57
+      ],
+      "center": [
+        310,
+        106
+      ],
+      "quality": "暗金",
+      "border_hsv": [
+        11.0,
+        142.0,
+        139.0
+      ],
+      "image_center": [
+        855,
+        247
+      ],
+      "candidate_only": true,
+      "click_point": [
+        874,
+        227
+      ],
+      "checkbox_rect": [
+        864,
+        217,
+        20,
+        20
+      ]
+    },
+    {
+      "row": 3,
+      "column": 1,
+      "rect": [
+        20,
+        142,
+        59,
+        57
+      ],
+      "center": [
+        50,
+        170
+      ],
+      "quality": "遮挡/灰暗",
+      "border_hsv": [
+        10.0,
+        72.0,
+        117.0
+      ],
+      "image_center": [
+        595,
+        311
+      ],
+      "candidate_only": false,
+      "click_point": null
+    },
+    {
+      "row": 3,
+      "column": 2,
+      "rect": [
+        86,
+        142,
+        59,
+        57
+      ],
+      "center": [
+        116,
+        170
+      ],
+      "quality": "遮挡/灰暗",
+      "border_hsv": [
+        9.0,
+        77.0,
+        120.0
+      ],
+      "image_center": [
+        661,
+        311
+      ],
+      "candidate_only": false,
+      "click_point": null
+    },
+    {
+      "row": 3,
+      "column": 3,
+      "rect": [
+        150,
+        142,
+        59,
+        57
+      ],
+      "center": [
+        180,
+        170
+      ],
+      "quality": "暗金",
+      "border_hsv": [
+        11.0,
+        146.0,
+        168.0
+      ],
+      "image_center": [
+        725,
+        311
+      ],
+      "candidate_only": true,
+      "click_point": [
+        745,
+        292
+      ],
+      "checkbox_rect": [
+        735,
+        282,
+        20,
+        20
+      ]
+    },
+    {
+      "row": 3,
+      "column": 4,
+      "rect": [
+        216,
+        142,
+        59,
+        57
+      ],
+      "center": [
+        246,
+        170
+      ],
+      "quality": "遮挡/灰暗",
+      "border_hsv": [
+        8.0,
+        68.0,
+        120.0
+      ],
+      "image_center": [
+        791,
+        311
+      ],
+      "candidate_only": false,
+      "click_point": null
+    },
+    {
+      "row": 3,
+      "column": 5,
+      "rect": [
+        280,
+        142,
+        59,
+        57
+      ],
+      "center": [
+        310,
+        170
+      ],
+      "quality": "暗金",
+      "border_hsv": [
+        10.0,
+        140.0,
+        137.0
+      ],
+      "image_center": [
+        855,
+        311
+      ],
+      "candidate_only": true,
+      "click_point": [
+        874,
+        292
+      ],
+      "checkbox_rect": [
+        864,
+        282,
+        20,
+        20
+      ]
+    },
+    {
+      "row": 4,
+      "column": 1,
+      "rect": [
+        20,
+        208,
+        59,
+        57
+      ],
+      "center": [
+        50,
+        236
+      ],
+      "quality": "遮挡/灰暗",
+      "border_hsv": [
+        9.0,
+        73.0,
+        122.0
+      ],
+      "image_center": [
+        595,
+        377
+      ],
+      "candidate_only": false,
+      "click_point": null
+    },
+    {
+      "row": 4,
+      "column": 2,
+      "rect": [
+        86,
+        208,
+        59,
+        57
+      ],
+      "center": [
+        116,
+        236
+      ],
+      "quality": "金色",
+      "border_hsv": [
+        21.0,
+        148.0,
+        156.0
+      ],
+      "image_center": [
+        661,
+        377
+      ],
+      "candidate_only": true,
+      "click_point": [
+        681,
+        357
+      ],
+      "checkbox_rect": [
+        671,
+        347,
+        20,
+        20
+      ]
+    },
+    {
+      "row": 4,
+      "column": 3,
+      "rect": [
+        150,
+        208,
+        59,
+        57
+      ],
+      "center": [
+        180,
+        236
+      ],
+      "quality": "金色",
+      "border_hsv": [
+        21.0,
+        145.0,
+        146.0
+      ],
+      "image_center": [
+        725,
+        377
+      ],
+      "candidate_only": true,
+      "click_point": [
+        745,
+        357
+      ],
+      "checkbox_rect": [
+        735,
+        347,
+        20,
+        20
+      ]
+    },
+    {
+      "row": 4,
+      "column": 4,
+      "rect": [
+        216,
+        208,
+        59,
+        57
+      ],
+      "center": [
+        246,
+        236
+      ],
+      "quality": "金色",
+      "border_hsv": [
+        21.0,
+        141.0,
+        138.0
+      ],
+      "image_center": [
+        791,
+        377
+      ],
+      "candidate_only": true,
+      "click_point": [
+        810,
+        357
+      ],
+      "checkbox_rect": [
+        800,
+        347,
+        20,
+        20
+      ]
+    },
+    {
+      "row": 4,
+      "column": 5,
+      "rect": [
+        280,
+        208,
+        59,
+        57
+      ],
+      "center": [
+        310,
+        236
+      ],
+      "quality": "金色",
+      "border_hsv": [
+        21.0,
+        133.0,
+        138.0
+      ],
+      "image_center": [
+        855,
+        377
+      ],
+      "candidate_only": true,
+      "click_point": [
+        871,
+        358
+      ],
+      "checkbox_rect": [
+        858,
+        347,
+        26,
+        23
+      ]
+    },
+    {
+      "row": 5,
+      "column": 1,
+      "rect": [
+        20,
+        272,
+        59,
+        57
+      ],
+      "center": [
+        50,
+        300
+      ],
+      "quality": "遮挡/灰暗",
+      "border_hsv": [
+        20.0,
+        145.5,
+        171.5
+      ],
+      "image_center": [
+        595,
+        441
+      ],
+      "candidate_only": false,
+      "click_point": null
+    },
+    {
+      "row": 5,
+      "column": 2,
+      "rect": [
+        86,
+        272,
+        59,
+        57
+      ],
+      "center": [
+        116,
+        300
+      ],
+      "quality": "遮挡/灰暗",
+      "border_hsv": [
+        20.0,
+        124.0,
+        154.0
+      ],
+      "image_center": [
+        661,
+        441
+      ],
+      "candidate_only": false,
+      "click_point": null
+    },
+    {
+      "row": 5,
+      "column": 3,
+      "rect": [
+        150,
+        272,
+        59,
+        57
+      ],
+      "center": [
+        180,
+        300
+      ],
+      "quality": "遮挡/灰暗",
+      "border_hsv": [
+        20.0,
+        134.0,
+        150.0
+      ],
+      "image_center": [
+        725,
+        441
+      ],
+      "candidate_only": false,
+      "click_point": null
+    },
+    {
+      "row": 5,
+      "column": 4,
+      "rect": [
+        216,
+        272,
+        59,
+        57
+      ],
+      "center": [
+        246,
+        300
+      ],
+      "quality": "遮挡/灰暗",
+      "border_hsv": [
+        99.0,
+        85.0,
+        116.0
+      ],
+      "image_center": [
+        791,
+        441
+      ],
+      "candidate_only": false,
+      "click_point": null
+    },
+    {
+      "row": 5,
+      "column": 5,
+      "rect": [
+        280,
+        272,
+        59,
+        57
+      ],
+      "center": [
+        310,
+        300
+      ],
+      "quality": "遮挡/灰暗",
+      "border_hsv": [
+        150.0,
+        84.0,
+        103.5
+      ],
+      "image_center": [
+        855,
+        441
+      ],
+      "candidate_only": false,
+      "click_point": null
+    }
+  ],
+  "limitations": [
+    "ROI manually specified for supplied screenshot",
+    "HSV thresholds provisional, not production calibration",
+    "Dim cells skipped conservatively; reason not inferred",
+    "No lock/socket/selection confirmation; no device actions"
+  ]
+}

@@ -1,0 +1,305 @@
+{
+  "x": {
+    "pitch": 64.7285714285714,
+    "boundaries": [
+      563.7619047619047,
+      628.4904761904761,
+      693.2190476190475,
+      757.9476190476189,
+      822.6761904761903,
+      887.4047619047617
+    ],
+    "inlier_bands": [
+      [
+        560,
+        567
+      ],
+      [
+        627,
+        631
+      ],
+      [
+        691,
+        695
+      ],
+      [
+        756,
+        760
+      ],
+      [
+        820,
+        825
+      ],
+      [
+        884,
+        891
+      ]
+    ],
+    "rejected_bands": [
+      [
+        743,
+        748
+      ]
+    ],
+    "max_residual": 0.5095238095238983
+  },
+  "y": {
+    "pitch": 65.29999999999998,
+    "boundaries": [
+      148.3000000000001,
+      213.60000000000008,
+      278.9000000000001,
+      344.20000000000005,
+      409.5
+    ],
+    "inlier_bands": [
+      [
+        145,
+        152
+      ],
+      [
+        210,
+        217
+      ],
+      [
+        275,
+        282
+      ],
+      [
+        341,
+        348
+      ],
+      [
+        406,
+        413
+      ]
+    ],
+    "rejected_bands": [
+      [
+        420,
+        433
+      ],
+      [
+        436,
+        438
+      ],
+      [
+        443,
+        469
+      ]
+    ],
+    "max_residual": 0.40000000000009095
+  },
+  "columns": 5,
+  "confirmed_rows": 4,
+  "search_region": [
+    560,
+    145,
+    892,
+    470
+  ],
+  "centers": [
+    {
+      "row": 1,
+      "column": 1,
+      "center": [
+        596,
+        181
+      ]
+    },
+    {
+      "row": 1,
+      "column": 2,
+      "center": [
+        661,
+        181
+      ]
+    },
+    {
+      "row": 1,
+      "column": 3,
+      "center": [
+        726,
+        181
+      ]
+    },
+    {
+      "row": 1,
+      "column": 4,
+      "center": [
+        790,
+        181
+      ]
+    },
+    {
+      "row": 1,
+      "column": 5,
+      "center": [
+        855,
+        181
+      ]
+    },
+    {
+      "row": 2,
+      "column": 1,
+      "center": [
+        596,
+        246
+      ]
+    },
+    {
+      "row": 2,
+      "column": 2,
+      "center": [
+        661,
+        246
+      ]
+    },
+    {
+      "row": 2,
+      "column": 3,
+      "center": [
+        726,
+        246
+      ]
+    },
+    {
+      "row": 2,
+      "column": 4,
+      "center": [
+        790,
+        246
+      ]
+    },
+    {
+      "row": 2,
+      "column": 5,
+      "center": [
+        855,
+        246
+      ]
+    },
+    {
+      "row": 3,
+      "column": 1,
+      "center": [
+        596,
+        312
+      ]
+    },
+    {
+      "row": 3,
+      "column": 2,
+      "center": [
+        661,
+        312
+      ]
+    },
+    {
+      "row": 3,
+      "column": 3,
+      "center": [
+        726,
+        312
+      ]
+    },
+    {
+      "row": 3,
+      "column": 4,
+      "center": [
+        790,
+        312
+      ]
+    },
+    {
+      "row": 3,
+      "column": 5,
+      "center": [
+        855,
+        312
+      ]
+    },
+    {
+      "row": 4,
+      "column": 1,
+      "center": [
+        596,
+        377
+      ]
+    },
+    {
+      "row": 4,
+      "column": 2,
+      "center": [
+        661,
+        377
+      ]
+    },
+    {
+      "row": 4,
+      "column": 3,
+      "center": [
+        726,
+        377
+      ]
+    },
+    {
+      "row": 4,
+      "column": 4,
+      "center": [
+        790,
+        377
+      ]
+    },
+    {
+      "row": 4,
+      "column": 5,
+      "center": [
+        855,
+        377
+      ]
+    }
+  ],
+  "synthetic_corner_removal": {
+    "x_shift": 0.19047619047637454,
+    "y_shift": 0.9000000000000057
+  },
+  "synthetic_cases": {
+    "scale=1,brightness=0.7": {
+      "accepted": true,
+      "columns": 5,
+      "confirmed_rows": 4,
+      "normalized_pitch": [
+        64.7285714285714,
+        65.29999999999998
+      ]
+    },
+    "scale=1,brightness=1.2": {
+      "accepted": true,
+      "columns": 5,
+      "confirmed_rows": 4,
+      "normalized_pitch": [
+        64.7285714285714,
+        65.29999999999998
+      ]
+    },
+    "scale=0.75,brightness=1": {
+      "accepted": true,
+      "columns": 5,
+      "confirmed_rows": 4,
+      "normalized_pitch": [
+        64.72380952380952,
+        65.3333333333333
+      ]
+    },
+    "scale=1.5,brightness=1": {
+      "accepted": true,
+      "columns": 5,
+      "confirmed_rows": 4,
+      "normalized_pitch": [
+        64.69523809523808,
+        65.29999999999997
+      ]
+    }
+  }
+}

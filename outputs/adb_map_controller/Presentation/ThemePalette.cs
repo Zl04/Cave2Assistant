@@ -380,6 +380,11 @@ public static class ThemeManager
 
 public sealed class ThemedTabControl : TabControl
 {
+    const uint RdwInvalidate = 0x0001;
+    const uint RdwErase = 0x0004;
+    const uint RdwAllChildren = 0x0080;
+    const uint RdwUpdateNow = 0x0100;
+    const uint RdwFrame = 0x0400;
     const int WmPaint = 0x000F;
     const int WmNcPaint = 0x0085;
     const int GwlStyle = -16;
@@ -392,6 +397,7 @@ public sealed class ThemedTabControl : TabControl
     const uint SwpNoActivate = 0x0010;
     const uint SwpFrameChanged = 0x0020;
     ThemePalette palette = ThemePalette.Light;
+    bool pageRepaintPending;
 
     public ThemedTabControl()
     {
@@ -432,6 +438,26 @@ public sealed class ThemedTabControl : TabControl
     {
         DrawTab(e.Graphics, e.Index, e.Bounds);
     }
+
+    protected override void OnSelectedIndexChanged(EventArgs e)
+    {
+        base.OnSelectedIndexChanged(e);
+        if (IsDisposed || Disposing || !IsHandleCreated || pageRepaintPending) return;
+        pageRepaintPending = true;
+        // Native tab selection still changes page visibility after raising
+        // this event. Repaint after that message completes, including the
+        // RichEdit client/background and every child window on the new page.
+        BeginInvoke(() =>
+        {
+            pageRepaintPending = false;
+            if (IsDisposed || Disposing || SelectedTab is not { IsHandleCreated: true } page) return;
+            _ = RedrawWindow(page.Handle, IntPtr.Zero, IntPtr.Zero,
+                RdwInvalidate | RdwErase | RdwAllChildren | RdwUpdateNow | RdwFrame);
+        });
+    }
+
+    [DllImport("user32.dll")]
+    static extern bool RedrawWindow(IntPtr handle, IntPtr updateRectangle, IntPtr updateRegion, uint flags);
 
     protected override void WndProc(ref Message message)
     {

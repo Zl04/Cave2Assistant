@@ -27,6 +27,7 @@ internal sealed record PopupUiPipelineResult(
     public string AttemptSummary
         => string.Join("|", Attempts.Select(attempt =>
             $"{attempt.NodeName}:{(attempt.Matched ? "命中" : "未命中")}" +
+            $",耗时={attempt.Duration.TotalMilliseconds:0}ms,尝试={attempt.Attempt}" +
             (attempt.TimedOut ? ",超时" : "") +
             (string.IsNullOrWhiteSpace(attempt.Error) ? "" : $",错误={attempt.Error}")));
 

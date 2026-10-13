@@ -34,6 +34,7 @@ public sealed partial class MainForm
 
     async Task AutoEnter()
     {
+        if (closing || stopping) return;
         if (string.IsNullOrWhiteSpace(devices.Text)) throw new InvalidOperationException("请先连接设备");
         if (activeMovement is { IsCompleted: false })
             throw new InvalidOperationException("请先暂停或停止地图导航，再自动进图");

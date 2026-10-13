@@ -59,8 +59,10 @@ public sealed partial class MainForm
         // 过去每 500 毫秒就会启动一次新的刷新，每次都可能留下一个
         // adb screencap 进程，直到 Windows 耗尽提交内存。
         // 刷新只是获取快照，因此应跳过重叠请求，而不是排队形成不断增长的积压。
+        var lockWait = Stopwatch.StartNew();
         if (waitForLock) await refreshLock.WaitAsync();
         else if (!await refreshLock.WaitAsync(0)) return false;
+        if (onMapReady is not null) Log($"导航启动计时：刷新锁等待 {lockWait.ElapsedMilliseconds} ms");
         if (lockDeviceSelection) devices.Enabled = false;
         try { return await RefreshMapCore(writeLog, onMapReady); }
         finally { refreshLock.Release(); UpdateDeviceAvailability(); }
@@ -72,8 +74,15 @@ public sealed partial class MainForm
         adb.Serial = devices.Text;
         if (onMapReady is not null)
         {
+            async Task<bool> Measure(string stage, Func<Task<bool>> action)
+            {
+                var timer = Stopwatch.StartNew();
+                try { return await action(); }
+                finally { Log($"导航启动计时：{stage} {timer.ElapsedMilliseconds} ms"); }
+            }
             var ready = await NavigationStartupUseCase.PrepareAsync(
-                () => RefreshMapSnapshot(writeLog), () => RefreshOverlayState(writeLog, failSafe: true),
+                () => Measure("首次地图读取", () => RefreshMapSnapshot(writeLog)),
+                () => Measure("覆盖层检查（与地图规划并行）", () => RefreshOverlayState(writeLog, failSafe: true)),
                 onMapReady, operations.CurrentToken);
             if (!ready || runeSelectionVisible) return ready;
 
@@ -81,7 +90,7 @@ public sealed partial class MainForm
             // 地图/玩家导出数据，不再执行另一轮 OCR。如果期间玩家或目标发生变化，
             // 则重新计算。
             var planned = MapSnapshot.Capture(dungeon.Map!);
-            if (!await RefreshMapSnapshot(false)) return false;
+            if (!await Measure("OCR后地图复读", () => RefreshMapSnapshot(false))) return false;
             var latest = dungeon.Route.Snapshot!;
             if (planned.Level != latest.Level || planned.Player != latest.Player ||
                 planned.StructureHash != latest.StructureHash ||
@@ -114,13 +123,28 @@ public sealed partial class MainForm
             adb.Serial = devices.Text;
             // 在同一帧检查两个覆盖层，避免重复截图。
             var frameId = adb.NextPopupFrameId();
-            using var screen = await adb.CaptureMovementPopupFrameAsync(frameId, operations.CurrentToken);
+            var captureTimer = Stopwatch.StartNew();
+            var previousCaptureLog = adb.CaptureTimingLog;
+            if (writeLog) adb.CaptureTimingLog = message => Log($"导航启动计时：帧={frameId}，{message}");
+            Bitmap capturedScreen;
+            try { capturedScreen = await adb.CaptureMovementPopupFrameAsync(frameId, operations.CurrentToken); }
+            finally { adb.CaptureTimingLog = previousCaptureLog; }
+            using var screen = capturedScreen;
+            if (writeLog) Log($"导航启动计时：弹窗截图 {captureTimer.ElapsedMilliseconds} ms，帧={frameId}，尺寸={screen.Width}x{screen.Height}");
             var runPopupPipeline = writeLog || runeSelectionVisible;
             var popup = MovementPopupKind.None;
             PopupUiPipelineResult? popupPipeline = null;
             if (runPopupPipeline)
             {
-                popupPipeline = await adb.RunPopupUiPipelineAsync(screen, frameId);
+                var pipelineTimer = Stopwatch.StartNew();
+                var previousTimingLog = adb.OcrTimingLog;
+                if (writeLog) adb.OcrTimingLog = message => Log($"导航启动计时：帧={frameId}，{message}");
+                try { popupPipeline = await adb.RunPopupUiPipelineAsync(screen, frameId); }
+                finally
+                {
+                    adb.OcrTimingLog = previousTimingLog;
+                    if (writeLog) Log($"导航启动计时：弹窗识别管线 {pipelineTimer.ElapsedMilliseconds} ms，帧={frameId}");
+                }
                 popup = popupPipeline.Value;
             }
             else if (await adb.HasServerErrorDialog(screen))

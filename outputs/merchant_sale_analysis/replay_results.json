@@ -1,0 +1,800 @@
+{
+  "method": "RGB TM_SQDIFF_NORMED; illustrative cutoff 0.08",
+  "template_checks": {
+    "1": {
+      "bag": {
+        "difference": 5e-05,
+        "matched": true,
+        "center": [
+          953,
+          514
+        ]
+      },
+      "equipment_tab_idle": {
+        "difference": 0.41243,
+        "matched": false,
+        "center": [
+          661,
+          520
+        ]
+      },
+      "equipment_tab_active": {
+        "difference": 0.23251,
+        "matched": false,
+        "center": [
+          662,
+          529
+        ]
+      },
+      "sale_idle": {
+        "difference": 1.0,
+        "matched": false,
+        "center": [
+          769,
+          65
+        ]
+      },
+      "sale_active": {
+        "difference": 1.0,
+        "matched": false,
+        "center": [
+          770,
+          65
+        ]
+      },
+      "blue_white_sale": {
+        "difference": 0.62463,
+        "matched": false,
+        "center": [
+          834,
+          73
+        ]
+      },
+      "back": {
+        "difference": 0.87255,
+        "matched": false,
+        "center": [
+          833,
+          31
+        ]
+      },
+      "role_title": {
+        "difference": 0.81533,
+        "matched": false,
+        "center": [
+          130,
+          49
+        ]
+      },
+      "sale_submit": {
+        "difference": 1.0,
+        "matched": false,
+        "center": [
+          767,
+          61
+        ]
+      },
+      "green_confirm": {
+        "difference": 0.29991,
+        "matched": false,
+        "center": [
+          431,
+          338
+        ]
+      },
+      "empty_cell": {
+        "difference": 0.0109,
+        "matched": true,
+        "center": [
+          659,
+          297
+        ]
+      }
+    },
+    "3": {
+      "bag": {
+        "difference": 0.53485,
+        "matched": false,
+        "center": [
+          900,
+          505
+        ]
+      },
+      "equipment_tab_idle": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          634,
+          528
+        ]
+      },
+      "equipment_tab_active": {
+        "difference": 0.43305,
+        "matched": false,
+        "center": [
+          636,
+          511
+        ]
+      },
+      "sale_idle": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          793,
+          84
+        ]
+      },
+      "sale_active": {
+        "difference": 0.40311,
+        "matched": false,
+        "center": [
+          786,
+          96
+        ]
+      },
+      "blue_white_sale": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          844,
+          85
+        ]
+      },
+      "back": {
+        "difference": 0.00056,
+        "matched": true,
+        "center": [
+          868,
+          23
+        ]
+      },
+      "role_title": {
+        "difference": 0.03177,
+        "matched": true,
+        "center": [
+          158,
+          25
+        ]
+      },
+      "sale_submit": {
+        "difference": 0.30564,
+        "matched": false,
+        "center": [
+          784,
+          100
+        ]
+      },
+      "green_confirm": {
+        "difference": 0.29148,
+        "matched": false,
+        "center": [
+          589,
+          334
+        ]
+      },
+      "empty_cell": {
+        "difference": 0.21617,
+        "matched": false,
+        "center": [
+          779,
+          193
+        ]
+      }
+    },
+    "6": {
+      "bag": {
+        "difference": 0.53485,
+        "matched": false,
+        "center": [
+          900,
+          505
+        ]
+      },
+      "equipment_tab_idle": {
+        "difference": 0.18121,
+        "matched": false,
+        "center": [
+          664,
+          530
+        ]
+      },
+      "equipment_tab_active": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          636,
+          528
+        ]
+      },
+      "sale_idle": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          793,
+          84
+        ]
+      },
+      "sale_active": {
+        "difference": 0.40311,
+        "matched": false,
+        "center": [
+          786,
+          96
+        ]
+      },
+      "blue_white_sale": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          844,
+          85
+        ]
+      },
+      "back": {
+        "difference": 0.2353,
+        "matched": false,
+        "center": [
+          869,
+          23
+        ]
+      },
+      "role_title": {
+        "difference": 0.07468,
+        "matched": true,
+        "center": [
+          158,
+          25
+        ]
+      },
+      "sale_submit": {
+        "difference": 0.30564,
+        "matched": false,
+        "center": [
+          784,
+          100
+        ]
+      },
+      "green_confirm": {
+        "difference": 0.29148,
+        "matched": false,
+        "center": [
+          589,
+          334
+        ]
+      },
+      "empty_cell": {
+        "difference": 0.21617,
+        "matched": false,
+        "center": [
+          779,
+          193
+        ]
+      }
+    },
+    "9": {
+      "bag": {
+        "difference": 1.0,
+        "matched": false,
+        "center": [
+          895,
+          468
+        ]
+      },
+      "equipment_tab_idle": {
+        "difference": 0.45547,
+        "matched": false,
+        "center": [
+          638,
+          531
+        ]
+      },
+      "equipment_tab_active": {
+        "difference": 1.0,
+        "matched": false,
+        "center": [
+          610,
+          511
+        ]
+      },
+      "sale_idle": {
+        "difference": 1.0,
+        "matched": false,
+        "center": [
+          769,
+          65
+        ]
+      },
+      "sale_active": {
+        "difference": 1.0,
+        "matched": false,
+        "center": [
+          770,
+          65
+        ]
+      },
+      "blue_white_sale": {
+        "difference": 1.0,
+        "matched": false,
+        "center": [
+          828,
+          65
+        ]
+      },
+      "back": {
+        "difference": 1.0,
+        "matched": false,
+        "center": [
+          833,
+          12
+        ]
+      },
+      "role_title": {
+        "difference": 1.0,
+        "matched": false,
+        "center": [
+          62,
+          17
+        ]
+      },
+      "sale_submit": {
+        "difference": 1.0,
+        "matched": false,
+        "center": [
+          767,
+          61
+        ]
+      },
+      "green_confirm": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          593,
+          360
+        ]
+      },
+      "empty_cell": {
+        "difference": 0.48176,
+        "matched": false,
+        "center": [
+          570,
+          429
+        ]
+      }
+    },
+    "10": {
+      "bag": {
+        "difference": 0.53485,
+        "matched": false,
+        "center": [
+          900,
+          505
+        ]
+      },
+      "equipment_tab_idle": {
+        "difference": 0.18121,
+        "matched": false,
+        "center": [
+          664,
+          530
+        ]
+      },
+      "equipment_tab_active": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          636,
+          528
+        ]
+      },
+      "sale_idle": {
+        "difference": 0.30414,
+        "matched": false,
+        "center": [
+          769,
+          95
+        ]
+      },
+      "sale_active": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          792,
+          85
+        ]
+      },
+      "blue_white_sale": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          844,
+          85
+        ]
+      },
+      "back": {
+        "difference": 0.00185,
+        "matched": true,
+        "center": [
+          868,
+          23
+        ]
+      },
+      "role_title": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          158,
+          25
+        ]
+      },
+      "sale_submit": {
+        "difference": 0.10099,
+        "matched": false,
+        "center": [
+          788,
+          77
+        ]
+      },
+      "green_confirm": {
+        "difference": 0.18386,
+        "matched": false,
+        "center": [
+          590,
+          332
+        ]
+      },
+      "empty_cell": {
+        "difference": 0.0818,
+        "matched": false,
+        "center": [
+          789,
+          187
+        ]
+      }
+    },
+    "12": {
+      "bag": {
+        "difference": 0.53485,
+        "matched": false,
+        "center": [
+          900,
+          505
+        ]
+      },
+      "equipment_tab_idle": {
+        "difference": 0.18121,
+        "matched": false,
+        "center": [
+          664,
+          530
+        ]
+      },
+      "equipment_tab_active": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          636,
+          528
+        ]
+      },
+      "sale_idle": {
+        "difference": 0.28065,
+        "matched": false,
+        "center": [
+          769,
+          90
+        ]
+      },
+      "sale_active": {
+        "difference": 0.13528,
+        "matched": false,
+        "center": [
+          794,
+          82
+        ]
+      },
+      "blue_white_sale": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          844,
+          85
+        ]
+      },
+      "back": {
+        "difference": 8e-05,
+        "matched": true,
+        "center": [
+          868,
+          23
+        ]
+      },
+      "role_title": {
+        "difference": 0.0398,
+        "matched": true,
+        "center": [
+          158,
+          25
+        ]
+      },
+      "sale_submit": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          790,
+          85
+        ]
+      },
+      "green_confirm": {
+        "difference": 0.20048,
+        "matched": false,
+        "center": [
+          589,
+          332
+        ]
+      },
+      "empty_cell": {
+        "difference": 0.0818,
+        "matched": false,
+        "center": [
+          789,
+          187
+        ]
+      }
+    },
+    "13": {
+      "bag": {
+        "difference": 0.53485,
+        "matched": false,
+        "center": [
+          900,
+          505
+        ]
+      },
+      "equipment_tab_idle": {
+        "difference": 0.18121,
+        "matched": false,
+        "center": [
+          664,
+          530
+        ]
+      },
+      "equipment_tab_active": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          636,
+          528
+        ]
+      },
+      "sale_idle": {
+        "difference": 0.35055,
+        "matched": false,
+        "center": [
+          771,
+          80
+        ]
+      },
+      "sale_active": {
+        "difference": 0.47845,
+        "matched": false,
+        "center": [
+          797,
+          96
+        ]
+      },
+      "blue_white_sale": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          844,
+          85
+        ]
+      },
+      "back": {
+        "difference": 0.00252,
+        "matched": true,
+        "center": [
+          868,
+          23
+        ]
+      },
+      "role_title": {
+        "difference": 0.08205,
+        "matched": false,
+        "center": [
+          158,
+          25
+        ]
+      },
+      "sale_submit": {
+        "difference": 0.36073,
+        "matched": false,
+        "center": [
+          799,
+          100
+        ]
+      },
+      "green_confirm": {
+        "difference": 0.29183,
+        "matched": false,
+        "center": [
+          589,
+          334
+        ]
+      },
+      "empty_cell": {
+        "difference": 0.20654,
+        "matched": false,
+        "center": [
+          660,
+          444
+        ]
+      }
+    },
+    "15": {
+      "bag": {
+        "difference": 0.53485,
+        "matched": false,
+        "center": [
+          900,
+          505
+        ]
+      },
+      "equipment_tab_idle": {
+        "difference": 0.18121,
+        "matched": false,
+        "center": [
+          664,
+          530
+        ]
+      },
+      "equipment_tab_active": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          636,
+          528
+        ]
+      },
+      "sale_idle": {
+        "difference": 0.30414,
+        "matched": false,
+        "center": [
+          769,
+          95
+        ]
+      },
+      "sale_active": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          792,
+          85
+        ]
+      },
+      "blue_white_sale": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          844,
+          85
+        ]
+      },
+      "back": {
+        "difference": 0.00225,
+        "matched": true,
+        "center": [
+          868,
+          23
+        ]
+      },
+      "role_title": {
+        "difference": 0.00674,
+        "matched": true,
+        "center": [
+          158,
+          25
+        ]
+      },
+      "sale_submit": {
+        "difference": 0.10099,
+        "matched": false,
+        "center": [
+          788,
+          77
+        ]
+      },
+      "green_confirm": {
+        "difference": 0.27895,
+        "matched": false,
+        "center": [
+          589,
+          340
+        ]
+      },
+      "empty_cell": {
+        "difference": 0.0,
+        "matched": true,
+        "center": [
+          725,
+          374
+        ]
+      }
+    }
+  },
+  "grid_checks": {
+    "3": {
+      "accepted": true,
+      "pitch": [
+        64.95714285714281,
+        65.44999999999996
+      ],
+      "columns": 5,
+      "rows": 4
+    },
+    "6": {
+      "accepted": true,
+      "pitch": [
+        64.95714285714281,
+        65.44999999999996
+      ],
+      "columns": 5,
+      "rows": 4
+    },
+    "10": {
+      "accepted": true,
+      "pitch": [
+        64.85714285714286,
+        65.44999999999996
+      ],
+      "columns": 5,
+      "rows": 4
+    },
+    "12": {
+      "accepted": false,
+      "reason": "没有至少四条连续、等间距的分隔带，拒绝推算网格"
+    },
+    "13": {
+      "accepted": true,
+      "pitch": [
+        64.95714285714281,
+        65.44999999999996
+      ],
+      "columns": 5,
+      "rows": 4
+    },
+    "15": {
+      "accepted": true,
+      "pitch": [
+        64.95714285714281,
+        64.95
+      ],
+      "columns": 5,
+      "rows": 4
+    }
+  },
+  "empty_cells": [
+    {
+      "row": 4,
+      "column": 3,
+      "max_channel_std": 0.854
+    },
+    {
+      "row": 4,
+      "column": 4,
+      "max_channel_std": 0.0
+    },
+    {
+      "row": 4,
+      "column": 5,
+      "max_channel_std": 0.0
+    }
+  ],
+  "limitations": [
+    "same-resolution supplied samples only",
+    "template reference reused within sample set",
+    "OCR not executed",
+    "no scrolling or dynamic return-button test",
+    "empty classifier provisional"
+  ]
+}

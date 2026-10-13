@@ -344,6 +344,11 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         {
             await uiOperations.RunAsync(action);
         }
+        catch (OperationCanceledException ex) when (ex.CancellationToken.IsCancellationRequested)
+        {
+            Log("操作已取消");
+            if (!stopping) State("已取消");
+        }
         catch (Exception ex) { Error(ex); }
         finally
         {

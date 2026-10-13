@@ -7,24 +7,36 @@
       "result": "ServerError",
       "recognizer": "ServerErrorDialog",
       "priority": 10,
+      "maxAttempts": 1
+    },
+    {
+      "name": "AltarDialog",
+      "result": "AltarDialog",
+      "recognizer": "AltarDialog",
+      "priority": 15,
+      "maxAttempts": 1
+    },
+    {
+      "name": "EnchantingDialog",
+      "result": "EnchantingDialog",
+      "recognizer": "EnchantingDialog",
+      "priority": 16,
       "maxAttempts": 1,
-      "timeoutMs": 3500
+      "timeoutMs": 1000
     },
     {
       "name": "RiftGemSelection",
       "result": "RiftGemSelection",
       "recognizer": "RiftGemSelection",
       "priority": 20,
-      "maxAttempts": 1,
-      "timeoutMs": 3500
+      "maxAttempts": 1
     },
     {
       "name": "NextFloorDialog",
       "result": "NextFloorDialog",
       "recognizer": "NextFloorDialog",
       "priority": 30,
-      "maxAttempts": 1,
-      "timeoutMs": 3500
+      "maxAttempts": 1
     }
   ]
 }

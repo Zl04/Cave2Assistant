@@ -314,5 +314,23 @@ internal sealed class MinitouchBackend : LineTouchBackend
         try { client?.Close(); } catch { }
         client = null;
         base.Dispose();
+        if (socketName is null) return;
+        try
+        {
+            using var list = StartAdbProcess("forward", "--list");
+            var forwards = list.StandardOutput.ReadToEnd();
+            if (!list.WaitForExit(5000) || list.ExitCode != 0) return;
+            foreach (var line in forwards.Split('\n'))
+            {
+                var parts = Regex.Split(line.Trim(), @"\s+");
+                if (parts.Length != 3 || parts[0] != Serial ||
+                    parts[2] != $"localabstract:{socketName}" ||
+                    !Regex.IsMatch(parts[1], @"^tcp:\d+$")) continue;
+                using var remove = StartAdbProcess("forward", "--remove", parts[1]);
+                remove.WaitForExit(5000);
+            }
+        }
+        catch { }
+        finally { forwardedPort = 0; socketName = null; }
     }
 }

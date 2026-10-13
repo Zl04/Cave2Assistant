@@ -34,7 +34,7 @@ public sealed partial class MainForm
         var hint = new Label { Dock = DockStyle.Top, Height = 72, Padding = new(12, 6, 12, 6),
             Text = "选择类型并添加任务；双击或点击“编辑任务”修改设置；拖拽调整顺序。\nShift/Ctrl 多选后，点击任一选中项的勾选框统一启用/禁用；仅执行启用项。\n按列表顺序执行所选类型；失败或停层时停止列表。普通自动次数会无限运行，阻塞后续任务。", Tag = ThemeRole.MutedText };
         page.Controls.Add(taskList); page.Controls.Add(hint); page.Controls.Add(bar);
-        bool Editable() => !taskQueueRunning && activeEntry is not { IsCompleted: false } && activeMovement is not { IsCompleted: false };
+        bool Editable() => !closing && !stopping && !taskQueueRunning && activeEntry is not { IsCompleted: false } && activeMovement is not { IsCompleted: false };
         int Selected() => taskList.SelectedIndices.Count == 0 ? -1 : taskList.SelectedIndices[0];
         void SetEnabled(int index, bool enabled)
         {
@@ -129,6 +129,11 @@ public sealed partial class MainForm
                     }
                     State("已启用的任务全部完成");
                 });
+            }
+            catch (OperationCanceledException ex) when (ex.CancellationToken.IsCancellationRequested)
+            {
+                Log("任务列表已停止，不再执行后续任务");
+                if (!stopping) State("列表已停止");
             }
             finally { ApplySettings(original); UpdateBonusPriorityCaption(); taskQueueRunning = false; bar.Enabled = true; if (settingsPage is not null) settingsPage.Enabled = true; SaveSettings(); }
         });

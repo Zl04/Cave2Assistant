@@ -513,7 +513,7 @@ public sealed partial class MainForm
                     var arrived = new Cell(dungeon.Map.Player.X, dungeon.Map.Player.Y);
                     skipRefreshForConfirmedTaskStop = plannedInteractions.Any(task => task.Stop == arrived &&
                         (HasTarget(task.Target) || PortalRouting.IsPortalKind(task.Target.Kind)));
-                    if (skipRefreshForConfirmedTaskStop || floorPhase == FloorPhase.SelectBonus) continue;
+                    if (skipRefreshForConfirmedTaskStop) continue;
                 }
                 await Task.Delay(10, owner);
             }

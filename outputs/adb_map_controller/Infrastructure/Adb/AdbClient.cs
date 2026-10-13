@@ -20,6 +20,16 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
     readonly AdbScreenAnalyzer screenAnalyzer;
     readonly ScreenFrameCache popupFrameCache;
     long popupFrameSequence;
+    internal Action<string>? CaptureTimingLog
+    {
+        get => screenCapture.TimingLog;
+        set => screenCapture.TimingLog = value;
+    }
+    internal Action<string>? OcrTimingLog
+    {
+        get => screenAnalyzer.OcrTimingLog;
+        set => screenAnalyzer.OcrTimingLog = value;
+    }
     int disposed;
 
     public string TouchDescription => touchSession.Description;

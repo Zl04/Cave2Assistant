@@ -302,14 +302,25 @@ public sealed partial class MainForm
     async Task Stop() { Pause(); try { await touch.EmergencyRelease(); } catch { } State("已急停"); Log("急停：停止发送方向操作"); }
     async Task EmergencyStopAndClear()
     {
-        await StopMovement();
-        dungeon.StopAutomation();
+        State("正在停止");
+        operations.Cancel(ControllerOperationKind.Movement);
+        operations.Cancel(ControllerOperationKind.Entry);
+        ClearStoppedAutomation(clearSession: false);
+        try { await StopMovement(); }
+        finally { ClearStoppedAutomation(); }
+        mapPanel.Route = route; mapPanel.Invalidate(); State("已停止"); Log("急停：任务已退出，已释放触控并清除换层流程");
+    }
+
+    void ClearStoppedAutomation(bool clearSession = true)
+    {
+        // The active executor may still reference the route while unwinding.
+        // Clear its session only after its finally blocks have completed.
+        if (clearSession) dungeon.StopAutomation();
         portalInteractionAt = 0;
         coroutines.StopAll(); portalChoiceCoroutine = null;
         pendingNextFloorDialog = NextFloorDialogKind.None;
         pendingGreedySelectionReturnOnly = false;
         pendingGreedySelectionReturnCards = Array.Empty<int>();
-        mapPanel.Route = route; mapPanel.Invalidate(); State("急停"); Log("急停：已停止移动并清除换层流程");
     }
     void State(string text) { if (IsDisposed || Disposing) return; if (InvokeRequired) { BeginInvoke(() => State(text)); return; } state.Text = text; mapPanel.StatusText = text; mapPanel.Invalidate(); }
     void Error(Exception ex) { CrashLog.Write("Controller operation", ex); Log("错误：" + ex.Message, LogLevel.Error); State("错误"); }

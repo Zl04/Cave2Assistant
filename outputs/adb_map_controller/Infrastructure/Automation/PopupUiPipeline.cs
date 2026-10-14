@@ -18,7 +18,8 @@ internal sealed record PopupUiPipelineResult(
     string? NextFloorDialogBodyText,
     bool GreedySelectionReturnOnly,
     IReadOnlyList<int> GreedySelectionReturnCards,
-    string? RiftGemTitleText)
+    string? RiftGemTitleText,
+    string? NextFloorDialogTitleText)
 {
     public MovementPopupKind Value => Pipeline.Value;
     public string? NodeName => Pipeline.NodeName;
@@ -52,6 +53,7 @@ public static class PopupUiPipeline
         AdbClient adb,
         string? configPath = null,
         Action<NextFloorDialogKind, string?>? nextFloorDialogDetected = null,
+        Action<string?>? nextFloorDialogTitleObserved = null,
         Action<string?>? riftGemTitleObserved = null,
         bool prioritizeNextFloor = false)
     {
@@ -74,7 +76,7 @@ public static class PopupUiPipeline
             nodes.Add(new UiPipelineNode<Bitmap, MovementPopupKind>(
                 node.Name,
                 result,
-                CreateRecognizer(adb, node, path, nextFloorDialogDetected, riftGemTitleObserved),
+                CreateRecognizer(adb, node, path, nextFloorDialogDetected, nextFloorDialogTitleObserved, riftGemTitleObserved),
                 node.MaxAttempts,
                 System.Threading.Timeout.InfiniteTimeSpan));
         }
@@ -87,6 +89,7 @@ public static class PopupUiPipeline
         UiPipelineNodeDefinition node,
         string path,
         Action<NextFloorDialogKind, string?>? nextFloorDialogDetected,
+        Action<string?>? nextFloorDialogTitleObserved,
         Action<string?>? riftGemTitleObserved)
         => node.Recognizer switch
         {
@@ -103,7 +106,7 @@ public static class PopupUiPipeline
                 // 捕获贪婪抉择卡片的“返回城镇/继续探险”语义，仍避免整屏文字干扰。
                 string? bodyText = null;
                 var kind = await adb.DetectNextFloorDialog(context.Frame, token,
-                    text => bodyText = text);
+                    text => bodyText = text, nextFloorDialogTitleObserved);
                 nextFloorDialogDetected?.Invoke(kind, bodyText);
                 token.ThrowIfCancellationRequested();
                 return kind != NextFloorDialogKind.None;

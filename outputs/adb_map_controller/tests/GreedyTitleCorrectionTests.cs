@@ -60,4 +60,14 @@ public sealed class GreedyTitleCorrectionTests
                 "继续探险 前往下一层 返回城镇 安全回城"));
         Assert.Equal(new[] { 1 },PopupRecognition.FindGreedySelectionReturnCards(frame));
     }
+
+    [Fact]
+    public void MissingTitleStillClassifiesThreeRewardCardsAsGreedySelection()
+    {
+        using var frame = new System.Drawing.Bitmap(System.IO.Path.Combine(
+            AppContext.BaseDirectory, "Fixtures", "Visual", "greedy-continue-only.png"));
+        const string body = "继续探险|继续探险|继续探险|随机获得一份回复药剂|随机获得一个道具|随机获得一个增益效果|前往下一层|前往下一层|前往下一层";
+        Assert.Equal(NextFloorDialogKind.GreedySelection,
+            PopupRecognition.ClassifyNextFloorDialog(frame, null, body));
+    }
 }

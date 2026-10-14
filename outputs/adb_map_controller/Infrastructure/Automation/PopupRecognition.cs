@@ -73,7 +73,8 @@ public static class PopupRecognition
     {
         // 三选一界面有稳定的语义标题“贪婪抉择”。
         // 不再使用黄色按钮面积作为判定条件，避免普通地图/战斗画面误报。
-        if (IsGreedySelectionTitle(titleText)) return NextFloorDialogKind.GreedySelection;
+        if (IsGreedySelectionTitle(titleText) || IsGreedySelectionCardText(bodyText))
+            return NextFloorDialogKind.GreedySelection;
         // 下一层确认框的正文是稳定的语义信号。不要再要求中央面板或绿色按钮
         // 的颜色阈值同时命中，否则转场动画、截图变暗或按钮样式变化会漏检。
         if (!IsNextFloorDialogText(bodyText))
@@ -90,6 +91,15 @@ public static class PopupRecognition
         var corrected = GreedyTitleCorrector.CorrectTitleLines(text)!;
         var normalized = Regex.Replace(corrected, @"[^\p{L}\p{N}]", "");
         return normalized.Contains("贪婪抉择", StringComparison.Ordinal);
+    }
+
+    public static bool IsGreedySelectionCardText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        var lines = text.Split(['\r', '\n', '|'], StringSplitOptions.RemoveEmptyEntries);
+        var cardTitles = lines.Count(line => NormalizeText(line).Contains("继续探险", StringComparison.Ordinal));
+        var rewards = lines.Count(line => NormalizeText(line).Contains("随机获得", StringComparison.Ordinal));
+        return cardTitles >= 2 && rewards >= 2;
     }
 
     public static bool IsGreedySelectionReturnOnly(string? text)

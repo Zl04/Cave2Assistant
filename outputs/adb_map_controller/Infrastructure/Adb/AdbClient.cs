@@ -195,8 +195,9 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
     internal Task<NextFloorDialogKind> DetectNextFloorDialog(
         Bitmap bitmap,
         CancellationToken token,
-        Action<string?>? bodyObserved)
-        => screenAnalyzer.DetectNextFloorDialogAsync(bitmap, token, bodyObserved);
+        Action<string?>? bodyObserved,
+        Action<string?>? titleObserved = null)
+        => screenAnalyzer.DetectNextFloorDialogAsync(bitmap, token, bodyObserved, titleObserved);
 
     internal NextFloorDialogKind DetectNextFloorDialog(Bitmap bitmap, string? ocrText)
         => screenAnalyzer.DetectNextFloorDialog(bitmap, ocrText);
@@ -258,6 +259,7 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
     {
         NextFloorDialogKind nextFloorDialog = NextFloorDialogKind.None;
         string? nextFloorDialogBody = null;
+        string? nextFloorDialogTitle = null;
         string? riftGemTitle = null;
         var pipeline = await PopupUiPipeline.Create(this,
                 nextFloorDialogDetected: (kind, body) =>
@@ -265,6 +267,7 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
                     nextFloorDialog = kind;
                     nextFloorDialogBody = body;
                 },
+                nextFloorDialogTitleObserved: text => nextFloorDialogTitle = text,
                 riftGemTitleObserved: text => riftGemTitle = text,
                 prioritizeNextFloor: prioritizeNextFloor)
             .RunAsync(frame, frameId, token);
@@ -272,7 +275,7 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
         return new PopupUiPipelineResult(pipeline, nextFloorDialog, nextFloorDialogBody,
             isGreedySelection && PopupRecognition.IsGreedySelectionReturnOnly(nextFloorDialogBody),
             isGreedySelection ? PopupRecognition.FindGreedySelectionReturnCards(frame) : Array.Empty<int>(),
-            riftGemTitle);
+            riftGemTitle, nextFloorDialogTitle);
     }
 
     internal Task<string> ReadPopupFrameTextAsync(Bitmap frame, CancellationToken token = default)

@@ -34,7 +34,7 @@
       "name": "NextFloorDialog",
       "result": "NextFloorDialog",
       "recognizer": "NextFloorDialog",
-      "priority": 30,
+      "priority": 18,
       "maxAttempts": 1
     }
   ]

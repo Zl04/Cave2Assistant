@@ -12,6 +12,7 @@ public sealed class PopupWatchdog
 {
     static readonly TimeSpan ProbeInterval = TimeSpan.FromMilliseconds(120);
     static readonly TimeSpan ErrorLogInterval = TimeSpan.FromSeconds(2);
+    const long NextFloorRetryIntervalMs = 1200;
 
     readonly AdbClient adb;
     readonly Func<bool> probeEnabled;
@@ -47,6 +48,7 @@ public sealed class PopupWatchdog
         var emptyFrames = 0;
         var lastGemClickAt = 0L;
         var gemClickAttempts = 0;
+        var lastNextFloorClickAt = 0L;
         probeStatus?.Invoke("弹窗监控已启动");
 
         void ReportStatus(string message, bool force = false)
@@ -86,7 +88,9 @@ public sealed class PopupWatchdog
                             : $"，OCR宝石标题={PopupUiPipelineResult.SummarizeText(pipelineResult.RiftGemTitleText)}";
                         var bodyText = pipelineResult.NextFloorDialogBodyText;
                         var bodyDetail = bodyText is null ? "" : $"，OCR正文={PopupUiPipelineResult.SummarizeText(bodyText)}";
-                        ReportStatus($"弹窗监控探测 #{probeId}（FrameId={frameId}）：{node}，结果 {popup}{gemTitleDetail}{bodyDetail}，节点={attemptDetail}，截图={captureMs}ms，识别={stopwatch.ElapsedMilliseconds - captureMs}ms，总计={stopwatch.ElapsedMilliseconds}ms",
+                        var titleDetail = pipelineResult.NextFloorDialogTitleText is null ? "" :
+                            $"，OCR标题={PopupUiPipelineResult.SummarizeText(pipelineResult.NextFloorDialogTitleText)}";
+                        ReportStatus($"弹窗监控探测 #{probeId}（FrameId={frameId}）：{node}，结果 {popup}，子类型={pipelineResult.NextFloorDialog}{titleDetail}{gemTitleDetail}{bodyDetail}，节点={attemptDetail}，截图={captureMs}ms，识别={stopwatch.ElapsedMilliseconds - captureMs}ms，总计={stopwatch.ElapsedMilliseconds}ms",
                             popup != MovementPopupKind.None || stopwatch.ElapsedMilliseconds >= 500);
                         if (popup == MovementPopupKind.None)
                         {
@@ -96,6 +100,7 @@ public sealed class PopupWatchdog
                             {
                                 handled = MovementPopupKind.None;
                                 gemClickAttempts = 0;
+                                lastNextFloorClickAt = 0;
                             }
                         }
                         else if (popup != candidate)
@@ -110,11 +115,18 @@ public sealed class PopupWatchdog
                         var retryGem = popup == MovementPopupKind.RiftGemSelection &&
                             popup == handled && gemClickAttempts < 5 &&
                             Environment.TickCount64 - lastGemClickAt >= 700;
-                        if (candidateFrames >= requiredFrames && (popup != handled || retryGem))
+                        // 下楼确认/贪婪卡可能因动画或误判点空。只要新截图仍命中，
+                        // 就允许限速重试，不能用大类的 handled 状态永久屏蔽它。
+                        var retryNextFloor = popup == MovementPopupKind.NextFloorDialog &&
+                            popup == handled &&
+                            Environment.TickCount64 - lastNextFloorClickAt >= NextFloorRetryIntervalMs;
+                        if (candidateFrames >= requiredFrames && (popup != handled || retryGem || retryNextFloor))
                         {
                             if (await detected(pipelineResult, token))
                             {
                                 handled = popup;
+                                if (popup == MovementPopupKind.NextFloorDialog)
+                                    lastNextFloorClickAt = Environment.TickCount64;
                                 if (popup == MovementPopupKind.RiftGemSelection)
                                 {
                                     gemClickAttempts++;

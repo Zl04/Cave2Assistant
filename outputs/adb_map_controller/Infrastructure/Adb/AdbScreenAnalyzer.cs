@@ -171,9 +171,11 @@ internal sealed class AdbScreenAnalyzer : IDisposable
     public async Task<NextFloorDialogKind> DetectNextFloorDialogAsync(
         Bitmap bitmap,
         CancellationToken token,
-        Action<string?>? bodyObserved)
+        Action<string?>? bodyObserved,
+        Action<string?>? titleObserved = null)
     {
         var title = await ReadPopupTitleTextAsync(bitmap, token);
+        titleObserved?.Invoke(title);
         var body = await ReadScreenTextAsync(bitmap, (.20, .80, .20, .70), "换层弹窗", token);
         bodyObserved?.Invoke(body);
         return DetectNextFloorDialog(bitmap, title, body);
@@ -197,7 +199,16 @@ internal sealed class AdbScreenAnalyzer : IDisposable
     public async Task<string?> ReadPopupTitleTextAsync(Bitmap frame, CancellationToken token = default)
     {
         var rawTitle = await ReadScreenTextAsync(frame, (.35, .65, .03, .18), "贪婪抉择标题", token);
-        return GreedyTitleCorrector.CorrectTitleLines(rawTitle);
+        var title = GreedyTitleCorrector.CorrectTitleLines(rawTitle);
+        if (PopupRecognition.IsGreedySelectionTitle(title)) return title;
+
+        // 短标题的字形在原始裁剪尺寸下可能未被检测器收录；放大同一区域再读一次。
+        var bounds = new Rectangle((int)(frame.Width * .35), (int)(frame.Height * .03),
+            (int)(frame.Width * .30), (int)(frame.Height * .15));
+        using var crop = frame.Clone(bounds, PixelFormat.Format24bppRgb);
+        using var enlarged = new Bitmap(crop, new Size(crop.Width * 2, crop.Height * 2));
+        var retry = GreedyTitleCorrector.CorrectTitleLines(await ReadTextAsync(enlarged, token));
+        return PopupRecognition.IsGreedySelectionTitle(retry) ? retry : title;
     }
 
     public async Task<bool> HasRiftGemSelectionAsync(Bitmap bitmap)

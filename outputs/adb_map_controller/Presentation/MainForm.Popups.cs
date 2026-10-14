@@ -74,9 +74,14 @@ public sealed partial class MainForm
 
     System.Collections.IEnumerator SelectBonusRoutine(CancellationToken token)
     {
+        var routineTimer = Stopwatch.StartNew();
+        var probeCount = 0;
         while (true)
         {
             token.ThrowIfCancellationRequested();
+            var sinceInteractionMs = portalInteractionAt > 0
+                ? Environment.TickCount64 - portalInteractionAt : -1;
+            Log($"换层弹窗诊断：第 {++probeCount} 轮开始，距入口点击/交互={sinceInteractionMs}ms，流程累计={routineTimer.ElapsedMilliseconds}ms");
 
             // 一个截图内按固定顺序区分三类换层界面：
             // 1) 带红字提醒的“贪婪选择”三选一；
@@ -93,10 +98,13 @@ public sealed partial class MainForm
             {
                 // SelectBonus 会暂停 PopupWatchdog，因此必须使用与看门狗
                 // 相同的共享管线，否则宝石覆盖层可能被当成未识别的换层框。
-                var popupTask = adb.ProbeMovementPopupAsync(token);
+                var popupTask = adb.ProbeMovementPopupAsync(token,
+                    message => Log($"换层弹窗诊断：第 {probeCount} 轮，{message}"),
+                    prioritizeNextFloor: true);
                 yield return popupTask;
                 var probe = popupTask.GetAwaiter().GetResult();
                 var popup = probe.Value;
+                Log($"换层弹窗诊断：第 {probeCount} 轮识别完成，距入口点击/交互={(portalInteractionAt > 0 ? Environment.TickCount64 - portalInteractionAt : -1)}ms，结果={popup}，子类型={probe.NextFloorDialog}");
                 if (probe.NextFloorDialogBodyText is not null)
                     Log($"换层弹窗 OCR 正文：{probe.NextFloorDialogBodyText.Replace("\r", " ").Replace("\n", "|")}");
                 if (popup == MovementPopupKind.ServerError)
@@ -127,8 +135,10 @@ public sealed partial class MainForm
                     operations.Cancel(ControllerOperationKind.Movement);
                     yield break;
                 }
+                var actionTimer = Stopwatch.StartNew();
                 var tapTask = adb.TapScreen(0.591, 0.639);
                 yield return tapTask;
+                Log($"换层弹窗诊断：确认按钮点击={actionTimer.ElapsedMilliseconds}ms，距入口点击/交互={(portalInteractionAt > 0 ? Environment.TickCount64 - portalInteractionAt : -1)}ms");
                 Log(dialog == NextFloorDialogKind.WarningConfirm
                     ? "检测到带红字提醒的‘是否进入下一层？’，已点击绿色确认按钮"
                     : "检测到无红字提醒的‘是否进入下一层？’，已点击绿色确认按钮");
@@ -144,7 +154,8 @@ public sealed partial class MainForm
                 {
                     // 看门狗锁存的帧可能正好处于入场动画；重新取一帧只为补充
                     // 三张卡片中哪些是红色“回城”卡，不改变选择流程。
-                    var cardProbeTask = adb.ProbeMovementPopupAsync(token);
+                    var cardProbeTask = adb.ProbeMovementPopupAsync(token,
+                        message => Log($"换层弹窗诊断：第 {probeCount} 轮补充卡片识别，{message}"));
                     yield return cardProbeTask;
                     var cardProbe = cardProbeTask.GetAwaiter().GetResult();
                     if (cardProbe.NextFloorDialog == NextFloorDialogKind.GreedySelection)
@@ -169,8 +180,10 @@ public sealed partial class MainForm
                         "道具" or "魔法材料" or "物资" or "锻造材料" or "附魔材料" => 2,
                         _ => 0
                     };
+                var actionTimer = Stopwatch.StartNew();
                 var selectTask = adb.TapScreen(cardIndex switch { 1 => 0.50, 2 => 0.6875, _ => 0.3125 }, 0.657);
                 yield return selectTask;
+                Log($"换层弹窗诊断：卡片点击={actionTimer.ElapsedMilliseconds}ms，距入口点击/交互={(portalInteractionAt > 0 ? Environment.TickCount64 - portalInteractionAt : -1)}ms");
                 var selectedReturnCard = greedySelectionReturnOnly ||
                     (returnAtTargetFloor && greedySelectionReturnCards.Contains(cardIndex));
                 if (selectedReturnCard)
@@ -195,6 +208,7 @@ public sealed partial class MainForm
             }
 
             // 三类都未识别：只等待一小段时间，再从第一类重新检测。
+            Log($"换层弹窗诊断：第 {probeCount} 轮无匹配，等待 {PortalDialogRetryDelayMs}ms 后重试");
             yield return new WaitForMilliseconds(PortalDialogRetryDelayMs);
         }
     }

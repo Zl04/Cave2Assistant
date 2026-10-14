@@ -72,6 +72,8 @@ public sealed partial class MainForm
 
     async Task<MiningPassResult> MineFloorCore(CancellationToken token, MapDump initial)
     {
+        // 只读取一次入场地图边界；后续扩图补出的墙不属于本轮范围。
+        var miningRange = new MiningRange(initial.Width - 1, initial.Height - 1);
         var mined = 0;
         var recovery = 0;
         var selectionMayBeOpen = false;
@@ -111,7 +113,7 @@ public sealed partial class MainForm
                     return MiningPassResult.Failed;
                 }
 
-                var plan = MiningPlanner.Plan(map, dungeon.Blocked);
+                var plan = MiningPlanner.Plan(map, dungeon.Blocked, miningRange);
                 if (plan is null)
                 {
                     State($"挖矿结束：没有可达的挖矿位置，已挖 {mined} 格");
@@ -147,7 +149,7 @@ public sealed partial class MainForm
                 if (!await RefreshMap(false, waitForLock: true))
                 { State("挖矿：点击前地图读取失败"); return MiningPassResult.Failed; }
                 token.ThrowIfCancellationRequested();
-                if (!CanMineNow(initial, player, plan.Wall)) continue;
+                if (!CanMineNow(initial, miningRange, player, plan.Wall)) continue;
                 var point = MiningScreenCoordinates.Wall(player, plan.Wall,
                     (double)miningTileWidth.Value, (double)miningTileHeight.Value);
                 var confirmed = false;
@@ -161,7 +163,7 @@ public sealed partial class MainForm
                     // 道具面板打开后再次复核坐标。失败时停止，不在未知界面继续移动。
                     if (!await RefreshMap(false, waitForLock: true)) return;
                     sliceToken.ThrowIfCancellationRequested();
-                    if (!CanMineNow(initial, player, plan.Wall)) return;
+                    if (!CanMineNow(initial, miningRange, player, plan.Wall)) return;
                     await adb.TapScreen(point.X, point.Y);
                     Log($"挖矿点击：人物 {player}，墙体 {plan.Wall}，屏幕比例 ({point.X:F4}, {point.Y:F4})");
                     var deadline = Environment.TickCount64 + 5000;
@@ -240,8 +242,9 @@ public sealed partial class MainForm
         return true;
     }
 
-    bool CanMineNow(MapDump initial, Cell player, Cell wall)
+    bool CanMineNow(MapDump initial, MiningRange miningRange, Cell player, Cell wall)
         => dungeon.Map is { InBattle: false, IsDead: false } map && SameMiningMap(initial, map) &&
+            miningRange.Contains(wall) &&
             !serverErrorDialogVisible && !runeSelectionVisible && floorPhase != FloorPhase.SelectBonus &&
             dungeon.MotionInterrupt.Reason == MotionInterruptReason.None &&
             new Cell(map.Player.X, map.Player.Y) == player &&
@@ -249,7 +252,7 @@ public sealed partial class MainForm
 
     static bool SameMiningMap(MapDump first, MapDump second)
         => first.Level == second.Level && first.SceneType == second.SceneType && first.CaveMode == second.CaveMode &&
-            first.Width == second.Width && first.Height == second.Height;
+            first.MapName == second.MapName;
 
     void ClearMiningRoute()
     {

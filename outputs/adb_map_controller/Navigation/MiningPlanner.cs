@@ -8,6 +8,11 @@ public sealed record MiningPlan(Cell Wall, Cell Stop, RoutePlan Movement);
 
 public sealed record MiningToolStatus(bool IconPresent, int? Quantity);
 
+public readonly record struct MiningRange(int XMax, int YMax)
+{
+    public bool Contains(Cell cell) => cell.X >= 1 && cell.Y >= 1 && cell.X <= XMax && cell.Y <= YMax;
+}
+
 public static class MiningToolGuard
 {
     public static string? StopReason(MiningToolStatus status)
@@ -47,13 +52,15 @@ public static class MiningPlanner
     public static bool InRange(Cell player, Cell target)
         => Math.Max(Math.Abs((long)target.X - player.X), Math.Abs((long)target.Y - player.Y)) == 1;
 
-    public static MiningPlan? Plan(MapDump map, IReadOnlySet<Cell>? blocked = null)
+    public static MiningPlan? Plan(MapDump map, IReadOnlySet<Cell>? blocked = null,
+        MiningRange? miningRange = null)
     {
         if (map.SceneType == 1 || map.InBattle || map.IsDead) return null;
         var tiles = map.ByCell;
         var start = new Cell(map.Player.X, map.Player.Y);
         if (!tiles.TryGetValue(start, out var origin) || !origin.Ground) return null;
-        var walls = tiles.Keys.Where(cell => IsWall(tiles, cell)).ToHashSet();
+        var walls = tiles.Keys.Where(cell => IsWall(tiles, cell) &&
+            (miningRange is null || miningRange.Value.Contains(cell))).ToHashSet();
         var previous = new Dictionary<Cell, Cell>();
         var seen = new HashSet<Cell> { start };
         var queue = new Queue<Cell>();

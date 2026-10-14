@@ -34,6 +34,8 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     readonly ThemedNumericUpDown newFloorStartDelay = new() { Minimum = 0, Maximum = 10000, Increment = 100, Value = 1500, Width = 70 };
     readonly ThemedNumericUpDown routeRecoveryAttempts = new() { Minimum = 0, Maximum = 10, Increment = 1, Value = 3, Width = 55 };
     readonly ThemedNumericUpDown targetStopFloor = new() { Minimum = 0, Maximum = 999, Increment = 1, Value = 0, Width = 55 };
+    readonly ThemedNumericUpDown escapeReturnFloor = new() { Minimum = 0, Maximum = 999, Increment = 1, Width = 55 };
+    readonly CheckBox escapeReturnAttackBoss = Box("回城前攻击Boss");
     readonly ComboBox entryMapChoice = new ThemedComboBox { Width = 110, DropDownStyle = ComboBoxStyle.DropDownList };
     readonly ComboBox entryChoice = new ThemedComboBox { Width = 90, DropDownStyle = ComboBoxStyle.DropDownList };
     readonly ComboBox entryDifficulty = new ThemedComboBox { Width = 78, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "自动进图难度" };
@@ -225,6 +227,8 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         options.Controls.AddRange([new Label { Text = "目标（钥匙必选）：", AutoSize = true }, attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, bonusPriorityToggle, autoEquipmentSale, sellBlueWhite, sellPurple, sellDarkGold, sellGold]);
         var floorStop = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
         floorStop.Controls.AddRange([new Label { Text = "指定层停住：", AutoSize = true }, targetStopFloor, new Label { Text = "层（0=关闭，完成所选目标后自动停住）", AutoSize = true }, mining, cardMining, cardLayer]);
+        var escapeReturnOptions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
+        escapeReturnOptions.Controls.AddRange([new Label { Text = "卷轴主动回城：", AutoSize = true }, escapeReturnFloor, new Label { Text = "层（0=关闭，仅普通关卡且低于最高层）", AutoSize = true }, escapeReturnAttackBoss]);
         var entryOptions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
         entryOptions.Controls.AddRange([new Label { Text = "自动进图：", AutoSize = true }, entryMapChoice, entryChoice, entryDifficulty, new Label { Text = "跑图次数（0=自动）", AutoSize = true, Padding = new(4, 5, 0, 0) }, entryRunCount, new Label { Text = "自动时：普通无限；限次难度按关卡余量", AutoSize = true, Padding = new(4, 5, 0, 0), Tag = ThemeRole.WarningText }, new Label { Text = "入口识别：内置图标或当前地图场景模板", AutoSize = true, Padding = new(4, 5, 0, 0), Tag = ThemeRole.WarningText }]);
         var timing = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 7, 10, 5), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
@@ -235,7 +239,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         logPage.Controls.Add(CreateLogView());
         var settingsPage = new ThemedTabPage { Text = "设置", Padding = new(0), Tag = ThemeRole.Default };
         settingsPage.Controls.Add(CreateMiningSettings());
-        settingsPage.Controls.Add(timing); settingsPage.Controls.Add(floorStop); settingsPage.Controls.Add(entryOptions); settingsPage.Controls.Add(options); settingsPage.Controls.Add(settingsTop);
+        settingsPage.Controls.Add(timing); settingsPage.Controls.Add(escapeReturnOptions); settingsPage.Controls.Add(floorStop); settingsPage.Controls.Add(entryOptions); settingsPage.Controls.Add(options); settingsPage.Controls.Add(settingsTop);
         var tabs = new ThemedTabControl { Dock = DockStyle.Fill, Tag = ThemeRole.Default };
         tabs.TabPages.Add(runPage); tabs.TabPages.Add(CreateTaskListPage()); tabs.TabPages.Add(settingsPage); tabs.TabPages.Add(logPage);
         Controls.Add(tabs);
@@ -293,7 +297,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             await RefreshMap();
             if (!closing) refreshTimer.Start();
         });
-        foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, autoEquipmentSale, sellBlueWhite, sellPurple, sellDarkGold, sellGold, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, mining, cardMining, cardLayer, entryMapChoice, entryChoice, entryDifficulty, entryRunCount })
+        foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, autoEquipmentSale, sellBlueWhite, sellPurple, sellDarkGold, sellGold, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, escapeReturnFloor, escapeReturnAttackBoss, mining, cardMining, cardLayer, entryMapChoice, entryChoice, entryDifficulty, entryRunCount })
             control.Validated += (_, _) => SaveSettings();
         foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers })
         {
@@ -476,6 +480,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         SetValue(singleCellPulseHold, s.SingleCellPulseHold); SetValue(movementReleaseLead, s.MovementReleaseLead);
         SetValue(interactionHold, s.InteractionHold); SetValue(stallTimeout, s.StallTimeout); SetValue(newFloorStartDelay, s.NewFloorStartDelay); SetValue(routeRecoveryAttempts, s.RouteRecoveryAttempts);
         SetValue(targetStopFloor, s.TargetStopFloor); cardLayer.Checked = s.CardLayer;
+        SetValue(escapeReturnFloor, s.EscapeReturnFloor); escapeReturnAttackBoss.Checked = s.EscapeReturnAttackBoss;
         mining.Checked = s.Mining; cardMining.Checked = s.CardMining;
         SetValue(miningTileWidth, s.MiningTileWidth); SetValue(miningTileHeight, s.MiningTileHeight); SetValue(miningInterval, s.MiningInterval);
         var savedMapId = s.EntryMapId;
@@ -526,6 +531,8 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             NewFloorStartDelay = newFloorStartDelay.Value,
             RouteRecoveryAttempts = routeRecoveryAttempts.Value,
             TargetStopFloor = (int)targetStopFloor.Value,
+            EscapeReturnFloor = (int)escapeReturnFloor.Value,
+            EscapeReturnAttackBoss = escapeReturnAttackBoss.Checked,
             CardLayer = cardLayer.Checked,
             Mining = mining.Checked,
             CardMining = cardMining.Checked,

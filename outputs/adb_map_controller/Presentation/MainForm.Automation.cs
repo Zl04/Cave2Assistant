@@ -13,6 +13,27 @@ namespace AdbMapController;
 
 public sealed partial class MainForm
 {
+    int pendingFogRevealLevel = -1;
+
+    async Task TryRevealNewFloorAsync(CancellationToken token)
+    {
+        var map = dungeon.Map;
+        if (map is null || pendingFogRevealLevel != map.Level) return;
+        pendingFogRevealLevel = -1;
+        if (map.AllExplored || map.Tiles.SelectMany(row => row).Where(tile => tile.Walkable).All(tile => tile.Explored) ||
+            map.InBattle || map.SceneType == 1) return;
+        var tool = await adb.FindBottomToolAsync(BottomToolKind.FogReveal, token);
+        if (tool?.Quantity is not > 0) return;
+        await touch.TouchUp();
+        await adb.TapScreen(tool.X, tool.Y);
+        Log($"新层 {map.Level} 使用清除迷雾道具，使用前数量 {tool.Quantity}");
+        await Task.Delay(400, token);
+        await RefreshMap(false, waitForLock: true);
+        if (dungeon.Map?.Level == map.Level && dungeon.Map.AllExplored)
+            Log($"新层 {map.Level} 迷雾已全部清除");
+        else
+            Warn($"新层 {map.Level} 使用道具后尚未确认迷雾清除");
+    }
     async Task StartRunCore(CancellationToken owner)
     {
         lastMapRunSucceeded = false;
@@ -91,6 +112,8 @@ public sealed partial class MainForm
         dungeon.TargetFloorStopped = false;
         dungeon.FloorMiningCompletedLevel = -1;
         dungeon.FloorMiningSkippedLevel = -1;
+        escapeScrollPending = false;
+        escapeScrollLastProbeAt = 0;
         var owner = pipelineToken;
         var runTask = new MapRunTask();
         try
@@ -148,6 +171,11 @@ public sealed partial class MainForm
                 return runTask.Completed ? MaaPipelineActionResult.Success() : MaaPipelineActionResult.Failure("跑图已停止，尚未返回主城或公会");
             }
             if (dungeon.Map is { } startupSaleMap) await HandleMerchantEquipmentSale(startupSaleMap, owner);
+            if (await TryReturnWithEscapeScroll(owner))
+            {
+                await RunLoop(owner, runTask, useInitialSnapshot: true);
+                return runTask.Completed ? MaaPipelineActionResult.Success() : MaaPipelineActionResult.Failure("卷轴回城尚未完成");
+            }
             if (dungeon.Map is not null && !MapRunTask.IsReturnDestination(dungeon.Map) &&
                 floorPhase != FloorPhase.WaitingFloorLoad && await TryStopAtTargetFloor())
             {
@@ -176,6 +204,11 @@ public sealed partial class MainForm
         {
             while (!owner.IsCancellationRequested)
             {
+                if (escapeScrollPending)
+                {
+                    await TryReturnWithEscapeScroll(owner);
+                    continue;
+                }
                 if (dungeon.MotionInterrupt.Reason == MotionInterruptReason.Popup)
                 {
                     await HandleMovementPopupInterrupt(owner);
@@ -281,6 +314,8 @@ public sealed partial class MainForm
                     State($"等待新层加载 {(newFloorStartDelay.Value / 1000):0.##} 秒");
                     await Task.Delay(80, owner); continue;
                 }
+                await TryRevealNewFloorAsync(owner);
+                if (await TryReturnWithEscapeScroll(owner)) continue;
                 if (await TryStopAtTargetFloor()) break;
                 // 已满足的楼层门控优先于探索。快捷入口会自行检查活动目标/Boss，
                 // 即使当前地图仍有迷雾，也允许继续前进。

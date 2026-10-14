@@ -133,7 +133,8 @@ public sealed partial class MainForm
         {
             // 6101 是纯战斗房间。该楼型不依赖用户的“全清小怪/清除精英”勾选，
             // 进入后统一交给怪物追猎规划器；普通楼层仍完全遵循 UI 选项。
-            AttackBoss = includeAll || attackBoss.Checked ||
+            AttackBoss = (dungeon.Map is not null && IsEscapeReturnFloor(dungeon.Map)
+                    ? escapeReturnAttackBoss.Checked : includeAll || attackBoss.Checked) ||
                 (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
             Monsters = includeAll || monsters.Checked ||
                 (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
@@ -165,6 +166,8 @@ public sealed partial class MainForm
 
     bool IsTargetStopFloor(MapDump map)
     {
+        // 卷轴回城优先；卷轴尚未取得时也必须允许继续跑图。
+        if (IsEscapeReturnFloor(map)) return false;
         var manualTargetReached = targetStopFloor.Value > 0 && map.Level == (int)targetStopFloor.Value;
         // 卡矿在未启用挖矿时退化为卡层：到达自动匹配的最高层后，
         // 即使“卡层”本身未勾选，也不能继续进入下一层。
@@ -174,6 +177,14 @@ public sealed partial class MainForm
         // 任一目标层都复用同一套“完成所选目标后停住”流程。
         var cardTargetReached = cardTarget is { } target && map.Level == target;
         return manualTargetReached || cardTargetReached;
+    }
+
+    bool IsEscapeReturnFloor(MapDump map)
+    {
+        var target = (int)escapeReturnFloor.Value;
+        var maximum = CardFloorPolicy.MaximumFloor(map);
+        return target > 0 && maximum is { } last && target < last &&
+            map.SceneType == 2 && map.Level >= target && map.Level <= last;
     }
 
     bool ShouldReturnFromGreedySelection(MapDump map)
@@ -257,8 +268,9 @@ public sealed partial class MainForm
     bool PortalPrerequisitesMet(MapDump map)
     {
         // 已存在的封印具有权威性：在其分数达到唤醒阈值前，守护 Boss 必须继续作为战斗目标。
-        if (map.BossSeal.Present && !map.BossSeal.Ready) return false;
-        if (map.Tiles.SelectMany(r => r).SelectMany(t => t.Roles)
+        var requireBoss = !IsEscapeReturnFloor(map) || escapeReturnAttackBoss.Checked;
+        if (requireBoss && map.BossSeal.Present && !map.BossSeal.Ready) return false;
+        if (requireBoss && map.Tiles.SelectMany(r => r).SelectMany(t => t.Roles)
             .Any(r => r.Kind is "Boss" or "小Boss")) return false;
         // 探索进度不是下楼的前置条件。满足战斗/目标前置条件后，
         // 即使仍有未发现的可通行格，也可以使用楼层入口。
@@ -277,6 +289,7 @@ public sealed partial class MainForm
         {
             CancelPortalChoiceCoroutine();
             dungeon.ObservedLevel = map.Level; floorPhase = FloorPhase.WaitingFloorLoad; dungeon.FloorChangedAt = Environment.TickCount64;
+            pendingFogRevealLevel = map.Level;
             dungeon.RouteExecution.ClearPulseFallback();
             dungeon.FloorMiningCompletedLevel = -1;
             dungeon.FloorMiningSkippedLevel = -1;

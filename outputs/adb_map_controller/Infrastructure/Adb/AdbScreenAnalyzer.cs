@@ -23,6 +23,50 @@ internal sealed class AdbScreenAnalyzer : IDisposable
     }
     readonly Lazy<VisualTemplate?> miningToolTemplate = new(LoadMiningToolTemplate);
     readonly Lazy<VisualTemplate?> miningCancelTemplate = new(LoadMiningCancelTemplate);
+    readonly Lazy<VisualTemplate?> fogRevealTemplate = new(() =>
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "vision", "fog_reveal_tool.png");
+        return File.Exists(path) ? VisualTemplate.FromFile(path, 49d / 1080d, 51d / 1080d) : null;
+    });
+    readonly Lazy<VisualTemplate?> escapeScrollTemplate = new(() =>
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "templates", "ui", "escape-scroll.png");
+        return File.Exists(path) ? VisualTemplate.FromFile(path, 37d / 568d, 46d / 568d) : null;
+    });
+
+    public async Task<BottomToolInfo?> FindBottomToolAsync(
+        Bitmap source, BottomToolKind kind, CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var template = kind switch
+        {
+            BottomToolKind.Mining => miningToolTemplate.Value,
+            BottomToolKind.FogReveal => fogRevealTemplate.Value,
+            BottomToolKind.EscapeScroll => escapeScrollTemplate.Value,
+            _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+        };
+        if (template is null) return null;
+
+        var minimumScore = kind == BottomToolKind.EscapeScroll ? .76 : .84;
+        foreach (var match in template.FindAll(source, minimumScore, 16))
+        {
+            token.ThrowIfCancellationRequested();
+            // The scroll template covers the left part of its icon; adjust its
+            // match center to the actual tap point used by the quick slot.
+            var scale = source.Height / 568d;
+            var center = kind == BottomToolKind.EscapeScroll
+                ? new Point((int)Math.Round(match.Center.X + 4.5 * scale),
+                    (int)Math.Round(match.Center.Y + 2 * scale))
+                : match.Center;
+            var x = center.X / (double)source.Width;
+            var y = center.Y / (double)source.Height;
+            if (x is < .12 or > .88 || y is < .82 or > .97) continue;
+            var quantity = MiningToolGuard.ParseQuantityText(
+                await ReadBottomToolQuantityTextAsync(source, center, token));
+            return new BottomToolInfo(kind, x, y, quantity);
+        }
+        return null;
+    }
 
     public string? LastRiftGemTitle { get; private set; }
     public string GemTitleDetectionMode { get; private set; } = "未检测";
@@ -45,9 +89,11 @@ internal sealed class AdbScreenAnalyzer : IDisposable
 
     public async Task<MiningToolStatus> ReadMiningToolStatusAsync(Bitmap source, CancellationToken token = default)
     {
-        var iconPresent = HasMiningToolIcon(source);
-        var quantityText = await ReadMiningToolQuantityTextAsync(source, token);
-        return new(iconPresent, MiningToolGuard.ParseQuantityText(quantityText));
+        var tool = await FindBottomToolAsync(source, BottomToolKind.Mining, token);
+        var inSecondSlot = tool is not null &&
+            Math.Abs(tool.X - MiningScreenCoordinates.ToolSlot.X) <= .10 &&
+            Math.Abs(tool.Y - MiningScreenCoordinates.ToolSlot.Y) <= .10;
+        return new(inSecondSlot, inSecondSlot ? tool!.Quantity : null);
     }
 
     static VisualTemplate? LoadMiningToolTemplate()
@@ -82,21 +128,10 @@ internal sealed class AdbScreenAnalyzer : IDisposable
             match.Center.X >= source.Width * .90 && match.Center.Y >= source.Height * .85);
     }
 
-    bool HasMiningToolIcon(Bitmap source)
+    async Task<string> ReadBottomToolQuantityTextAsync(Bitmap source, Point center, CancellationToken token)
     {
-        var template = miningToolTemplate.Value;
-        if (template is null) return false;
-        var expectedX = source.Width * MiningScreenCoordinates.ToolSlot.X;
-        var expectedY = source.Height * MiningScreenCoordinates.ToolSlot.Y;
-        return template.FindAll(source, .84, 16).Any(match =>
-            Math.Abs(match.Center.X - expectedX) <= source.Width * .10 &&
-            Math.Abs(match.Center.Y - expectedY) <= source.Height * .10);
-    }
-
-    async Task<string> ReadMiningToolQuantityTextAsync(Bitmap source, CancellationToken token)
-    {
-        // The marked count area in the lower-right of the second quick-bag slot.
-        var sx = Math.Clamp((int)Math.Round(source.Width * .362), 0, source.Width - 1);
+        // Count labels share a baseline below the bottom quick-slot icons.
+        var sx = Math.Clamp((int)Math.Round(center.X - source.Width * .003), 0, source.Width - 1);
         var sy = Math.Clamp((int)Math.Round(source.Height * .963), 0, source.Height - 1);
         var sw = Math.Clamp((int)Math.Round(source.Width * .043), 1, source.Width - sx);
         var sh = Math.Clamp((int)Math.Round(source.Height * .037), 1, source.Height - sy);

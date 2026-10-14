@@ -93,6 +93,18 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
     public Task<MapDump> ReadMap() => gameDataReader.ReadMapAsync();
     public Task<PlayerStatus> ReadPlayer() => gameDataReader.ReadPlayerAsync();
 
+    /// <summary>Finds a tool in the bottom quick bar and reads its visible count.</summary>
+    public async Task<BottomToolInfo?> FindBottomToolAsync(
+        BottomToolKind kind, CancellationToken token = default)
+    {
+        using var bitmap = await CaptureScreenAsync("无法截取设备屏幕", token);
+        return await screenAnalyzer.FindBottomToolAsync(bitmap, kind, token);
+    }
+
+    internal Task<BottomToolInfo?> FindBottomToolAsync(
+        Bitmap source, BottomToolKind kind, CancellationToken token = default)
+        => screenAnalyzer.FindBottomToolAsync(source, kind, token);
+
     public Task<MiningToolStatus> ReadMiningToolStatusAsync(CancellationToken token = default)
         => ReadMiningToolStatusFromDeviceAsync(token);
 

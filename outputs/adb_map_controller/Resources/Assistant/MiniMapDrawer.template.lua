@@ -43,6 +43,17 @@ local function codexRoleOccupySize(role)
     return math.max(1, width), math.max(1, height)
 end
 
+local function codexMasterCoord(role, fallbackX, fallbackY, width, height)
+    local coord = codexSafeCall(role, "getCoord", nil)
+    local x = coord and tonumber(coord.x)
+    local y = coord and tonumber(coord.y)
+    if x and y and x % 1 == 0 and y % 1 == 0 and
+        x >= 0 and x < width and y >= 0 and y < height then
+        return {x = x, y = y}
+    end
+    return {x = fallbackX, y = fallbackY}
+end
+
 local function codexJsonEncode(value)
     local valueType = type(value)
     if valueType == "nil" then return "null" end
@@ -279,7 +290,7 @@ local function codexExportCurrentMap()
                             groupMonster = codexSafeCall(role, "getIsGroupMonster", false),
                             masterHero = masterHero,
                         }
-                        if masterHero then player = {x = x, y = y}; masterRole = role end
+                        if masterHero then player = codexMasterCoord(role, x, y, width, height); masterRole = role end
                     end
                     for _, placeholder in ipairs(codexSafeCall(tile, "getPlaceholderDatas", {}) or {}) do
                         local associatedCoord = placeholder.associatedCoord or {}
@@ -362,7 +373,7 @@ local function codexExportPlayerStatus()
                     if tile then
                         for _, role in ipairs(codexSafeCall(tile, "getRoleDatas", {}) or {}) do
                             if codexSafeCall(role, "isMasterHero", false) then
-                                player = {x = x, y = y}
+                                player = codexMasterCoord(role, x, y, width, height)
                             end
                         end
                     end

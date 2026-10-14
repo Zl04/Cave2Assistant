@@ -4,8 +4,8 @@
   "AttackBoss": true,
   "Monsters": false,
   "Elites": false,
-  "Chests": true,
-  "Pots": true,
+  "Chests": false,
+  "Pots": false,
   "Bones": false,
   "Gold": false,
   "Runes": false,
@@ -17,7 +17,7 @@
   "SellGold": true,
   "MiningTileWidth": 200,
   "MiningTileHeight": 100,
-  "MiningInterval": 1000,
+  "MiningInterval": 2000,
   "Mining": true,
   "CardMining": false,
   "SingleCellPulseHold": 50,
@@ -43,7 +43,7 @@
     "\u9B54\u6CD5\u6750\u6599",
     "\u56DE\u590D\u836F\u5242"
   ],
-  "Device": "emulator-5554",
+  "Device": "",
   "TaskKind": "EntryAndRun",
   "TaskEnabled": true,
   "ExecutionTasks": [

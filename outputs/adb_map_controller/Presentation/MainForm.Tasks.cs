@@ -200,6 +200,10 @@ public sealed partial class MainForm
         }
         if (config.TaskKind == ExecutionTaskKind.EntryAndRun) Number(nameof(config.EntryRunCount), "跑图次数（0=自动，普通无限）", 0, 9999);
         Number(nameof(config.TargetStopFloor), "停住楼层（0=关闭）", 0, 999);
+        Number(nameof(config.EscapeReturnFloor), "卷轴主动回城楼层（0=关闭）", 0, 999);
+        var returnBoss = Box("卷轴回城前攻击Boss"); returnBoss.Checked = config.EscapeReturnAttackBoss;
+        returnBoss.CheckedChanged += (_, _) => config.EscapeReturnAttackBoss = returnBoss.Checked;
+        Row("主动回城", returnBoss);
         var checks = new List<Control>();
         foreach (var field in new[] { ("AttackBoss", "Boss"), ("Monsters", "小怪"), ("Elites", "精英"), ("Chests", "箱子"), ("Pots", "罐子"), ("Bones", "石堆"), ("Gold", "金币"), ("Runes", "符文/点金台"), ("Chambers", "密室"), ("Mining", "挖矿"), ("CardMining", "卡矿"), ("CardLayer", "卡层") })
         {
@@ -234,7 +238,7 @@ public sealed partial class MainForm
             var count = s.EntryRunCount > 0 ? $"{s.EntryRunCount} 次" : s.EntryDifficulty == DungeonDifficulty.Normal ? "自动（无限）" : "自动（剩余次数）";
             var item = new ListViewItem(new[] { (i + 1).ToString(), s.TaskKind == ExecutionTaskKind.CurrentMapRun ? "当前地图跑图" : $"进图并跑图 · {map?.Name ?? s.EntryMapId.ToString()} / {entry?.Name ?? s.EntryId.ToString()}",
                 s.TaskKind == ExecutionTaskKind.CurrentMapRun ? "—" : new[] { "普通", "精英", "噩梦" }[Math.Clamp((int)s.EntryDifficulty, 0, 2)], s.TaskKind == ExecutionTaskKind.CurrentMapRun ? "1 次" : count,
-                $"{(s.TargetStopFloor > 0 ? s.TargetStopFloor + "层停" : "不停层")}{(s.Mining ? " · 挖矿" : "")}{(s.CardMining ? " · 卡矿" : "")}{(s.CardLayer ? " · 卡层" : "")}",
+                $"{(s.TargetStopFloor > 0 ? s.TargetStopFloor + "层停" : "不停层")}{(s.EscapeReturnFloor > 0 ? $" · {s.EscapeReturnFloor}层卷轴回城" : "")}{(s.Mining ? " · 挖矿" : "")}{(s.CardMining ? " · 卡矿" : "")}{(s.CardLayer ? " · 卡层" : "")}",
                 "钥匙、" + string.Join("、", targets.Where(x => x.Item1).Select(x => x.Item2)) });
             item.Checked = s.TaskEnabled;
             taskList.Items.Add(item);

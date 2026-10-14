@@ -26,12 +26,14 @@ internal sealed class AdbScreenAnalyzer : IDisposable
     readonly Lazy<VisualTemplate?> fogRevealTemplate = new(() =>
     {
         var path = Path.Combine(AppContext.BaseDirectory, "vision", "fog_reveal_tool.png");
-        return File.Exists(path) ? VisualTemplate.FromFile(path, 49d / 1080d, 51d / 1080d) : null;
+        // Captured directly from the in-game quick slot at 1920x1080.
+        return File.Exists(path) ? VisualTemplate.FromFile(path, 85d / 1080d, 90d / 1080d) : null;
     });
     readonly Lazy<VisualTemplate?> escapeScrollTemplate = new(() =>
     {
         var path = Path.Combine(AppContext.BaseDirectory, "templates", "ui", "escape-scroll.png");
-        return File.Exists(path) ? VisualTemplate.FromFile(path, 37d / 568d, 46d / 568d) : null;
+        // Captured directly from the in-game quick slot at 1920x1080.
+        return File.Exists(path) ? VisualTemplate.FromFile(path, 85d / 1080d, 89d / 1080d) : null;
     });
 
     public async Task<BottomToolInfo?> FindBottomToolAsync(
@@ -47,22 +49,15 @@ internal sealed class AdbScreenAnalyzer : IDisposable
         };
         if (template is null) return null;
 
-        var minimumScore = kind == BottomToolKind.EscapeScroll ? .76 : .84;
-        foreach (var match in template.FindAll(source, minimumScore, 16))
+        foreach (var match in template.FindAll(source, .84, 16))
         {
             token.ThrowIfCancellationRequested();
-            // The scroll template covers the left part of its icon; adjust its
-            // match center to the actual tap point used by the quick slot.
-            var scale = source.Height / 568d;
-            var center = kind == BottomToolKind.EscapeScroll
-                ? new Point((int)Math.Round(match.Center.X + 4.5 * scale),
-                    (int)Math.Round(match.Center.Y + 2 * scale))
-                : match.Center;
+            var center = match.Center;
             var x = center.X / (double)source.Width;
             var y = center.Y / (double)source.Height;
             if (x is < .12 or > .88 || y is < .82 or > .97) continue;
             var quantity = MiningToolGuard.ParseQuantityText(
-                await ReadBottomToolQuantityTextAsync(source, center, token));
+                await ReadBottomToolQuantityTextAsync(source, center, kind, token));
             return new BottomToolInfo(kind, x, y, quantity);
         }
         return null;
@@ -128,15 +123,17 @@ internal sealed class AdbScreenAnalyzer : IDisposable
             match.Center.X >= source.Width * .90 && match.Center.Y >= source.Height * .85);
     }
 
-    async Task<string> ReadBottomToolQuantityTextAsync(Bitmap source, Point center, CancellationToken token)
+    async Task<string> ReadBottomToolQuantityTextAsync(Bitmap source, Point center, BottomToolKind kind, CancellationToken token)
     {
         // Count labels share a baseline below the bottom quick-slot icons.
-        var sx = Math.Clamp((int)Math.Round(center.X - source.Width * .003), 0, source.Width - 1);
+        var sx = Math.Clamp((int)Math.Round(center.X + source.Width * (kind == BottomToolKind.FogReveal ? .006 : -.003)), 0, source.Width - 1);
         var sy = Math.Clamp((int)Math.Round(source.Height * .963), 0, source.Height - 1);
-        var sw = Math.Clamp((int)Math.Round(source.Width * .043), 1, source.Width - sx);
+        var sw = Math.Clamp((int)Math.Round(source.Width * (kind == BottomToolKind.FogReveal ? .026 : .043)), 1, source.Width - sx);
         var sh = Math.Clamp((int)Math.Round(source.Height * .037), 1, source.Height - sy);
         using var crop = source.Clone(new Rectangle(sx, sy, sw, sh), PixelFormat.Format24bppRgb);
-        return await ReadTextAsync(crop, token);
+        if (kind != BottomToolKind.FogReveal) return await ReadTextAsync(crop, token);
+        using var enlarged = new Bitmap(crop, new Size(crop.Width * 4, crop.Height * 4));
+        return await ReadTextAsync(enlarged, token);
     }
 
     public bool HasNextFloorButton(Bitmap source)

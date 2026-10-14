@@ -1,6 +1,5 @@
 using System;
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
@@ -76,29 +75,13 @@ internal sealed class AdbScreenAnalyzer : IDisposable
 
     async Task<string> ReadMiningToolQuantityTextAsync(Bitmap source, CancellationToken token)
     {
-        // Enlarge the small count in the lower-right of the 70x70 quick-bag cell.
-        var sx = Math.Clamp((int)Math.Round(source.Width * .375), 0, source.Width - 1);
-        var sy = Math.Clamp((int)Math.Round(source.Height * .945), 0, source.Height - 1);
-        var sw = Math.Clamp((int)Math.Round(source.Width * .045), 1, source.Width - sx);
-        var sh = Math.Clamp((int)Math.Round(source.Height * .055), 1, source.Height - sy);
+        // The marked count area in the lower-right of the second quick-bag slot.
+        var sx = Math.Clamp((int)Math.Round(source.Width * .362), 0, source.Width - 1);
+        var sy = Math.Clamp((int)Math.Round(source.Height * .963), 0, source.Height - 1);
+        var sw = Math.Clamp((int)Math.Round(source.Width * .043), 1, source.Width - sx);
+        var sh = Math.Clamp((int)Math.Round(source.Height * .037), 1, source.Height - sy);
         using var crop = source.Clone(new Rectangle(sx, sy, sw, sh), PixelFormat.Format24bppRgb);
-        string? lastText = null;
-        // Twofold preserves tiny strokes better; retry at eightfold only if needed.
-        foreach (var scale in new[] { 2, 8 })
-        {
-            using var enlarged = new Bitmap(crop.Width * scale, crop.Height * scale, PixelFormat.Format24bppRgb);
-            using (var graphics = Graphics.FromImage(enlarged))
-            {
-                graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-                graphics.PixelOffsetMode = PixelOffsetMode.Half;
-                graphics.DrawImage(crop, new Rectangle(0, 0, enlarged.Width, enlarged.Height));
-            }
-            var text = await ReadTextAsync(enlarged, token);
-            lastText = text;
-            if (MiningToolGuard.ParseQuantityText(text) is not null)
-                return text;
-        }
-        return lastText ?? string.Empty;
+        return await ReadTextAsync(crop, token);
     }
 
     public bool HasNextFloorButton(Bitmap source)

@@ -22,6 +22,7 @@ internal sealed class AdbScreenAnalyzer : IDisposable
         set => paddleOcr.TimingLog = value;
     }
     readonly Lazy<VisualTemplate?> miningToolTemplate = new(LoadMiningToolTemplate);
+    readonly Lazy<VisualTemplate?> miningCancelTemplate = new(LoadMiningCancelTemplate);
 
     public string? LastRiftGemTitle { get; private set; }
     public string GemTitleDetectionMode { get; private set; } = "未检测";
@@ -63,6 +64,22 @@ internal sealed class AdbScreenAnalyzer : IDisposable
             return template;
         }
         catch { return null; }
+    }
+
+    static VisualTemplate? LoadMiningCancelTemplate()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "vision", "mining_cancel.png");
+        if (!File.Exists(path)) return null;
+        try { return VisualTemplate.FromFile(path, 63d / 565d, 65d / 565d); }
+        catch { return null; }
+    }
+
+    public bool HasMiningCancelIcon(Bitmap source)
+    {
+        var template = miningCancelTemplate.Value;
+        if (template is null) return false;
+        return template.FindAll(source, .84, 8).Any(match =>
+            match.Center.X >= source.Width * .90 && match.Center.Y >= source.Height * .85);
     }
 
     bool HasMiningToolIcon(Bitmap source)

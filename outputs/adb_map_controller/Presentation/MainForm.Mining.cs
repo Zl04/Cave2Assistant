@@ -191,7 +191,19 @@ public sealed partial class MainForm
         }
         finally
         {
-            if (selectionMayBeOpen) Log("挖矿选择界面可能仍然打开；请先在游戏中取消道具选择，再继续其它操作。");
+            if (selectionMayBeOpen)
+            {
+                try
+                {
+                    await touch.EmergencyRelease();
+                    if (await adb.HasMiningCancelIconAsync())
+                    {
+                        await adb.TapScreen(.956, .92);
+                        Log("挖矿失败后已取消道具选择");
+                    }
+                }
+                catch (Exception ex) { Error(ex); }
+            }
         }
     }
 

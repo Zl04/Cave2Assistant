@@ -105,6 +105,14 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
     internal Task<MiningToolStatus> ReadMiningToolStatusAsync(Bitmap source, CancellationToken token = default)
         => screenAnalyzer.ReadMiningToolStatusAsync(source, token);
 
+    public async Task<bool> HasMiningCancelIconAsync(CancellationToken token = default)
+    {
+        using var bitmap = await CaptureScreenAsync("无法截取设备屏幕", token);
+        return screenAnalyzer.HasMiningCancelIcon(bitmap);
+    }
+
+    internal bool HasMiningCancelIcon(Bitmap source) => screenAnalyzer.HasMiningCancelIcon(source);
+
     internal Task InitializeOcrAsync(CancellationToken token = default)
         => screenAnalyzer.InitializeOcrAsync(token);
 

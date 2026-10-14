@@ -18,7 +18,7 @@
     <!-- ORB/BFMatcher/RANSAC backend for MAA-style FeatureMatch tasks. -->
     <PackageReference Include="OpenCvSharp4" Version="4.10.0.20240616" />
     <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.10.0.20240616" />
-    <!-- In-process PaddleOCR with v5 detection and lightweight v4 recognition. The x64 native runtime is
+    <!-- In-process PaddleOCR with matching v4 mobile detection and recognition. The x64 native runtime is
          shipped by NuGet beside the application; no Python sidecar is used. -->
     <PackageReference Include="PaddleOCRSDK" Version="4.5.3" />
     <PackageReference Include="PaddleOCRRuntime_x64" Version="4.5.3" />
@@ -64,8 +64,8 @@
              Link="web\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="Always" />
-    <Content Include="Resources\OcrModels\PP-OCRv5_mobile_det_infer\**\*"
-             Link="$(PaddleOCRPublishDirectory)paddle-models\PP-OCRv5_mobile_det_infer\%(RecursiveDir)%(Filename)%(Extension)"
+    <Content Include="Resources\OcrModels\PP-OCRv4_mobile_det_infer\**\*"
+             Link="$(PaddleOCRPublishDirectory)paddle-models\PP-OCRv4_mobile_det_infer\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="Always" />
     <Content Include="Resources\OcrModels\PP-OCRv4_mobile_rec_infer\**\*"
@@ -129,6 +129,7 @@
 
     <ItemGroup>
       <_PaddleOCRRootAsset Include="$(PublishDir)CPUCheck.exe;$(PublishDir)donate.jpg;$(PublishDir)PaddleOCR-Interface.md;$(PublishDir)PaddleOCRLicenseCode.exe;$(PublishDir)PaddleOCRModelsDownloader.exe;$(PublishDir)PaddleOCRSDK.dll;$(PublishDir)qq.png;$(PublishDir)Readme.txt" />
+      <_ExistingPaddleOCRRootAsset Include="@(_PaddleOCRRootAsset)" Condition="Exists('%(Identity)')" />
       <_PaddleOCRModelAsset Include="$(PublishDir)models\**\*" />
       <_PaddleOCRConfigAsset Include="$(PublishDir)configs\**\*" />
       <_PaddleOCRImageAsset Include="$(PublishDir)images\**\*" />
@@ -136,7 +137,7 @@
     </ItemGroup>
 
     <MakeDir Directories="$(_PaddleOCRPublishRoot)" />
-    <Copy SourceFiles="@(_PaddleOCRRootAsset)" DestinationFolder="$(_PaddleOCRPublishRoot)" SkipUnchangedFiles="true" Condition="'@(_PaddleOCRRootAsset)' != ''" />
+    <Copy SourceFiles="@(_ExistingPaddleOCRRootAsset)" DestinationFolder="$(_PaddleOCRPublishRoot)" SkipUnchangedFiles="true" Condition="'@(_ExistingPaddleOCRRootAsset)' != ''" />
     <Exec Command="robocopy &quot;$(PublishDir)models&quot; &quot;$(_PaddleOCRPublishRoot)models&quot; /E /NFL /NDL /NJH /NJS /NP" IgnoreExitCode="true" />
     <Exec Command="robocopy &quot;$(PublishDir)configs&quot; &quot;$(_PaddleOCRPublishRoot)configs&quot; /E /NFL /NDL /NJH /NJS /NP" IgnoreExitCode="true" />
     <Exec Command="robocopy &quot;$(PublishDir)images&quot; &quot;$(_PaddleOCRPublishRoot)images&quot; /E /NFL /NDL /NJH /NJS /NP" IgnoreExitCode="true" />

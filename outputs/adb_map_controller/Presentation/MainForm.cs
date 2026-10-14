@@ -281,7 +281,18 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             // every 500 ms and make the selector visibly flicker.
             if (activeMovement is null && activeEntry is null && !uiOperations.IsBusy)
                 await RefreshMap(false, lockDeviceSelection: false);
-        }; Shown += async (_, _) => await RunUi(async () => { await Scan(); await RefreshMap(); if (!closing) refreshTimer.Start(); });
+        };
+        Shown += async (_, _) => await RunUi(async () =>
+        {
+            Log("启动时加载 OCR 模型（PP-OCRv4 mobile）");
+            var ocrStartup = System.Diagnostics.Stopwatch.StartNew();
+            await adb.InitializeOcrAsync();
+            if (closing) return;
+            Log($"OCR 模型加载完成：{ocrStartup.ElapsedMilliseconds} ms");
+            await Scan();
+            await RefreshMap();
+            if (!closing) refreshTimer.Start();
+        });
         foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, autoEquipmentSale, sellBlueWhite, sellPurple, sellDarkGold, sellGold, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, mining, cardMining, cardLayer, entryMapChoice, entryChoice, entryDifficulty, entryRunCount })
             control.Validated += (_, _) => SaveSettings();
         foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers })

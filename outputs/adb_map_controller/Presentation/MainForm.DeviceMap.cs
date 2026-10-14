@@ -174,25 +174,18 @@ public sealed partial class MainForm
                 var nextFloorDialog = popupPipeline?.NextFloorDialog ?? NextFloorDialogKind.None;
                 if (nextFloorDialog != NextFloorDialogKind.None)
                 {
-                    pendingNextFloorDialog = nextFloorDialog;
-                    pendingGreedySelectionReturnOnly = popupPipeline?.GreedySelectionReturnOnly ?? false;
-                    pendingGreedySelectionReturnCards = popupPipeline?.GreedySelectionReturnCards ?? Array.Empty<int>();
-                    floorPhase = FloorPhase.SelectBonus;
-                    portalInteractionAt = portalInteractionAt > 0 ? portalInteractionAt : Environment.TickCount64;
-                    portalDialogPausedMs = 0;
-                    runeSelectionVisible = false;
-                    Log($"启动时检测到换层界面：{nextFloorDialog}，暂停路线并接管弹窗");
-                    State("检测到换层弹窗，暂停移动等待处理");
+                    Log($"启动时检测到换层界面：{nextFloorDialog}，交由独立弹窗监控处理");
                     return true;
                 }
             }
 
-            RefreshRiftSelectionState(writeLog, popup == MovementPopupKind.RiftGemSelection);
+            if (writeLog && popup == MovementPopupKind.RiftGemSelection)
+                Log("启动时检测到秘境宝石界面，交由独立弹窗监控处理");
             if (writeLog)
             {
                 if (popupPipeline is not null)
                     Log($"弹窗管线诊断：结果 {popupPipeline.Value}，节点 {popupPipeline.NodeName ?? "无匹配"}，" +
-                        $"节点={popupPipeline.AttemptSummary}，OCR全屏={PopupUiPipelineResult.SummarizeText(popupPipeline.FullFrameText)}");
+                        $"节点={popupPipeline.AttemptSummary}，OCR宝石标题={PopupUiPipelineResult.SummarizeText(popupPipeline.RiftGemTitleText)}");
                 Log($"秘境宝石选择 本帧命中={(popup == MovementPopupKind.RiftGemSelection ? "是" : "否")}，" +
                     $"锁存={(runeSelectionVisible ? "是" : "否")}，宝石标题 {adb.GemTitleDetectionMode} {adb.LastRiftGemTitle ?? "--"}");
             }

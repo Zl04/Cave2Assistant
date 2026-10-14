@@ -6,8 +6,7 @@ using System.Threading.Tasks;
 namespace AdbMapController;
 
 /// <summary>
-/// 在一次运行任务期间独立观察会消耗触摸的覆盖层。
-/// 它不会自行点击：有活动移动分片时请求取消并释放触摸，空闲时把弹窗锁存给主循环。
+/// 在一次运行任务期间独立观察和处理覆盖层，不修改移动状态。
 /// </summary>
 public sealed class PopupWatchdog
 {
@@ -15,31 +14,22 @@ public sealed class PopupWatchdog
     static readonly TimeSpan ErrorLogInterval = TimeSpan.FromSeconds(2);
 
     readonly AdbClient adb;
-    readonly TouchController touch;
-    readonly MotionInterruptState interrupt;
     readonly Func<bool> probeEnabled;
-    readonly Func<bool> cancelCurrentMovement;
-    readonly Action<MovementPopupKind> detected;
+    readonly Func<PopupUiPipelineResult, CancellationToken, Task<bool>> detected;
     readonly Action<Exception> probeFailed;
     readonly Action<string>? probeStatus;
     readonly Func<string>? probeDisabledReason;
 
-    public PopupWatchdog(
+    internal PopupWatchdog(
         AdbClient adb,
-        TouchController touch,
-        MotionInterruptState interrupt,
         Func<bool> probeEnabled,
-        Func<bool> cancelCurrentMovement,
-        Action<MovementPopupKind> detected,
+        Func<PopupUiPipelineResult, CancellationToken, Task<bool>> detected,
         Action<Exception> probeFailed,
         Action<string>? probeStatus = null,
         Func<string>? probeDisabledReason = null)
     {
         this.adb = adb;
-        this.touch = touch;
-        this.interrupt = interrupt;
         this.probeEnabled = probeEnabled;
-        this.cancelCurrentMovement = cancelCurrentMovement;
         this.detected = detected;
         this.probeFailed = probeFailed;
         this.probeStatus = probeStatus;
@@ -53,6 +43,10 @@ public sealed class PopupWatchdog
         var probeCount = 0L;
         var candidate = MovementPopupKind.None;
         var candidateFrames = 0;
+        var handled = MovementPopupKind.None;
+        var emptyFrames = 0;
+        var lastGemClickAt = 0L;
+        var gemClickAttempts = 0;
         probeStatus?.Invoke("弹窗监控已启动");
 
         void ReportStatus(string message, bool force = false)
@@ -67,7 +61,7 @@ public sealed class PopupWatchdog
         {
             // 弹窗识别独立于移动。调用方只在专门的弹窗流程消费模态框时
             // 暂停探测；其余时间即使移动分片刚结束，也要把弹窗锁存给主循环处理。
-            if (interrupt.Reason == MotionInterruptReason.None && probeEnabled())
+            if (probeEnabled())
             {
                 try
                 {
@@ -75,48 +69,72 @@ public sealed class PopupWatchdog
                     var frameId = adb.NextPopupFrameId();
                     var stopwatch = Stopwatch.StartNew();
                     ReportStatus($"弹窗监控开始探测 #{probeId}（FrameId={frameId}）：截图中");
-                    using var frame = await adb.CaptureMovementPopupFrameAsync(frameId, token);
-                    ReportStatus($"弹窗监控探测 #{probeId}（FrameId={frameId}）：识别中");
-                    var pipelineResult = await adb.RunPopupUiPipelineAsync(frame, frameId, token);
-                    var popup = pipelineResult.Value;
-                    var node = pipelineResult.NodeName ?? "无匹配";
-                    var attemptDetail = pipelineResult.AttemptSummary;
-                    var fullTextDetail = pipelineResult.FullFrameText is null
-                        ? ""
-                        : $"，OCR全屏={PopupUiPipelineResult.SummarizeText(pipelineResult.FullFrameText)}";
-                    var bodyText = pipelineResult.NextFloorDialogBodyText;
-                    var bodyDetail = bodyText is null ? "" : $"，OCR正文={PopupUiPipelineResult.SummarizeText(bodyText)}";
-                    ReportStatus($"弹窗监控探测 #{probeId}（FrameId={frameId}）：{node}，结果 {popup}{fullTextDetail}{bodyDetail}，节点={attemptDetail}，耗时 {stopwatch.ElapsedMilliseconds} ms",
-                        popup != MovementPopupKind.None || stopwatch.ElapsedMilliseconds >= 500);
-                    if (popup == MovementPopupKind.None)
+                    using var probeCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+                    using var monitorCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+                    var disabledMonitor = CancelProbeWhenDisabledAsync(probeCancellation, monitorCancellation.Token);
+                    try
                     {
-                        candidate = MovementPopupKind.None;
-                        candidateFrames = 0;
-                    }
-                    else if (popup != candidate)
-                    {
-                        candidate = popup;
-                        candidateFrames = 1;
-                    }
-                    else candidateFrames++;
-
-                    var requiredFrames = PopupDetectionPolicy.RequiredConsecutiveFrames(popup);
-                    if (candidateFrames >= requiredFrames &&
-                        interrupt.Request(popup, pipelineResult.NextFloorDialog,
-                            pipelineResult.GreedySelectionReturnOnly,
-                            pipelineResult.GreedySelectionReturnCards))
-                    {
-                        // 取消移动只是可选的交接动作。没有活动分片时仍保留中断，
-                        // 由所属运行循环在下一轮消费待处理弹窗。
-                        if (cancelCurrentMovement())
+                        using var frame = await adb.CaptureMovementPopupFrameAsync(frameId, probeCancellation.Token);
+                        var captureMs = stopwatch.ElapsedMilliseconds;
+                        ReportStatus($"弹窗监控探测 #{probeId}（FrameId={frameId}）：识别中");
+                        var pipelineResult = await adb.RunPopupUiPipelineAsync(frame, frameId, probeCancellation.Token);
+                        var popup = pipelineResult.Value;
+                        var node = pipelineResult.NodeName ?? "无匹配";
+                        var attemptDetail = pipelineResult.AttemptSummary;
+                        var gemTitleDetail = pipelineResult.RiftGemTitleText is null
+                            ? ""
+                            : $"，OCR宝石标题={PopupUiPipelineResult.SummarizeText(pipelineResult.RiftGemTitleText)}";
+                        var bodyText = pipelineResult.NextFloorDialogBodyText;
+                        var bodyDetail = bodyText is null ? "" : $"，OCR正文={PopupUiPipelineResult.SummarizeText(bodyText)}";
+                        ReportStatus($"弹窗监控探测 #{probeId}（FrameId={frameId}）：{node}，结果 {popup}{gemTitleDetail}{bodyDetail}，节点={attemptDetail}，截图={captureMs}ms，识别={stopwatch.ElapsedMilliseconds - captureMs}ms，总计={stopwatch.ElapsedMilliseconds}ms",
+                            popup != MovementPopupKind.None || stopwatch.ElapsedMilliseconds >= 500);
+                        if (popup == MovementPopupKind.None)
                         {
-                            try { await touch.EmergencyRelease(); }
-                            catch (Exception ex) { probeFailed(ex); }
+                            candidate = MovementPopupKind.None;
+                            candidateFrames = 0;
+                            if (++emptyFrames >= 2)
+                            {
+                                handled = MovementPopupKind.None;
+                                gemClickAttempts = 0;
+                            }
                         }
-                        detected(popup);
+                        else if (popup != candidate)
+                        {
+                            emptyFrames = 0;
+                            candidate = popup;
+                            candidateFrames = 1;
+                        }
+                        else { emptyFrames = 0; candidateFrames++; }
+
+                        var requiredFrames = PopupDetectionPolicy.RequiredConsecutiveFrames(popup);
+                        var retryGem = popup == MovementPopupKind.RiftGemSelection &&
+                            popup == handled && gemClickAttempts < 5 &&
+                            Environment.TickCount64 - lastGemClickAt >= 700;
+                        if (candidateFrames >= requiredFrames && (popup != handled || retryGem))
+                        {
+                            if (await detected(pipelineResult, token))
+                            {
+                                handled = popup;
+                                if (popup == MovementPopupKind.RiftGemSelection)
+                                {
+                                    gemClickAttempts++;
+                                    lastGemClickAt = Environment.TickCount64;
+                                }
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        monitorCancellation.Cancel();
+                        try { await disabledMonitor; }
+                        catch (OperationCanceledException) when (monitorCancellation.IsCancellationRequested) { }
                     }
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested) { break; }
+                catch (OperationCanceledException)
+                {
+                    ReportStatus("弹窗监控探测已让位给专用弹窗流程", force: true);
+                }
                 catch (Exception ex)
                 {
                     var now = Environment.TickCount64;
@@ -127,11 +145,24 @@ public sealed class PopupWatchdog
                     }
                 }
             }
-            else if (interrupt.Reason == MotionInterruptReason.None)
+            else
                 ReportStatus($"弹窗监控等待专用弹窗流程结束：{probeDisabledReason?.Invoke() ?? "专用流程未结束"}");
 
             try { await Task.Delay(ProbeInterval, token); }
             catch (OperationCanceledException) when (token.IsCancellationRequested) { break; }
+        }
+    }
+
+    async Task CancelProbeWhenDisabledAsync(CancellationTokenSource probeCancellation, CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            if (!probeEnabled())
+            {
+                probeCancellation.Cancel();
+                return;
+            }
+            await Task.Delay(25, token);
         }
     }
 }

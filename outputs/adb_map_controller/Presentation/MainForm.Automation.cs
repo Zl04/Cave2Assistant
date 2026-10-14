@@ -185,7 +185,7 @@ public sealed partial class MainForm
                 // 当该读取确认已到达规划的任务停靠点时，直接使用该结果，
                 // 不必在发送交互前再次进行完整的地图/弹窗刷新。
                 // 下面的交互分支仍会执行自己的最终释放和坐标检查。
-                if (skipRefreshForConfirmedTaskStop || floorPhase == FloorPhase.SelectBonus)
+                if (skipRefreshForConfirmedTaskStop)
                 {
                     skipRefreshForConfirmedTaskStop = false;
                 }
@@ -298,23 +298,13 @@ public sealed partial class MainForm
                     if (floorPhase == FloorPhase.GoToPortal) EnsurePortalRoute();
                     else if (floorPhase is not (FloorPhase.InteractPortal or FloorPhase.SelectBonus or FloorPhase.VerifyTransition)) EnsureRoute();
                 }
-                if (floorPhase == FloorPhase.SelectBonus)
-                {
-                    portalChoiceCoroutine ??= coroutines.Start(SelectBonusRoutine, owner);
-                    var yieldedTask = coroutines.Tick(portalChoiceCoroutine, Environment.TickCount64);
-                    if (yieldedTask is not null) await yieldedTask.WaitAsync(owner);
-                    if (portalChoiceCoroutine.IsCompleted)
-                        portalChoiceCoroutine = null;
-                    await Task.Delay(10, owner);
-                    continue;
-                }
-                if (floorPhase == FloorPhase.VerifyTransition)
+                if (floorPhase is FloorPhase.SelectBonus or FloorPhase.VerifyTransition)
                 {
                     if (Environment.TickCount64 - portalInteractionAt > 8000)
                     {
-                        Log("选择加成后 8 秒仍未检测到换层，重新确认传送门入口"); floorPhase = FloorPhase.GoToPortal; dungeon.PortalCandidate = null; dungeon.PortalConfirmCount = 0;
+                        Log("出口交互后 8 秒仍未检测到换层，重新确认传送门入口"); floorPhase = FloorPhase.GoToPortal; dungeon.PortalCandidate = null; dungeon.PortalConfirmCount = 0;
                     }
-                    await Task.Delay(50, owner); continue;
+                    await Task.Delay(180, owner); continue;
                 }
                 var currentCell = new Cell(dungeon.Map.Player.X, dungeon.Map.Player.Y);
                 var plannedTask = plannedInteractions.FirstOrDefault(task => task.Stop == currentCell &&
@@ -400,8 +390,10 @@ public sealed partial class MainForm
                         Log($"传送门快捷入口检测：{(hasShortcut ? "存在" : "不存在")}");
                         if (hasShortcut)
                         {
+                            var shortcutTapTimer = Stopwatch.StartNew();
                             await adb.TapScreen(0.890625, 0.498);
                             Log("检测到右侧‘前往下层’快捷入口，已点击");
+                            Log($"换层弹窗诊断：传送门快捷入口点击耗时={shortcutTapTimer.ElapsedMilliseconds}ms");
                         }
                         else if (await SendInteraction((delta, plannedTask.Target.Kind), owner))
                         {

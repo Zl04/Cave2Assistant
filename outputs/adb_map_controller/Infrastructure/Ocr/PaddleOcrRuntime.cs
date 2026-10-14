@@ -29,6 +29,11 @@ internal static class PaddleOcrRuntime
         {
             if (initialized) return;
 
+            // Paddle's cpu_threads does not constrain every OpenMP worker pool.
+            // Set the native runtime default before any Paddle DLL is loaded;
+            // changing it after initialization does not reconfigure those pools.
+            Environment.SetEnvironmentVariable("OMP_NUM_THREADS", "1", EnvironmentVariableTarget.Process);
+
             var runtimeRoot = ResolveAsciiRuntimeRoot();
             if (runtimeRoot is null)
                 throw new DirectoryNotFoundException("PaddleOCR 运行时目录缺失或不完整");

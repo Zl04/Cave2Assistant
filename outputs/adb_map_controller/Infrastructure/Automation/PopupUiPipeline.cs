@@ -15,10 +15,10 @@ namespace AdbMapController;
 internal sealed record PopupUiPipelineResult(
     UiPipelineResult<MovementPopupKind> Pipeline,
     NextFloorDialogKind NextFloorDialog,
-    string? FullFrameText,
     string? NextFloorDialogBodyText,
     bool GreedySelectionReturnOnly,
-    IReadOnlyList<int> GreedySelectionReturnCards)
+    IReadOnlyList<int> GreedySelectionReturnCards,
+    string? RiftGemTitleText)
 {
     public MovementPopupKind Value => Pipeline.Value;
     public string? NodeName => Pipeline.NodeName;
@@ -45,21 +45,25 @@ internal sealed record PopupUiPipelineResult(
 /// </summary>
 public static class PopupUiPipeline
 {
-    const string FrameTextCacheKey = "popup.full-frame-text";
-
     public static string DefaultConfigPath
         => Path.Combine(AppContext.BaseDirectory, "pipelines", "popup-watchdog.json");
 
     public static UiPipeline<Bitmap, MovementPopupKind> Create(
         AdbClient adb,
         string? configPath = null,
-        Action<string>? fullFrameTextObserved = null,
-        Action<NextFloorDialogKind, string?>? nextFloorDialogDetected = null)
+        Action<NextFloorDialogKind, string?>? nextFloorDialogDetected = null,
+        Action<string?>? riftGemTitleObserved = null,
+        bool prioritizeNextFloor = false)
     {
         if (adb is null) throw new ArgumentNullException(nameof(adb));
 
         var path = configPath ?? DefaultConfigPath;
         var definition = UiPipelineDefinitionLoader.Load(path);
+        if (prioritizeNextFloor)
+            definition.Nodes = definition.Nodes
+                .OrderBy(node => node.Name == "NextFloorDialog" ? 0 : 1)
+                .ThenBy(node => node.Priority)
+                .ToList();
         var nodes = new List<UiPipelineNode<Bitmap, MovementPopupKind>>();
         foreach (var node in definition.Nodes)
         {
@@ -70,7 +74,7 @@ public static class PopupUiPipeline
             nodes.Add(new UiPipelineNode<Bitmap, MovementPopupKind>(
                 node.Name,
                 result,
-                CreateRecognizer(adb, node, path, fullFrameTextObserved, nextFloorDialogDetected),
+                CreateRecognizer(adb, node, path, nextFloorDialogDetected, riftGemTitleObserved),
                 node.MaxAttempts,
                 System.Threading.Timeout.InfiniteTimeSpan));
         }
@@ -82,14 +86,15 @@ public static class PopupUiPipeline
         AdbClient adb,
         UiPipelineNodeDefinition node,
         string path,
-        Action<string>? fullFrameTextObserved,
-        Action<NextFloorDialogKind, string?>? nextFloorDialogDetected)
+        Action<NextFloorDialogKind, string?>? nextFloorDialogDetected,
+        Action<string?>? riftGemTitleObserved)
         => node.Recognizer switch
         {
             "ServerErrorDialog" => async (context, token) =>
             {
-                var text = await ReadFrameTextAsync(adb, context, token, fullFrameTextObserved);
-                return await adb.HasServerErrorDialog(context.Frame, text);
+                // Server errors have a distinctive modal layout. Use the cheap visual
+                // candidate filter before OCR, then OCR only its message region.
+                return await adb.HasServerErrorDialog(context.Frame, token);
             },
             "NextFloorDialog" => async (context, token) =>
             {
@@ -105,7 +110,8 @@ public static class PopupUiPipeline
             },
             "RiftGemSelection" => async (context, token) =>
             {
-                var text = await ReadFrameTextAsync(adb, context, token, fullFrameTextObserved);
+                var text = await adb.ReadRiftGemTitleAsync(context.Frame, token);
+                riftGemTitleObserved?.Invoke(text);
                 return adb.HasRiftGemSelectionText(text);
             },
             // 临时兼容识别节点；正式交互接入时同时检查 popup-watchdog.json 与 MainForm.Movement.cs。
@@ -122,24 +128,6 @@ public static class PopupUiPipeline
             _ => throw new InvalidDataException(
                 $"节点 {node.Name} 使用了未注册的 recognizer：{node.Recognizer}（{path}）")
         };
-
-    static async Task<string> ReadFrameTextAsync(
-        AdbClient adb,
-        UiPipelineContext<Bitmap> context,
-        CancellationToken token,
-        Action<string>? textObserved)
-    {
-        if (context.Cache.TryGetValue(FrameTextCacheKey, out var cached) && cached is string text)
-        {
-            textObserved?.Invoke(text);
-            return text;
-        }
-
-        var result = await adb.ReadPopupFrameTextAsync(context.Frame, token);
-        context.Cache[FrameTextCacheKey] = result;
-        textObserved?.Invoke(result);
-        return result;
-    }
 
     static async Task<bool> ObserveAsync(Func<Task<bool>> detector, CancellationToken token)
     {

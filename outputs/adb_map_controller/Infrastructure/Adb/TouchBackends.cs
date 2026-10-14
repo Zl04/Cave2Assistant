@@ -19,6 +19,7 @@ internal interface IAndroidTouchBackend : IDisposable
     Task TouchDownAsync((int X, int Y) point);
     Task TouchUpAsync();
     Task TapAsync((int X, int Y) point);
+    Task TapSecondaryAsync((int X, int Y) point);
     Task SwipeAsync((int X, int Y) from, (int X, int Y) to, int durationMs);
     Task ResetAsync();
 }
@@ -79,6 +80,12 @@ internal abstract class LineTouchBackend : IAndroidTouchBackend
     {
         var mapped = MapPoint(point);
         return SendBatchAsync($"d 0 {mapped.X} {mapped.Y} 255", "c", "u 0", "c");
+    }
+
+    public Task TapSecondaryAsync((int X, int Y) point)
+    {
+        var mapped = MapPoint(point);
+        return SendBatchAsync($"d 1 {mapped.X} {mapped.Y} 255", "c", "u 1", "c");
     }
 
     public async Task SwipeAsync((int X, int Y) from, (int X, int Y) to, int durationMs)

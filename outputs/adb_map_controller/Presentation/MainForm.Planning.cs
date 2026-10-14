@@ -522,6 +522,7 @@ public sealed partial class MainForm
         dungeon.ShortcutDeferredByTargets = false;
 
         await touch.EmergencyRelease();
+        var shortcutTapTimer = Stopwatch.StartNew();
         await adb.TapScreen(0.890625, 0.498);
         route = [];
         plannedInteractions = [];
@@ -531,7 +532,8 @@ public sealed partial class MainForm
         floorPhase = FloorPhase.SelectBonus;
         portalInteractionAt = Environment.TickCount64;
         Log("检测到右侧‘前往下层’快捷入口，未前往传送门，已直接点击");
-        State("已点击前往下层，等待确认/加成");
+        Log($"换层弹窗诊断：快捷入口点击耗时={shortcutTapTimer.ElapsedMilliseconds}ms，开始等待弹窗流程");
+        State("已点击前往下层，独立弹窗监控处理确认/加成");
         return true;
     }
 

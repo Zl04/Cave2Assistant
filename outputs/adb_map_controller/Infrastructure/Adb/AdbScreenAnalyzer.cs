@@ -27,6 +27,9 @@ internal sealed class AdbScreenAnalyzer : IDisposable
     public string GemTitleDetectionMode { get; private set; } = "未检测";
     public NextFloorDialogKind LastNextFloorDialogKind { get; private set; }
 
+    public Task InitializeOcrAsync(CancellationToken token = default)
+        => paddleOcr.InitializeAsync(token);
+
     public async Task<string> ReadTextAsync(Bitmap image, CancellationToken token = default)
         => (await paddleOcr.RecognizeAsync(image, token)).Text.Trim();
 
@@ -151,15 +154,19 @@ internal sealed class AdbScreenAnalyzer : IDisposable
     public async Task<bool> HasRiftGemSelectionAsync(Bitmap bitmap)
     {
         LastRiftGemTitle = null;
-        GemTitleDetectionMode = "PaddleOCR";
-        // The title is authoritative; do not reject by card or button colors.
-        var title = await ReadGemTitleAsync(bitmap);
+        GemTitleDetectionMode = "PaddleOCR标题区域";
+        // The selection title is in a centered banner at the top of the screen.
+        // Keep a wide crop around it for layout context without OCRing gameplay HUD text.
+        var title = await ReadRiftGemTitleAsync(bitmap);
         return HasRiftGemSelectionText(title);
     }
 
+    public Task<string?> ReadRiftGemTitleAsync(Bitmap bitmap, CancellationToken token = default)
+        => ReadGemTitleAsync(bitmap, token);
+
     public bool HasRiftGemSelectionText(string? title)
     {
-        GemTitleDetectionMode = "PaddleOCR";
+        GemTitleDetectionMode = "PaddleOCR标题区域";
         LastRiftGemTitle = title;
         return !string.IsNullOrWhiteSpace(title) && IsRiftGemTitle(title!);
     }
@@ -181,11 +188,9 @@ internal sealed class AdbScreenAnalyzer : IDisposable
         return await ReadTextAsync(screenCrop, token);
     }
 
-    async Task<string?> ReadGemTitleAsync(Bitmap source)
+    async Task<string?> ReadGemTitleAsync(Bitmap source, CancellationToken token)
     {
-        // Keep the full frame: empirical PaddleOCR output degrades when the title
-        // crop is isolated without its surrounding layout context.
-        return await ReadTextAsync(source);
+        return await ReadScreenTextAsync(source, (.20, .80, .00, .16), "秘境宝石标题", token);
     }
 
     public async Task<string> ReadPopupFrameTextAsync(Bitmap frame, CancellationToken token = default)

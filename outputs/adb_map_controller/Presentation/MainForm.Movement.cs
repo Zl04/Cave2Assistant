@@ -217,8 +217,7 @@ public sealed partial class MainForm
     }
 
     bool PopupProbeEnabled()
-        => !popupHandling && !startupPreparing && !runeSelectionVisible &&
-           floorPhase is not (FloorPhase.SelectBonus or FloorPhase.VerifyTransition);
+        => !startupPreparing && !popupHandling;
 
     string PopupProbeDisabledReason()
     {
@@ -311,6 +310,69 @@ public sealed partial class MainForm
         }
     }
 
+    async Task<bool> HandleIndependentPopup(PopupUiPipelineResult probe, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        switch (probe.Value)
+        {
+            case MovementPopupKind.NextFloorDialog:
+            {
+                var kind = probe.NextFloorDialog;
+                if (kind == NextFloorDialogKind.None) return false;
+                if (kind is NextFloorDialogKind.WarningConfirm or NextFloorDialogKind.PlainConfirm)
+                {
+                    if (dungeon.Map is not null && ShouldReturnFromGreedySelection(dungeon.Map))
+                    {
+                        Log("指定层等待贪婪抉择回城选项，未点击下楼确认");
+                        return false;
+                    }
+                    await adb.TapScreenSecondary(0.591, 0.639);
+                    Log($"独立弹窗监控：已点击下楼确认（{kind}），移动路线未修改");
+                    return true;
+                }
+                var returnAtTargetFloor = dungeon.Map is not null && ShouldReturnFromGreedySelection(dungeon.Map);
+                if (returnAtTargetFloor && !probe.GreedySelectionReturnOnly && probe.GreedySelectionReturnCards.Count == 0)
+                {
+                    Log("指定层贪婪抉择暂未识别回城卡，等待下一帧");
+                    return false;
+                }
+                var preferred = bonusPriority.Items.Count == 0 ? "增益效果" : bonusPriority.Items[0]?.ToString() ?? "增益效果";
+                var cardIndex = returnAtTargetFloor
+                    ? (probe.GreedySelectionReturnCards.Count > 0 ? probe.GreedySelectionReturnCards[0] : 0)
+                    : preferred switch
+                    {
+                        "回复药剂" => 1,
+                        "道具" or "魔法材料" or "物资" or "锻造材料" or "附魔材料" => 2,
+                        _ => 0
+                    };
+                await adb.TapScreenSecondary(cardIndex switch { 1 => 0.50, 2 => 0.6875, _ => 0.3125 }, 0.657);
+                Log($"独立弹窗监控：已点击第 {cardIndex + 1} 张贪婪卡（{preferred}），移动路线未修改");
+                if (probe.GreedySelectionReturnOnly ||
+                    (returnAtTargetFloor && probe.GreedySelectionReturnCards.Contains(cardIndex)))
+                    floorPhase = FloorPhase.WaitingReturnTown;
+                return true;
+            }
+            case MovementPopupKind.RiftGemSelection:
+                if (runeSelectionCard < 0) runeSelectionCard = Random.Shared.Next(3);
+                await adb.TapScreenSecondary(new[] { .268, .466, .661 }[runeSelectionCard], .648);
+                Log($"独立弹窗监控：已点击第 {runeSelectionCard + 1} 张秘境宝石卡，移动路线未修改");
+                return true;
+            case MovementPopupKind.AltarDialog:
+                await adb.TapScreenSecondary(.46, .63);
+                Log("独立弹窗监控：已关闭点金台界面，移动路线未修改");
+                return true;
+            case MovementPopupKind.EnchantingDialog:
+                await adb.TapScreenSecondary(.44, .18);
+                Log("独立弹窗监控：已关闭附魔台界面，移动路线未修改");
+                return true;
+            case MovementPopupKind.ServerError:
+                Warn("独立弹窗监控：检测到服务器连接异常，移动路线未修改");
+                return true;
+            default:
+                return false;
+        }
+    }
+
     async Task RunMovement(Func<Task> action, bool startupProbePaused = false)
     {
         if (closing || stopping || scanning || activeMovement is { IsCompleted: false } || activeEntry is { IsCompleted: false }) return;
@@ -325,8 +387,7 @@ public sealed partial class MainForm
         devices.Enabled = false;
         dungeon.MotionInterrupt.Clear();
         using var watchdogCts = CancellationTokenSource.CreateLinkedTokenSource(owner);
-        var watchdog = new PopupWatchdog(adb, touch, dungeon.MotionInterrupt, PopupProbeEnabled, movementExecution.Interrupt,
-            popup => Log($"弹窗监控已锁存：{popup}，等待主循环接管"),
+        var watchdog = new PopupWatchdog(adb, PopupProbeEnabled, HandleIndependentPopup,
             ex => Warn($"移动弹窗监控暂时失败：{ex.Message}"),
             message => Log(message),
             PopupProbeDisabledReason);

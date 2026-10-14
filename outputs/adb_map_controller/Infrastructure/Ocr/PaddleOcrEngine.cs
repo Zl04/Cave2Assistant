@@ -17,7 +17,7 @@ namespace AdbMapController;
 /// </summary>
 public sealed class PaddleOcrEngine : IDisposable
 {
-    const string DetectionModel = "PP-OCRv5_mobile_det_infer";
+    const string DetectionModel = "PP-OCRv4_mobile_det_infer";
     const string RecognitionModel = "PP-OCRv4_mobile_rec_infer";
     const string OrientationModel = "PP-LCNet_x1_0_textline_ori";
 
@@ -36,6 +36,19 @@ public sealed class PaddleOcrEngine : IDisposable
 
     static string ResolveDefaultModelsPath()
         => PaddleOcrRuntime.GetModelsRoot();
+
+    public async Task InitializeAsync(CancellationToken token = default)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+        await gate.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+            token.ThrowIfCancellationRequested();
+            await Task.Run(EnsureInitialized, CancellationToken.None).ConfigureAwait(false);
+        }
+        finally { gate.Release(); }
+    }
 
     public async Task<PaddleOcrRecognition> RecognizeAsync(
         Bitmap image,

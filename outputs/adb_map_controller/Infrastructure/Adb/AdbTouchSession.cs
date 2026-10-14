@@ -23,6 +23,7 @@ internal sealed class AdbTouchSession : IDisposable
     int screenHeight;
     int orientation;
     int androidSdk;
+    int maxContacts;
     string? backendDescription;
     int disposed;
 
@@ -72,6 +73,7 @@ internal sealed class AdbTouchSession : IDisposable
         screenWidth = screenHeight = 0;
         orientation = androidSdk = 0;
         backendDescription = null;
+        maxContacts = 0;
         DisposeBackend();
     }
 
@@ -114,7 +116,8 @@ internal sealed class AdbTouchSession : IDisposable
                 {
                     var info = await candidate.StartAsync(screenWidth, screenHeight, orientation).ConfigureAwait(false);
                     backend = candidate;
-                    backendDescription = $"{info.Name} ({screenWidth}x{screenHeight}, Android API {androidSdk})";
+                    maxContacts = info.MaxContacts;
+                    backendDescription = $"{info.Name} ({screenWidth}x{screenHeight}, Android API {androidSdk}, 触点 {info.MaxContacts})";
                     payloadsReady = true;
                     return;
                 }
@@ -166,6 +169,17 @@ internal sealed class AdbTouchSession : IDisposable
         var y = Math.Clamp((int)Math.Round(normalizedY * screenHeight), 0, screenHeight - 1);
         await (backend?.TapAsync((x, y))
             ?? throw new InvalidOperationException("Android 触控后端尚未启动")).ConfigureAwait(false);
+    }
+
+    public async Task TapScreenSecondary(double normalizedX, double normalizedY)
+    {
+        RequireReady();
+        var x = Math.Clamp((int)Math.Round(normalizedX * screenWidth), 0, screenWidth - 1);
+        var y = Math.Clamp((int)Math.Round(normalizedY * screenHeight), 0, screenHeight - 1);
+        if (maxContacts >= 2)
+            await backend!.TapSecondaryAsync((x, y)).ConfigureAwait(false);
+        else
+            await transport.RunAsync("shell", "input", "tap", x.ToString(), y.ToString()).ConfigureAwait(false);
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
@@ -104,6 +105,9 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
     internal Task<MiningToolStatus> ReadMiningToolStatusAsync(Bitmap source, CancellationToken token = default)
         => screenAnalyzer.ReadMiningToolStatusAsync(source, token);
 
+    internal Task InitializeOcrAsync(CancellationToken token = default)
+        => screenAnalyzer.InitializeOcrAsync(token);
+
     public Task<System.Collections.Generic.IReadOnlyList<OcrWord>> ReadOcrWordsAsync(Bitmap image)
         => ReadOcrWordsAsync(image, default);
 
@@ -116,6 +120,9 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
 
     public Task TapScreen(double normalizedX, double normalizedY)
         => touchSession.TapScreen(normalizedX, normalizedY);
+
+    public Task TapScreenSecondary(double normalizedX, double normalizedY)
+        => touchSession.TapScreenSecondary(normalizedX, normalizedY);
 
     public Task PressBack() => touchSession.PressBack();
 
@@ -144,8 +151,8 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
         return await screenAnalyzer.HasServerErrorDialogAsync(bitmap);
     }
 
-    internal Task<bool> HasServerErrorDialog(Bitmap bitmap)
-        => screenAnalyzer.HasServerErrorDialogAsync(bitmap);
+    internal Task<bool> HasServerErrorDialog(Bitmap bitmap, CancellationToken token = default)
+        => screenAnalyzer.HasServerErrorDialogAsync(bitmap, token);
 
     internal Task<bool> HasServerErrorDialog(Bitmap bitmap, string? ocrText)
         => screenAnalyzer.HasServerErrorDialogAsync(bitmap, ocrText);
@@ -195,45 +202,57 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
     internal bool HasRiftGemSelectionText(string? title)
         => screenAnalyzer.HasRiftGemSelectionText(title);
 
+    internal Task<string?> ReadRiftGemTitleAsync(Bitmap frame, CancellationToken token = default)
+        => screenAnalyzer.ReadRiftGemTitleAsync(frame, token);
+
     internal static bool IsRiftGemTitle(string text)
         => AdbScreenAnalyzer.IsRiftGemTitle(text);
 
     /// <summary>Runs the popup UI pipeline against one captured logical frame.</summary>
-    internal async Task<PopupUiPipelineResult> ProbeMovementPopupAsync(CancellationToken token = default)
+    internal async Task<PopupUiPipelineResult> ProbeMovementPopupAsync(
+        CancellationToken token = default, Action<string>? timingLog = null,
+        bool prioritizeNextFloor = false)
     {
         var frameId = NextPopupFrameId();
+        var timer = Stopwatch.StartNew();
         using var bitmap = await CaptureMovementPopupFrameAsync(frameId, token);
-        return await RunPopupUiPipelineAsync(bitmap, frameId, token);
+        var captureMs = timer.ElapsedMilliseconds;
+        timingLog?.Invoke($"帧={frameId}，截图={captureMs}ms");
+        var result = await RunPopupUiPipelineCoreAsync(bitmap, frameId, token, prioritizeNextFloor);
+        timingLog?.Invoke($"帧={frameId}，识别={timer.ElapsedMilliseconds - captureMs}ms，总计={timer.ElapsedMilliseconds}ms，结果={result.Value}，节点={result.AttemptSummary}");
+        return result;
     }
 
     internal long NextPopupFrameId() => Interlocked.Increment(ref popupFrameSequence);
 
     internal Task<PopupUiPipelineResult> RunPopupUiPipelineAsync(
         Bitmap frame, CancellationToken token = default)
-        => RunPopupUiPipelineCoreAsync(frame, null, token);
+        => RunPopupUiPipelineCoreAsync(frame, null, token, prioritizeNextFloor: false);
 
     internal Task<PopupUiPipelineResult> RunPopupUiPipelineAsync(
         Bitmap frame, long frameId, CancellationToken token = default)
-        => RunPopupUiPipelineCoreAsync(frame, frameId, token);
+        => RunPopupUiPipelineCoreAsync(frame, frameId, token, prioritizeNextFloor: false);
 
     async Task<PopupUiPipelineResult> RunPopupUiPipelineCoreAsync(
-        Bitmap frame, long? frameId, CancellationToken token)
+        Bitmap frame, long? frameId, CancellationToken token, bool prioritizeNextFloor)
     {
         NextFloorDialogKind nextFloorDialog = NextFloorDialogKind.None;
-        string? fullFrameText = null;
         string? nextFloorDialogBody = null;
+        string? riftGemTitle = null;
         var pipeline = await PopupUiPipeline.Create(this,
-                fullFrameTextObserved: text => fullFrameText = text,
                 nextFloorDialogDetected: (kind, body) =>
                 {
                     nextFloorDialog = kind;
                     nextFloorDialogBody = body;
-                })
+                },
+                riftGemTitleObserved: text => riftGemTitle = text,
+                prioritizeNextFloor: prioritizeNextFloor)
             .RunAsync(frame, frameId, token);
         var isGreedySelection = nextFloorDialog == NextFloorDialogKind.GreedySelection;
-        return new PopupUiPipelineResult(pipeline, nextFloorDialog, fullFrameText, nextFloorDialogBody,
+        return new PopupUiPipelineResult(pipeline, nextFloorDialog, nextFloorDialogBody,
             isGreedySelection && PopupRecognition.IsGreedySelectionReturnOnly(nextFloorDialogBody),
-            isGreedySelection ? PopupRecognition.FindGreedySelectionReturnCards(frame) : Array.Empty<int>());
+            isGreedySelection ? PopupRecognition.FindGreedySelectionReturnCards(frame) : Array.Empty<int>(),
+            riftGemTitle);
     }
 
     internal Task<string> ReadPopupFrameTextAsync(Bitmap frame, CancellationToken token = default)

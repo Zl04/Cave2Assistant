@@ -12,6 +12,8 @@ namespace AdbMapController;
 public sealed class DungeonEntryAutomation
 {
     readonly AdbClient adb;
+    readonly IMovementInput movement;
+    readonly int pulseHoldMs;
     readonly EntryTemplateStore templates;
     readonly VisionPipeline vision;
     readonly VisionTaskCatalog? visionTasks;
@@ -22,12 +24,14 @@ public sealed class DungeonEntryAutomation
     MapDump? mapBeforeChallenge;
     string? lastDungeonMapProbe;
 
-    public DungeonEntryAutomation(AdbClient adb, EntryTemplateStore templates,
+    public DungeonEntryAutomation(AdbClient adb, IMovementInput movement, int pulseHoldMs, EntryTemplateStore templates,
         Action<string> log, Action<string> state,
         Func<int, bool>? difficultyAttemptsRecognized = null,
         int? requiredDifficultyAttempts = null)
     {
         this.adb = adb;
+        this.movement = movement;
+        this.pulseHoldMs = pulseHoldMs;
         this.templates = templates;
         this.log = log;
         this.state = state;
@@ -306,6 +310,7 @@ public sealed class DungeonEntryAutomation
         state("识别巴萨坦主城入口");
         if (selection.Map.UsesSharedEntrance)
         {
+            await EnsureSharedEntranceUncovered(selection.Map.TemplateId, token);
             // 共用图标的轮廓接近符文图标。不要盲信视觉评分最高的候选：
             // 按分数顺序点击候选，仅在特殊地图界面（或其弹窗回退）确认转场后接受。
             await TapAndConfirmSharedEntrance(selection.Map.TemplateId, token);
@@ -321,6 +326,71 @@ public sealed class DungeonEntryAutomation
             else
                 await Delay(token, 1500);
         }
+    }
+
+    async Task EnsureSharedEntranceUncovered(int templateMapId, CancellationToken token)
+    {
+        for (var attempt = 0; attempt <= 3; attempt++)
+        {
+            token.ThrowIfCancellationRequested();
+            using var frame = await adb.CaptureScreenForAutomationAsync();
+            if (!IsBastanMapFrame(frame))
+                throw new InvalidOperationException("移动角色前未确认巴萨坦地图已打开");
+            var visible = templates.FindAll(templateMapId, frame, .70, 4).FirstOrDefault();
+            if (visible is not null)
+            {
+                log($"共享入口图标无遮挡：({visible.Center.X},{visible.Center.Y})，相似度 {visible.Score:0.000}");
+                return;
+            }
+
+            if (attempt == 3) break;
+            state($"入口图标被角色遮挡，移动角色 ({attempt + 1}/3)");
+            await MoveTownPlayerSeveralCells(token);
+            await EnsureBastanMapOpen(token);
+        }
+        throw new InvalidOperationException("角色移动后仍未识别到共享入口图标，请检查地图页面或入口模板");
+    }
+
+    async Task MoveTownPlayerSeveralCells(CancellationToken token)
+    {
+        var map = await adb.ReadMap();
+        if (map.SceneType != 1 || map.InBattle)
+            throw new InvalidOperationException("当前不是可移动的巴萨坦主城状态，未执行角色移动");
+        var current = new Cell(map.Player.X, map.Player.Y);
+        await adb.PressBack();
+        await Delay(token, 250);
+        // 与跑图相同：方向键单格脉冲，按游戏导出的坐标确认累计移动。
+        // 只要求下一格可走，不限制目的地周围的建筑。
+        var directions = new[] { new Cell(1, 0), new Cell(0, 1), new Cell(-1, 0), new Cell(0, -1) };
+        foreach (var direction in directions)
+        {
+            var last = current;
+            for (var step = 0; step < 8; step++)
+            {
+                token.ThrowIfCancellationRequested();
+                var liveMap = await adb.ReadMap();
+                if (liveMap.SceneType != 1 || liveMap.InBattle)
+                    throw new InvalidOperationException("移动中已离开巴萨坦主城或进入战斗，已停止入口识别");
+                var position = new Cell(liveMap.Player.X, liveMap.Player.Y);
+                var next = new Cell(position.X + direction.X, position.Y + direction.Y);
+                if (!liveMap.ByCell.TryGetValue(next, out var tile) || !tile.Walkable) break;
+                var button = DirectionMapper.ButtonPosition(direction,
+                    liveMap.Confused, liveMap.Reversed, liveMap.ConfuseDirections);
+                var input = TouchCoordinateMapper.ButtonPositionToDelta(button);
+                await movement.PulseOneCell(input, pulseHoldMs, token);
+                await Delay(token, 100);
+                var status = await adb.ReadPlayer();
+                last = new Cell(status.Player.X, status.Player.Y);
+                var moved = Math.Abs(last.X - current.X) + Math.Abs(last.Y - current.Y);
+                if (moved >= 3)
+                {
+                    log($"巴萨坦角色移动结果：{current} -> {last}，位移 {moved} 格");
+                    return;
+                }
+            }
+            log($"巴萨坦方向 ({direction.X},{direction.Y}) 尝试后角色位于 {last}");
+        }
+        throw new InvalidOperationException("方向键尝试四个方向后角色仍未移动三格，已停止入口识别");
     }
 
     async Task SelectOriginalTrialOption(CancellationToken token)

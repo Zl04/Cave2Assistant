@@ -203,7 +203,7 @@ public sealed partial class MainForm
         try
         {
             adb.Serial = devices.Text;
-            var automation = new DungeonEntryAutomation(adb, entryTemplates, Log, State,
+            var automation = new DungeonEntryAutomation(adb, touch, (int)singleCellPulseHold.Value, entryTemplates, Log, State,
                 difficultyAttemptsRecognized, requiredDifficultyAttempts);
             var trace = new MaaPipelineTraceCollector();
             var liveTrace = new DelegateMaaPipelineTraceSink(value =>

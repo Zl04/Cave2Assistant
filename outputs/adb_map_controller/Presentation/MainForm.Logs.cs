@@ -1,13 +1,17 @@
 using System.Diagnostics;
 using System.Drawing;
+using System.Collections.Concurrent;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace AdbMapController;
 
 public sealed partial class MainForm
 {
-    const int MaxLogEntries = 5000;
+    const int MaxLogEntries = 999;
     readonly Queue<LogEntry> logEntries = new();
+    readonly ConcurrentQueue<LogEntry> pendingLogEntries = new();
+    int logFlushScheduled;
     readonly TextBox logSearch = new ThemedTextBox
     {
         Width = 240, PlaceholderText = "输入关键词或正则表达式", AccessibleName = "日志搜索"
@@ -144,14 +148,41 @@ public sealed partial class MainForm
     void Log(string text, LogLevel level)
     {
         if (IsDisposed || Disposing) return;
-        if (InvokeRequired) { BeginInvoke(() => Log(text, level)); return; }
         var entry = new LogEntry(DateTime.Now, level, text);
+        ApplicationLog.Write(entry);
+        if (InvokeRequired)
+        {
+            pendingLogEntries.Enqueue(entry);
+            if (Interlocked.Exchange(ref logFlushScheduled, 1) == 0)
+                BeginInvoke(FlushPendingLogs);
+            return;
+        }
+        AppendLog(entry);
+    }
+
+    void FlushPendingLogs()
+    {
+        if (IsDisposed || Disposing) return;
+        for (var count = 0; count < 256 && pendingLogEntries.TryDequeue(out var entry); count++)
+            AppendLog(entry);
+        Interlocked.Exchange(ref logFlushScheduled, 0);
+        if (!pendingLogEntries.IsEmpty && Interlocked.Exchange(ref logFlushScheduled, 1) == 0)
+            BeginInvoke(FlushPendingLogs);
+    }
+
+    void AppendLog(LogEntry entry)
+    {
         logEntries.Enqueue(entry);
         if (logEntries.Count > MaxLogEntries)
         {
-            logEntries.Dequeue();
-            RenderLogs();
-            return;
+            var oldest = logEntries.Dequeue();
+            if (logFilter.Matches(oldest) && visibleLogEntries > 0)
+            {
+                var nextLine = log.GetFirstCharIndexFromLine(1);
+                log.Select(0, nextLine >= 0 ? nextLine : log.TextLength);
+                log.SelectedText = string.Empty;
+                visibleLogEntries--;
+            }
         }
         if (logFilter.Matches(entry))
         {

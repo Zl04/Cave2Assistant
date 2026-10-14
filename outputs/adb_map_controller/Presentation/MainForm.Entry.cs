@@ -64,12 +64,8 @@ public sealed partial class MainForm
         var liveTrace = new DelegateMaaPipelineTraceSink(value =>
         {
             var task = value.TaskName ?? value.TaskChain;
-            if (value.Kind == MaaPipelineTraceKind.NodeStarted) Log($"进图跑图 Pipeline 节点开始：{task}");
-            else if (value.Kind == MaaPipelineTraceKind.NodeCompleted) Log($"进图跑图 Pipeline 节点完成：{task}，耗时 {value.Duration.TotalMilliseconds:0}ms");
-            else if (value.Kind is MaaPipelineTraceKind.NodeFailed or MaaPipelineTraceKind.TaskChainFailed)
+            if (value.Kind is MaaPipelineTraceKind.NodeFailed or MaaPipelineTraceKind.TaskChainFailed)
                 Log($"进图跑图 Pipeline 失败：{task}，{value.Error ?? value.Detail}", LogLevel.Error);
-            else if (value.Kind == MaaPipelineTraceKind.BranchSelected)
-                Log($"进图跑图 Pipeline 分支：{task} -> {value.Detail ?? "结束"}");
         });
         var handlers = new[]
         {
@@ -215,21 +211,12 @@ public sealed partial class MainForm
                 var task = value.TaskName ?? value.TaskChain;
                 switch (value.Kind)
                 {
-                    case MaaPipelineTraceKind.NodeStarted:
-                        Log($"进图 Pipeline 节点开始：{task}");
-                        break;
-                    case MaaPipelineTraceKind.NodeCompleted:
-                        Log($"进图 Pipeline 节点完成：{task}，耗时 {value.Duration.TotalMilliseconds:0}ms");
-                        break;
                     case MaaPipelineTraceKind.CandidateRecognized when string.Equals(task, "点击挑战", StringComparison.Ordinal):
                         Log($"挑战按钮 OCR：命中={(value.Matched == true ? "是" : "否")}，文本={value.Text ?? "<空>"}，位置={value.Box?.ToString() ?? "无"}，详情={value.Detail ?? "-"}");
                         break;
                     case MaaPipelineTraceKind.NodeFailed:
                     case MaaPipelineTraceKind.TaskChainFailed:
                         Log($"进图 Pipeline 失败：{task}，{value.Error ?? value.Detail}", LogLevel.Error);
-                        break;
-                    case MaaPipelineTraceKind.BranchSelected:
-                        Log($"进图 Pipeline 分支：{task} -> {value.Detail ?? "结束"}");
                         break;
                 }
             });

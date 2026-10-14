@@ -27,6 +27,7 @@ public sealed partial class MainForm
     };
     LogFilter logFilter = new("", false, Enum.GetValues<LogLevel>());
     int visibleLogEntries;
+    bool logViewDirty;
 
     Control CreateLogView()
     {
@@ -72,6 +73,10 @@ public sealed partial class MainForm
         foreach (var checkbox in new[] { logRegex, logInfo, logWarning, logError })
             checkbox.CheckedChanged += (_, _) => RefreshLogFilter();
         panel.Controls.Add(log);
+        log.VisibleChanged += (_, _) =>
+        {
+            if (log.Visible && logViewDirty) RenderLogs();
+        };
         panel.Controls.Add(logFilterStatus);
         panel.Controls.Add(toolbar);
         UpdateLogFilterStatus();
@@ -90,6 +95,12 @@ public sealed partial class MainForm
 
     void RenderLogs()
     {
+        if (!log.Visible)
+        {
+            logViewDirty = true;
+            return;
+        }
+        logViewDirty = false;
         var firstVisibleLine = log.FirstVisibleLine;
         var matchedEntries = new List<LogEntry>();
         var timer = Stopwatch.StartNew();
@@ -173,6 +184,12 @@ public sealed partial class MainForm
     void AppendLog(LogEntry entry)
     {
         logEntries.Enqueue(entry);
+        if (!log.Visible)
+        {
+            if (logEntries.Count > MaxLogEntries) logEntries.Dequeue();
+            logViewDirty = true;
+            return;
+        }
         if (logEntries.Count > MaxLogEntries)
         {
             var oldest = logEntries.Dequeue();

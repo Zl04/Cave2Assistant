@@ -65,7 +65,11 @@ public sealed partial class MainForm
         if (onMapReady is not null) Log($"导航启动计时：刷新锁等待 {lockWait.ElapsedMilliseconds} ms");
         if (lockDeviceSelection) devices.Enabled = false;
         try { return await RefreshMapCore(writeLog, onMapReady); }
-        finally { refreshLock.Release(); UpdateDeviceAvailability(); }
+        finally
+        {
+            refreshLock.Release();
+            if (lockDeviceSelection) UpdateDeviceAvailability();
+        }
     }
 
     async Task<bool> RefreshMapCore(bool writeLog, Action? onMapReady)

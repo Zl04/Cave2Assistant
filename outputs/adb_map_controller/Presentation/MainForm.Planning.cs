@@ -187,8 +187,11 @@ public sealed partial class MainForm
             map.SceneType == 2 && map.Level >= target && map.Level <= last;
     }
 
+    bool ShouldCancelNextFloorDialog(MapDump map)
+        => IsEscapeReturnFloor(map) || IsTargetStopFloor(map);
+
     bool ShouldReturnFromGreedySelection(MapDump map)
-        => IsTargetStopFloor(map);
+        => !cardMiningTaskRunning && IsTargetStopFloor(map);
 
     bool TargetFloorStopReady(MapDump map)
     {
@@ -215,10 +218,6 @@ public sealed partial class MainForm
     async Task<bool> TryStopAtTargetFloor()
     {
         if (dungeon.TargetFloorStopped || dungeon.Map is null || !TargetFloorStopReady(dungeon.Map)) return false;
-
-        // 到达指定层后，要让传送门弹出“贪婪抉择”，由选择流程点击回城卡。
-        // 如果这里直接停住，回城卡永远不会出现。
-        if (ShouldReturnFromGreedySelection(dungeon.Map)) return false;
 
         var level = dungeon.Map.Level;
         await touch.EmergencyRelease();
@@ -332,6 +331,12 @@ public sealed partial class MainForm
         // 否则主循环永远到不了 SelectBonusRoutine，只会反复识别同一个弹窗。
         if (floorPhase is FloorPhase.SelectBonus or FloorPhase.VerifyTransition)
             return true;
+
+        if (cancelledNextFloorLevel == map.Level)
+        {
+            floorPhase = FloorPhase.Explore;
+            return false;
+        }
 
         var portal = map.Tiles.SelectMany(r => r)
             .SelectMany(t => t.Roles.Where(PortalRouting.IsFloorTransition)
@@ -501,6 +506,7 @@ public sealed partial class MainForm
 
         var map = dungeon.Map;
         if (map is null) return false;
+        if (cancelledNextFloorLevel == map.Level) return false;
         var options = Options();
         var allPending = ActiveTargets(map, options);
         var pending = ReachableActiveTargets(map, options);
@@ -543,6 +549,7 @@ public sealed partial class MainForm
         mapPanel.Route = route;
         mapPanel.Invalidate();
         floorPhase = FloorPhase.SelectBonus;
+        portalInteractionDelta = default;
         portalInteractionAt = Environment.TickCount64;
         Log("检测到右侧‘前往下层’快捷入口，未前往传送门，已直接点击");
         Log($"换层弹窗诊断：快捷入口点击耗时={shortcutTapTimer.ElapsedMilliseconds}ms，开始等待弹窗流程");

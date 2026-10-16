@@ -126,13 +126,18 @@ public sealed partial class MainForm
             }
             if (dialog is NextFloorDialogKind.WarningConfirm or NextFloorDialogKind.PlainConfirm)
             {
-                if (dungeon.Map is not null && ShouldReturnFromGreedySelection(dungeon.Map))
+                if (dungeon.Map is { } stopMap && ShouldCancelNextFloorDialog(stopMap))
                 {
                     var releaseTask = touch.EmergencyRelease();
                     yield return releaseTask;
-                    Log("指定层未出现贪婪抉择回城卡，未确认进入下一层");
-                    State("指定层等待贪婪抉择回城选项");
-                    operations.Cancel(ControllerOperationKind.Movement);
+                    var cancelTask = adb.TapScreen(0.409, 0.639);
+                    yield return cancelTask;
+                    cancelledNextFloorLevel = stopMap.Level;
+                    floorPhase = FloorPhase.Explore;
+                    route = []; plannedInteractions = []; plannedTargetUniverse.Clear();
+                    mapPanel.Route = route; mapPanel.Invalidate();
+                    Log($"第 {stopMap.Level} 层触发停层/卷轴回城条件，已点击‘再考虑一下’取消下楼");
+                    State($"第 {stopMap.Level} 层已取消下楼");
                     yield break;
                 }
                 var actionTimer = Stopwatch.StartNew();

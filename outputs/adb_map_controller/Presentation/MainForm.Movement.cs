@@ -321,10 +321,13 @@ public sealed partial class MainForm
                 if (kind == NextFloorDialogKind.None) return false;
                 if (kind is NextFloorDialogKind.WarningConfirm or NextFloorDialogKind.PlainConfirm)
                 {
-                    if (dungeon.Map is not null && ShouldReturnFromGreedySelection(dungeon.Map))
+                    if (dungeon.Map is { } stopMap && ShouldCancelNextFloorDialog(stopMap))
                     {
-                        Log("指定层等待贪婪抉择回城选项，未点击下楼确认");
-                        return false;
+                        await adb.TapScreenSecondary(0.409, 0.639);
+                        cancelledNextFloorLevel = stopMap.Level;
+                        floorPhase = FloorPhase.Explore;
+                        Log($"独立弹窗监控：第 {stopMap.Level} 层已点击‘再考虑一下’取消下楼");
+                        return true;
                     }
                     await adb.TapScreenSecondary(0.591, 0.639);
                     Log($"独立弹窗监控：已点击下楼确认（{kind}），移动路线未修改");

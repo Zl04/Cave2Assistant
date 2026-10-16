@@ -13,6 +13,8 @@ namespace AdbMapController;
 
 public sealed partial class MainForm
 {
+    string? lastEntryFailureEvidencePath;
+    string? lastEntryFailureError;
     async Task CalibrateEntry()
     {
         if (string.IsNullOrWhiteSpace(devices.Text)) throw new InvalidOperationException("请先连接设备");
@@ -41,6 +43,23 @@ public sealed partial class MainForm
         if (activeEntry is { IsCompleted: false }) return;
 
         await operations.RunAsync(ControllerOperationKind.Entry, RunEntryRunPipelineAsync);
+    }
+    async Task EnterOnly()
+    {
+        if (closing || stopping) return;
+        if (string.IsNullOrWhiteSpace(devices.Text)) throw new InvalidOperationException("请先连接设备");
+        if (activeMovement is { IsCompleted: false })
+            throw new InvalidOperationException("请先暂停或停止地图导航，再自动进图");
+        if (activeEntry is { IsCompleted: false }) return;
+
+        var selection = new DungeonEntrySelection(SelectedEntryMap.Id,
+            Math.Max(1, entryChoice.SelectedIndex + 1), SelectedEntryDifficulty);
+        await operations.RunAsync(ControllerOperationKind.Entry, async token =>
+        {
+            var result = await AutoEnterCore(selection, token, stopBeforeChallenge: true);
+            if (result == AutoEnterResult.ReadyToChallenge)
+                State("已选中关卡，停在点击挑战前");
+        });
     }
     async Task RunEntryRunPipelineAsync(CancellationToken owner)
     {
@@ -124,9 +143,20 @@ public sealed partial class MainForm
                             context.State.Log($"所选关卡已无剩余次数，当前已完成{completedRuns}轮，正常结束");
                             return MaaPipelineActionResult.Stop();
                         }
-                        return entryResult == AutoEnterResult.Entered
-                            ? MaaPipelineActionResult.Success()
-                            : MaaPipelineActionResult.Failure("进图失败或已取消");
+                        if (entryResult == AutoEnterResult.Entered)
+                            return MaaPipelineActionResult.Success();
+                        var evidencePath = context.State.lastEntryFailureEvidencePath;
+                        if (evidencePath is null && !token.IsCancellationRequested)
+                        {
+                            try
+                            {
+                                using var frame = await context.State.adb.CaptureScreenForAutomationAsync(token);
+                                evidencePath = PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, context.State.Log);
+                            }
+                            catch (Exception ex) { context.State.Warn($"进图失败现场截图未保存：{ex.Message}"); }
+                        }
+                        return MaaPipelineActionResult.Failure(
+                            context.State.lastEntryFailureError ?? "进图失败或已取消", evidencePath);
                     }
                     if (context.TaskName == "RunDungeonCycle")
                     {
@@ -194,17 +224,20 @@ public sealed partial class MainForm
         }
     }
 
-    enum AutoEnterResult { Failed, Entered, QuotaExhausted }
+    enum AutoEnterResult { Failed, Entered, QuotaExhausted, ReadyToChallenge }
 
     async Task<AutoEnterResult> AutoEnterCore(DungeonEntrySelection selection, CancellationToken owner,
         Func<int, bool>? difficultyAttemptsRecognized = null,
-        int? requiredDifficultyAttempts = null)
+        int? requiredDifficultyAttempts = null,
+        bool stopBeforeChallenge = false)
     {
+        lastEntryFailureEvidencePath = null;
+        lastEntryFailureError = null;
         try
         {
             adb.Serial = devices.Text;
             var automation = new DungeonEntryAutomation(adb, touch, (int)singleCellPulseHold.Value, entryTemplates, Log, State,
-                difficultyAttemptsRecognized, requiredDifficultyAttempts);
+                difficultyAttemptsRecognized, requiredDifficultyAttempts, stopBeforeChallenge);
             var trace = new MaaPipelineTraceCollector();
             var liveTrace = new DelegateMaaPipelineTraceSink(value =>
             {
@@ -220,8 +253,17 @@ public sealed partial class MainForm
                         break;
                 }
             });
-            var entryOperation = automation.RunAsync(selection, owner, new MaaPipelineTraceMultiplexer([trace, liveTrace]));
+            var entryOperation = automation.RunAsync(selection, owner, new MaaPipelineTraceMultiplexer([trace, liveTrace, pipelineWebServer]));
             var result = await entryOperation;
+            if (!result.Succeeded)
+            {
+                var failedEvent = trace.Events.LastOrDefault(value =>
+                    value.Kind is MaaPipelineTraceKind.NodeFailed or MaaPipelineTraceKind.TaskChainFailed);
+                lastEntryFailureError = failedEvent?.Error ?? result.Error;
+                lastEntryFailureEvidencePath = trace.Events.LastOrDefault(value =>
+                    (value.Kind is MaaPipelineTraceKind.NodeFailed or MaaPipelineTraceKind.TaskChainFailed)
+                    && !string.IsNullOrWhiteSpace(value.EvidencePath))?.EvidencePath;
+            }
             try
             {
                 var tracePath = runtime.Paths.Trace($"dungeon-entry-{result.RunId}.json");
@@ -238,6 +280,11 @@ public sealed partial class MainForm
             }
             else if (!result.Succeeded)
             {
+                if (stopBeforeChallenge && result.Status == MaaPipelineExecutionStatus.Stopped && result.LastTask == "识别并选择关卡")
+                {
+                    Log("已选中目标关卡，停在点击挑战前；未点击挑战");
+                    return AutoEnterResult.ReadyToChallenge;
+                }
                 if (result.Status == MaaPipelineExecutionStatus.Stopped && result.LastTask == "检查所选难度次数")
                 {
                     Log("已读取所选关卡剩余次数为0，不再发起挑战");

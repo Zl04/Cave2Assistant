@@ -87,6 +87,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     readonly Random random = new();
     bool runeSelectionVisible;
     NextFloorDialogKind pendingNextFloorDialog;
+    int cancelledNextFloorLevel = -1;
     bool pendingGreedySelectionReturnOnly;
     IReadOnlyList<int> pendingGreedySelectionReturnCards = Array.Empty<int>();
     bool serverErrorDialogVisible;
@@ -102,6 +103,8 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     long portalDialogPausedMs;
     bool portalInteractionBlockedByGem;
     long portalInteractionAt;
+    Cell portalInteractionDelta;
+    string portalInteractionKind = "传送门";
     readonly CoroutineRunner coroutines = new();
     Coroutine? portalChoiceCoroutine;
     // 游戏原始单位/秒；游戏会将其除以 1000，得到每个地图格的单位数。
@@ -193,7 +196,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         };
         var scan = Btn("扫描设备", ThemeRole.SecondaryButton); var refresh = Btn("刷新地图", ThemeRole.SecondaryButton);
         var plan = Btn("规划路线", ThemeRole.InfoButton); var start = Btn("开始", ThemeRole.SuccessButton); var pause = Btn("暂停", ThemeRole.WarningButton); var step = Btn("单步", ThemeRole.InfoButton); var stop = Btn("急停", ThemeRole.DangerButton);
-        var autoEnter = Btn("进图并跑图", ThemeRole.SuccessButton); var calibrateEntry = Btn("更新入口模板", ThemeRole.UtilityButton);
+        var autoEnter = Btn("进图并跑图", ThemeRole.SuccessButton); var enterOnly = Btn("进图", ThemeRole.InfoButton); var calibrateEntry = Btn("更新入口模板", ThemeRole.UtilityButton);
         var openWebMonitor = Btn("Web监控", ThemeRole.InfoButton);
         var detectAssistant = Btn("检测助手", ThemeRole.UtilityButton); var installAssistant = Btn("安装助手", ThemeRole.UtilityButton); var restoreAssistant = Btn("恢复原版", ThemeRole.DangerButton); var openTestPanel = Btn("打开测试面板", ThemeRole.WarningButton);
         var mine = Btn("挖矿", ThemeRole.WarningButton);
@@ -203,7 +206,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             var result = await RunEquipmentSaleAsync(operations.CurrentToken);
             State(result ? "装备出售完成" : "装备出售未完成，已停止");
         }));
-        top.Controls.AddRange([refresh, plan, start, mine, sell, pause, step, stop, autoEnter, calibrateEntry, openWebMonitor]);
+        top.Controls.AddRange([refresh, plan, start, mine, sell, pause, step, stop, autoEnter, enterOnly, calibrateEntry, openWebMonitor]);
         var settingsTop = new FlowLayoutPanel
         {
             Dock = DockStyle.Top,
@@ -244,7 +247,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         tabs.TabPages.Add(runPage); tabs.TabPages.Add(CreateTaskListPage()); tabs.TabPages.Add(settingsPage); tabs.TabPages.Add(logPage);
         Controls.Add(tabs);
         scan.Click += async (_, _) => await RunUi(Scan); refresh.Click += async (_, _) => await RunUi(() => RefreshMap()); plan.Click += async (_, _) => await RunUi(Replan); start.Click += async (_, _) => await RunUi(StartRun); pause.Click += async (_, _) => await RunUi(async () => { await StopMovement(); State("已暂停"); }); step.Click += async (_, _) => await RunUi(Step); stop.Click += async (_, _) => await RunUi(EmergencyStopAndClear);
-        autoEnter.Click += async (_, _) => await RunUi(AutoEnter); calibrateEntry.Click += async (_, _) => await RunUi(CalibrateEntry);
+        autoEnter.Click += async (_, _) => await RunUi(AutoEnter); enterOnly.Click += async (_, _) => await RunUi(EnterOnly); calibrateEntry.Click += async (_, _) => await RunUi(CalibrateEntry);
         mine.Click += async (_, _) => await RunUi(StartMining);
         BuildWindowCaption();
         openWebMonitor.Click += (_, _) => OpenPipelineWebMonitor();
@@ -551,6 +554,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         ClearRiftGemSelectionState();
         serverErrorDialogVisible = false;
         pendingNextFloorDialog = NextFloorDialogKind.None;
+        cancelledNextFloorLevel = -1;
         pendingGreedySelectionReturnOnly = false;
         pendingGreedySelectionReturnCards = Array.Empty<int>();
         mapPanel.Invalidate();

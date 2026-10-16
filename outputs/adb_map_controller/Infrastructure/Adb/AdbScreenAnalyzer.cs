@@ -174,9 +174,29 @@ internal sealed class AdbScreenAnalyzer : IDisposable
         Action<string?>? bodyObserved,
         Action<string?>? titleObserved = null)
     {
+        // 普通/警告确认框先用绿色勾按钮筛选，再读中央提示文字。
+        if (PopupRecognition.HasNextFloorConfirmButton(bitmap))
+        {
+            var confirmText = await ReadScreenTextAsync(bitmap, (.24, .76, .24, .62), "换层确认提示", token);
+            if (PopupRecognition.IsNextFloorConfirmText(confirmText))
+            {
+                bodyObserved?.Invoke(confirmText);
+                titleObserved?.Invoke(null);
+                return DetectNextFloorDialog(bitmap, null, confirmText);
+            }
+        }
+
+        // 贪婪抉择仅以标题为入口；标题未命中时不读取卡片。
         var title = await ReadPopupTitleTextAsync(bitmap, token);
         titleObserved?.Invoke(title);
-        var body = await ReadScreenTextAsync(bitmap, (.20, .80, .20, .70), "换层弹窗", token);
+        if (!PopupRecognition.IsGreedySelectionTitle(title))
+        {
+            bodyObserved?.Invoke(null);
+            LastNextFloorDialogKind = NextFloorDialogKind.None;
+            return NextFloorDialogKind.None;
+        }
+
+        var body = await ReadScreenTextAsync(bitmap, (.20, .80, .20, .70), "贪婪抉择卡片", token);
         bodyObserved?.Invoke(body);
         return DetectNextFloorDialog(bitmap, title, body);
     }

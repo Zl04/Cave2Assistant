@@ -335,7 +335,26 @@ public sealed partial class MainForm
                 }
                 if (floorPhase is FloorPhase.SelectBonus or FloorPhase.VerifyTransition)
                 {
-                    if (Environment.TickCount64 - portalInteractionAt > 8000)
+                    if (floorPhase == FloorPhase.SelectBonus && pendingNextFloorDialog == NextFloorDialogKind.None &&
+                        Environment.TickCount64 - portalInteractionAt >= 1500)
+                    {
+                        if (await adb.HasNextFloorButton())
+                        {
+                            await adb.TapScreen(0.890625, 0.498);
+                            Log("换层弹窗尚未出现，重新点击前往下层快捷入口");
+                        }
+                        else if (portalInteractionDelta != default)
+                        {
+                            if (await SendInteraction((portalInteractionDelta, portalInteractionKind), owner))
+                            {
+                                await HandleMovementPopupInterrupt(owner);
+                                continue;
+                            }
+                            Log("换层弹窗尚未出现，重新交互楼层传送门");
+                        }
+                        portalInteractionAt = Environment.TickCount64;
+                    }
+                    if (floorPhase == FloorPhase.VerifyTransition && Environment.TickCount64 - portalInteractionAt > 8000)
                     {
                         Log("出口交互后 8 秒仍未检测到换层，重新确认传送门入口"); floorPhase = FloorPhase.GoToPortal; dungeon.PortalCandidate = null; dungeon.PortalConfirmCount = 0;
                     }
@@ -394,6 +413,19 @@ public sealed partial class MainForm
                     }
                     else if (PortalRouting.IsPortalKind(plannedTask.Target.Kind))
                     {
+                        if (cancelledNextFloorLevel == dungeon.Map.Level)
+                        {
+                            floorPhase = FloorPhase.Explore;
+                            route = [];
+                            plannedInteractions = [];
+                            plannedTargetUniverse.Clear();
+                            mapPanel.Route = route;
+                            mapPanel.Invalidate();
+                            await Task.Delay(80, owner);
+                            continue;
+                        }
+                        portalInteractionDelta = delta;
+                        portalInteractionKind = plannedTask.Target.Kind;
                         // 到达楼层传送门后，必须在任何换层动作前完成挖矿判断。
                         // 这里既覆盖传送门交互，也覆盖同一位置出现的右侧快捷入口，
                         // 防止先触发“前往下一层”弹窗后才进入挖矿流程。

@@ -145,6 +145,14 @@ public static class PopupRecognition
              normalized.Contains("进入", StringComparison.Ordinal));
     }
 
+    public static bool IsNextFloorConfirmText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        var normalized = NormalizeText(text);
+        return normalized.Contains("是否进入下一层", StringComparison.Ordinal) ||
+               normalized.Contains("是否进入下层", StringComparison.Ordinal);
+    }
+
     public static bool IsCharacterAdvancementDialogText(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
@@ -163,6 +171,10 @@ public static class PopupRecognition
             PopupColorKind.GreenButton);
         return panel >= .30 && confirm >= .08;
     }
+
+    public static bool HasNextFloorConfirmButton(Bitmap source)
+        => OpenCvPopupColorAnalysis.Ratio(source, (.50, .70, .54, .75),
+            PopupColorKind.GreenButton) >= .08;
 
     static bool HasNextFloorWarningText(Bitmap source)
     {

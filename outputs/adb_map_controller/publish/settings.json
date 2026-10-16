@@ -30,8 +30,8 @@
   "EscapeReturnFloor": 0,
   "EscapeReturnAttackBoss": false,
   "CardLayer": false,
-  "EntryMapId": 2,
-  "EntryId": 6,
+  "EntryMapId": 3,
+  "EntryId": 2,
   "EntryDifficulty": "Elite",
   "EntryRunCount": 0,
   "BonusPriority": [
@@ -129,7 +129,7 @@
           "EntryDifficulty": "Nightmare",
           "EntryRunCount": 0,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": false,
+          "TaskEnabled": true,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 1
         },
@@ -204,7 +204,7 @@
           "EntryDifficulty": "Elite",
           "EntryRunCount": 0,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": true,
+          "TaskEnabled": false,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 2
         },

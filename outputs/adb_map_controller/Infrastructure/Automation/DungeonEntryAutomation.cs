@@ -885,7 +885,7 @@ public sealed class DungeonEntryAutomation
         System.Drawing.Point? selectedBadgeCenter = null;
         var visitedBadgeCenters = new List<System.Drawing.Point>();
         var discoveredEntryIds = new HashSet<int>();
-        var passesWithoutNewEntry = 0;
+        var passesWithoutProgress = 0;
         var emptyRecognitionPasses = 0;
         await WaitForMapToSettle(token);
         for (var pass = 0; ; pass++)
@@ -894,9 +894,7 @@ public sealed class DungeonEntryAutomation
             using var frame = await adb.CaptureScreenForAutomationAsync();
             var selectedOnScreen = await ReadSelectedEntry(frame, selection.MapId);
             if (selectedOnScreen is not null) currentEntry = selectedOnScreen;
-            if (currentEntry is not null)
-                passesWithoutNewEntry = discoveredEntryIds.Add(currentEntry.Id)
-                    ? 0 : passesWithoutNewEntry + 1;
+            if (currentEntry is not null) discoveredEntryIds.Add(currentEntry.Id);
             if (currentEntry?.Id == selection.Entry.Id)
             {
                 state($"已确认目标节点 {selection.Entry.Name}");
@@ -907,8 +905,9 @@ public sealed class DungeonEntryAutomation
                 : VisualNodeLocator.FindGoldNodeBadges(frame);
             var genericNodes = VisualNodeLocator.FindMapNodes(frame);
             var selectedIcon = VisualNodeLocator.FindSelectedMapNode(frame, genericNodes);
-            selectedBadgeCenter = selectedIcon?.Center;
-            if (selectedBadgeCenter is null)
+            var hasSelectedIcon = selectedIcon is not null;
+            selectedBadgeCenter = hasSelectedIcon ? selectedIcon!.Center : null;
+            if (!hasSelectedIcon)
             {
                 // 画面中没有选中节点时，不沿用上一帧的位置；任一可见节点均可作为起点。
                 visitedBadgeCenters.Clear();
@@ -931,37 +930,35 @@ public sealed class DungeonEntryAutomation
                     await Delay(token, 400);
                     continue;
                 }
-                log("连续3帧未识别到节点，逐点检查地图区域；每次点击后核对左侧关卡标题");
                 candidates = BuildMapScanCandidates(frame.Width, frame.Height, selection.Map.IsTimeGate);
+                log($"连续3帧未识别到节点，逐点检查地图区域 {candidates.Length} 个点；每次点击后核对左侧关卡标题");
             }
             else emptyRecognitionPasses = 0;
-
-            var scanMode = passesWithoutNewEntry >= 3 || emptyRecognitionPasses >= 3;
-            if (scanMode)
-            {
-                log($"连续识别不到新关卡（已知关卡重复{passesWithoutNewEntry}轮、无候选{emptyRecognitionPasses}帧），逐点扫描当前地图视口并核对 OCR");
-                candidates = BuildMapScanCandidates(frame.Width, frame.Height, selection.Map.IsTimeGate);
-            }
 
             var towardRight = currentEntry is not null && selection.Entry.Id > currentEntry.Id;
             var currentCenter = selectedBadgeCenter;
             var unvisitedCandidates = candidates.Where(x => visitedBadgeCenters.All(visited =>
                 Math.Abs(x.Center.X - visited.X) > frame.Width * 35.0 / 1004 ||
                 Math.Abs(x.Center.Y - visited.Y) > frame.Height * 35.0 / 565)).ToArray();
-            // 普通地图关卡从左到右递增；先只尝试当前节点朝目标一侧的徽章。
-            var directionalCandidates = !selection.Map.IsTimeGate && currentEntry is not null && currentCenter is not null
+            // 普通地图关卡从左到右递增：只有本帧确实看到选中图标时，才收窄到朝目标一侧的徽章。
+            var directionalCandidates = hasSelectedIcon && !selection.Map.IsTimeGate &&
+                currentEntry is not null && currentCenter is not null
                 ? unvisitedCandidates.Where(x => towardRight
                     ? x.Center.X > currentCenter.Value.X + frame.Width * 25.0 / 1004
                     : x.Center.X < currentCenter.Value.X - frame.Width * 25.0 / 1004).ToArray()
                 : unvisitedCandidates;
-            var orderedCandidates = currentCenter is null
+            var orderedCandidates = !hasSelectedIcon || currentCenter is null
                 ? unvisitedCandidates.AsEnumerable()
                 : selection.Map.IsTimeGate
-                ? unvisitedCandidates.OrderBy(x =>
-                    Math.Pow(x.Center.X - currentCenter.Value.X, 2) +
-                    Math.Pow(x.Center.Y - currentCenter.Value.Y, 2))
-                : directionalCandidates.OrderBy(x => Math.Abs(x.Center.X - currentCenter.Value.X));
-            var movedToAnotherLayer = false;
+                    ? unvisitedCandidates.OrderBy(x =>
+                        Math.Pow(x.Center.X - currentCenter.Value.X, 2) +
+                        Math.Pow(x.Center.Y - currentCenter.Value.Y, 2))
+                    : directionalCandidates.OrderBy(x => Math.Abs(x.Center.X - currentCenter.Value.X));
+            if (!orderedCandidates.Any())
+                log("当前视口内没有可点击的候选徽章，直接拖拽地图继续搜索");
+            var bestDistance = currentEntry is null
+                ? int.MaxValue : Math.Abs(selection.Entry.Id - currentEntry.Id);
+            var improved = false;
             foreach (var candidate in orderedCandidates)
             {
                 var tap = candidate.Center;
@@ -1007,26 +1004,35 @@ public sealed class DungeonEntryAutomation
                     return true;
                 }
                 if (selected.Id == currentEntry?.Id) continue;
+
+                var distance = Math.Abs(selection.Entry.Id - selected.Id);
+                var closerToTarget = distance < bestDistance;
                 if (selectedBadgeCenter is not null) visitedBadgeCenters.Add(selectedBadgeCenter.Value);
                 selectedBadgeCenter = candidate.Center;
                 currentEntry = selected;
-                if (scanMode && !discoveredEntryIds.Add(selected.Id))
+                discoveredEntryIds.Add(selected.Id);
+                // 扫荡按钮跟随选中节点移动，用刚截的这一帧刷新禁区。
+                sweepButtons = GetSweepExclusionRegions(selectedFrame, selectedBadgeCenter);
+                if (!closerToTarget)
                 {
-                    // 扫荡按钮会跟着新选中的节点移动，继续逐点扫描前必须更新禁区。
-                    using var refreshedFrame = await adb.CaptureScreenForAutomationAsync();
-                    var refreshedNodes = VisualNodeLocator.FindMapNodes(refreshedFrame);
-                    selectedBadgeCenter = VisualNodeLocator.FindSelectedMapNode(refreshedFrame, refreshedNodes)?.Center;
-                    sweepButtons = GetSweepExclusionRegions(refreshedFrame, selectedBadgeCenter);
+                    log($"候选 ({candidate.Center.X},{candidate.Center.Y}) 选中 {selected.Name}，比上一节点更远离目标 {selection.Entry.Name}，继续尝试本视口其它候选");
                     continue;
                 }
-                discoveredEntryIds.Add(selected.Id);
-                passesWithoutNewEntry = 0;
-                movedToAnotherLayer = true;
+                log($"候选 ({candidate.Center.X},{candidate.Center.Y}) 选中 {selected.Name}，更接近目标 {selection.Entry.Name}，重新识别当前视口");
+                bestDistance = distance;
+                improved = true;
                 break;
             }
 
-            // 一次只前进一个关卡，重新截图后再寻找下一枚徽章，避免同一帧内反复改选。
-            if (movedToAnotherLayer) continue;
+            // 只有点击确实推进了进度才重新识别；整轮没有进展时必须拖拽地图换视野。
+            if (improved)
+            {
+                passesWithoutProgress = 0;
+                continue;
+            }
+            passesWithoutProgress++;
+            if (passesWithoutProgress % 5 == 0)
+                state($"已连续 {passesWithoutProgress} 轮没有推进到更接近 {selection.Entry.Name} 的关卡，继续拖动地图搜索");
 
             var targetIsRight = currentEntry is null || selection.Entry.Id > currentEntry.Id;
             // 地图惯性可能把视口甩到两端；每次只小幅移动，之后重新截图并逐点核对。
@@ -1052,11 +1058,20 @@ public sealed class DungeonEntryAutomation
         var (left, top, right, bottom) = isTimeGate
             ? (325, 85, 875, 415)
             : (375, 155, 825, 355);
-        var candidates = new List<VisualNodeCandidate>();
-        for (var y = top; y <= bottom; y += 40)
-        for (var x = left; x <= right; x += 40)
+        var grid = new List<(int X, int Y)>();
+        for (var y = top; y <= bottom; y += 36)
+        for (var x = left; x <= right; x += 36)
         {
             if (x >= 815 && y >= 290) continue; // 右侧难度按钮
+            grid.Add((x, y));
+        }
+        // 每次盲扫控制在 24 个点以内，避免一个回合点击+OCR 耗时过长。
+        const int maxPoints = 24;
+        var stride = Math.Max(1, (int)Math.Ceiling(grid.Count / (double)maxPoints));
+        var candidates = new List<VisualNodeCandidate>();
+        for (var index = 0; index < grid.Count; index += stride)
+        {
+            var (x, y) = grid[index];
             var centerX = (int)Math.Round(x * width / 1004.0);
             var centerY = (int)Math.Round(y * height / 565.0);
             var halfWidth = (int)Math.Round(20.0 * width / 1004);

@@ -48,6 +48,7 @@ public sealed class MaaPipeline<TState>
         int transitions;
         string runId = "";
         string? lastTask;
+        string? lastFailureEvidencePath;
 
         public async Task<MaaPipelineExecutionResult> RunAsync(
             TState state,
@@ -63,6 +64,7 @@ public sealed class MaaPipeline<TState>
             taskId = 0;
             transitions = 0;
             lastTask = null;
+            lastFailureEvidencePath = null;
             lock (countLock) executionCounts.Clear();
             Emit(new(MaaPipelineTraceKind.TaskChainStarted, runId, options.TaskChain, 0, null, null, 0, 0,
                 TimeSpan.Zero, null, null, null, null, null, null, null, null, null));
@@ -163,6 +165,8 @@ public sealed class MaaPipeline<TState>
                     token.ThrowIfCancellationRequested();
                     var task = catalog.Get(name);
                     if (!task.Enabled) continue;
+                    if (trace is IMaaPipelineDebugControl debugger)
+                        await debugger.BeforeCandidateAsync(runId, task.Name, token);
                     var handler = GetHandler(task);
                     var context = CreateContext(state, task, parentTask, retry, GetCount(task.Name));
                     Emit(new(MaaPipelineTraceKind.CandidateRecognizing, runId, options.TaskChain, context.TaskId, task.Name,
@@ -256,7 +260,7 @@ public sealed class MaaPipeline<TState>
                         action.Error, action.Error, recognition.EvidencePath, recognition.FrameId));
                     return new(MaaTaskRunKind.Interrupted, task, action.Error);
                 }
-                if (!action.Succeeded) return FailNode(task, context, recognition, stopwatch.Elapsed, action.Error ?? "动作执行失败");
+                if (!action.Succeeded) return FailNode(task, context, recognition, stopwatch.Elapsed, action.Error ?? "动作执行失败", action.EvidencePath);
 
                 foreach (var sub in task.Sub)
                 {
@@ -290,11 +294,14 @@ public sealed class MaaPipeline<TState>
             MaaPipelineTaskContext<TState> context,
             MaaPipelineRecognitionResult recognition,
             TimeSpan duration,
-            string error)
+            string error,
+            string? failureEvidencePath = null)
         {
+            var evidencePath = failureEvidencePath ?? recognition.EvidencePath;
+            lastFailureEvidencePath = evidencePath;
             Emit(new(MaaPipelineTraceKind.NodeFailed, runId, options.TaskChain, context.TaskId, task.Name, context.ParentTask,
                 context.Attempt, context.ExecutionCount, duration, true, recognition.Score, recognition.Box, recognition.Text,
-                task.Action.ToString(), null, error, recognition.EvidencePath, recognition.FrameId));
+                task.Action.ToString(), null, error, evidencePath, recognition.FrameId));
             return new(MaaTaskRunKind.Failed, task, error);
         }
 
@@ -343,7 +350,7 @@ public sealed class MaaPipeline<TState>
         void EmitFailure(string error)
         {
             Emit(new(MaaPipelineTraceKind.TaskChainFailed, runId, options.TaskChain, taskId, lastTask, null, 0, 0,
-                TimeSpan.Zero, null, null, null, null, null, null, error, null, null));
+                TimeSpan.Zero, null, null, null, null, null, null, error, lastFailureEvidencePath, null));
         }
 
         void Emit(MaaPipelineTraceEvent value)

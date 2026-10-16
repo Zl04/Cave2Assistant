@@ -15,8 +15,8 @@ public sealed record MaaPipelineRecognitionResult(
     string? EvidencePath = null,
     long? FrameId = null)
 {
-    public static MaaPipelineRecognitionResult Miss(string? detail = null)
-        => new(false, Detail: detail);
+    public static MaaPipelineRecognitionResult Miss(string? detail = null, string? evidencePath = null)
+        => new(false, Detail: detail, EvidencePath: evidencePath);
 
     public static MaaPipelineRecognitionResult Hit(
         double score = 1,
@@ -28,10 +28,10 @@ public sealed record MaaPipelineRecognitionResult(
         => new(true, score, box, text, detail, evidencePath, frameId);
 }
 
-public sealed record MaaPipelineActionResult(bool Succeeded, string? Error = null, bool Interrupted = false)
+public sealed record MaaPipelineActionResult(bool Succeeded, string? Error = null, bool Interrupted = false, string? EvidencePath = null)
 {
     public static MaaPipelineActionResult Success() => new(true);
-    public static MaaPipelineActionResult Failure(string error) => new(false, error);
+    public static MaaPipelineActionResult Failure(string error, string? evidencePath = null) => new(false, error, EvidencePath: evidencePath);
     public static MaaPipelineActionResult Stop() => new(true, Interrupted: true);
 }
 
@@ -153,6 +153,11 @@ public interface IMaaPipelineTraceSink
     void Write(MaaPipelineTraceEvent value);
 }
 
+public interface IMaaPipelineDebugControl
+{
+    Task BeforeCandidateAsync(string runId, string taskName, CancellationToken token);
+}
+
 public sealed class DelegateMaaPipelineTraceSink : IMaaPipelineTraceSink
 {
     readonly Action<MaaPipelineTraceEvent> action;
@@ -163,7 +168,7 @@ public sealed class DelegateMaaPipelineTraceSink : IMaaPipelineTraceSink
     public void Write(MaaPipelineTraceEvent value) => action(value);
 }
 
-public sealed class MaaPipelineTraceMultiplexer : IMaaPipelineTraceSink
+public sealed class MaaPipelineTraceMultiplexer : IMaaPipelineTraceSink, IMaaPipelineDebugControl
 {
     readonly IReadOnlyList<IMaaPipelineTraceSink> sinks;
 
@@ -177,6 +182,12 @@ public sealed class MaaPipelineTraceMultiplexer : IMaaPipelineTraceSink
         {
             try { sink.Write(value); } catch { /* 一个诊断订阅者不能破坏任务 */ }
         }
+    }
+
+    public async Task BeforeCandidateAsync(string runId, string taskName, CancellationToken token)
+    {
+        foreach (var sink in sinks.OfType<IMaaPipelineDebugControl>())
+            await sink.BeforeCandidateAsync(runId, taskName, token);
     }
 }
 

@@ -114,39 +114,43 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
     {
         if (task.Name is "Prepare" or "FailClose" or "Cleanup") return MaaPipelineRecognitionResult.Hit();
         if (task.Name == "SkipBlueWhite") return options.BlueWhite
-            ? await OptionalQuickAbsent(token) : MaaPipelineRecognitionResult.Hit(detail: "蓝白出售已关闭");
+            ? await OptionalQuickAbsent(context, token) : MaaPipelineRecognitionResult.Hit(detail: "蓝白出售已关闭");
         if (task.Name == "SkipSelective") return options.HasSelective ? MaaPipelineRecognitionResult.Miss() : MaaPipelineRecognitionResult.Hit();
         if (task.Name == "SelectedSubmit" && selected == 0 || task.Name == "EmptySelectionExit" && selected != 0)
             return MaaPipelineRecognitionResult.Miss();
         if (task.Name == "Scroll") return !end ? MaaPipelineRecognitionResult.Hit() : MaaPipelineRecognitionResult.Miss();
         if (task.Name == "Scan") return MaaPipelineRecognitionResult.Hit();
         using var frame = await Capture(token);
+        var evidencePath = PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log);
         if (task.Name is "InventoryOpen" or "InventoryReady" or "InventoryClosed")
         {
-            var open = await IsInventory(frame, token);
-            var matched = task.Name == "InventoryClosed"
-                ? !open && Match(frame, catalog.Get("OpenBag")).Matched : open;
-            return matched ? MaaPipelineRecognitionResult.Hit() : MaaPipelineRecognitionResult.Miss();
+            var result = task.Name == "InventoryClosed"
+                ? RecognizeInventoryClosed(frame)
+                : await RecognizeInventory(frame, token);
+            return result with { EvidencePath = evidencePath };
         }
         if (task.Name == "BlueWhiteDialog")
         {
             using var crop = frame.Clone(new Rectangle(338, 187, 325, 110), PixelFormat.Format24bppRgb);
             var words = await device.ReadWordsAsync(crop, token);
             var text = OcrTextLocator.Compact(string.Concat(words.Select(w => w.Text)));
-            return text.Contains("出售所有蓝色") && text.Contains("白色装备")
-                ? MaaPipelineRecognitionResult.Hit(text: text) : MaaPipelineRecognitionResult.Miss(text);
+            return (text.Contains("出售所有蓝色") && text.Contains("白色装备")
+                ? MaaPipelineRecognitionResult.Hit(text: text) : MaaPipelineRecognitionResult.Miss(text))
+                with { EvidencePath = evidencePath };
         }
-        if (task.Name == "BlueWhite") return options.BlueWhite ? MatchQuickButton(frame) : MaaPipelineRecognitionResult.Miss();
-        if (task.Name is "SelectedSubmit" or "EmptySelectionExit" && !end) return MaaPipelineRecognitionResult.Miss();
-        return Match(frame, task);
+        if (task.Name == "BlueWhite") return (options.BlueWhite ? MatchQuickButton(frame) : MaaPipelineRecognitionResult.Miss()) with { EvidencePath = evidencePath };
+        if (task.Name is "SelectedSubmit" or "EmptySelectionExit" && !end) return MaaPipelineRecognitionResult.Miss(evidencePath: evidencePath);
+        return Match(frame, task) with { EvidencePath = evidencePath };
     }
 
-    async Task<MaaPipelineRecognitionResult> OptionalQuickAbsent(CancellationToken token)
+    async Task<MaaPipelineRecognitionResult> OptionalQuickAbsent(MaaPipelineTaskContext<EquipmentSalePipeline> context, CancellationToken token)
     {
         using var frame = await Capture(token);
+        var evidencePath = PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log);
         // 仅在装备页仍有效时允许跳过，不能把识别到弹窗/丢失界面当作按钮不存在。
-        return Match(frame, catalog.Get("EquipmentActive")).Matched && !MatchQuickButton(frame).Matched
-            ? MaaPipelineRecognitionResult.Hit(detail: "当前装备页没有蓝白出售按钮") : MaaPipelineRecognitionResult.Miss();
+        return (Match(frame, catalog.Get("EquipmentActive")).Matched && !MatchQuickButton(frame).Matched
+            ? MaaPipelineRecognitionResult.Hit(detail: "当前装备页没有蓝白出售按钮") : MaaPipelineRecognitionResult.Miss())
+            with { EvidencePath = evidencePath };
     }
 
     MaaPipelineRecognitionResult MatchQuickButton(Bitmap frame)
@@ -163,12 +167,30 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
         return quick;
     }
 
-    async Task<bool> IsInventory(Bitmap frame, CancellationToken token)
+    MaaPipelineRecognitionResult RecognizeInventoryClosed(Bitmap frame)
     {
-        if (!Match(frame, catalog.Get("EquipmentActive")).Matched && !Match(frame, catalog.Get("EquipmentTab")).Matched) return false;
-        if (Match(frame, catalog.Get("RoleTitle")).Matched) return true;
+        var active = Match(frame, catalog.Get("EquipmentActive")).Matched;
+        var tab = Match(frame, catalog.Get("EquipmentTab")).Matched;
+        var bag = Match(frame, catalog.Get("OpenBag")).Matched;
+        var detail = $"装备高亮={(active ? "是" : "否")}；装备页签={(tab ? "是" : "否")}；背包按钮={(bag ? "是" : "否")}";
+        return !active && !tab && bag ? MaaPipelineRecognitionResult.Hit(detail: detail) : MaaPipelineRecognitionResult.Miss(detail);
+    }
+
+    async Task<MaaPipelineRecognitionResult> RecognizeInventory(Bitmap frame, CancellationToken token)
+    {
+        var active = Match(frame, catalog.Get("EquipmentActive")).Matched;
+        var tab = Match(frame, catalog.Get("EquipmentTab")).Matched;
+        if (!active && !tab)
+            return MaaPipelineRecognitionResult.Miss("装备高亮=否；装备页签=否；未进入角色标题检查");
+        var title = Match(frame, catalog.Get("RoleTitle")).Matched;
+        if (title)
+            return MaaPipelineRecognitionResult.Hit(detail: $"装备高亮={(active ? "是" : "否")}；装备页签={(tab ? "是" : "否")}；角色标题=是");
         using var crop = frame.Clone(new Rectangle(90, 4, 150, 43), PixelFormat.Format24bppRgb);
-        return (await device.ReadWordsAsync(crop, token)).Any(w => OcrTextLocator.Compact(w.Text).Contains("角色"));
+        var words = await device.ReadWordsAsync(crop, token);
+        var recognizedText = string.Concat(words.Select(word => word.Text));
+        var ocrMatched = words.Any(word => OcrTextLocator.Compact(word.Text).Contains("角色"));
+        var detail = $"装备高亮={(active ? "是" : "否")}；装备页签={(tab ? "是" : "否")}；角色标题模板=否；OCR={recognizedText}";
+        return ocrMatched ? MaaPipelineRecognitionResult.Hit(text: recognizedText, detail: detail) : MaaPipelineRecognitionResult.Miss(detail);
     }
 
     MaaPipelineRecognitionResult Match(Bitmap frame, MaaPipelineTask task)
@@ -277,9 +299,14 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
     {
         if (++scans > maxPages) return MaaPipelineActionResult.Failure("未发现空格，已达到扫描上限");
         using var frame = await Capture(token);
-        if (!await IsInventory(frame, token) || !Match(frame, catalog.Get("EquipmentActive")).Matched ||
-            !(Match(frame, catalog.Get("SelectedSubmit")).Matched || Match(frame, catalog.Get("SelectionActive")).Matched))
+        var equipmentActive = Match(frame, catalog.Get("EquipmentActive")).Matched;
+        var selectedSubmit = Match(frame, catalog.Get("SelectedSubmit")).Matched;
+        var selectionActive = Match(frame, catalog.Get("SelectionActive")).Matched;
+        if (!equipmentActive || !(selectedSubmit || selectionActive))
+        {
+            log($"出售扫描界面确认失败：重扫={refreshAttempt}/{stateRefreshRetries}，装备页={equipmentActive}，提交按钮={selectedSubmit}，选择状态={selectionActive}");
             return MaaPipelineActionResult.Failure("装备选择界面未确认");
+        }
         grid = EquipmentSaleVision.Detect(frame, visionSettings);
         if (grid is null) return MaaPipelineActionResult.Failure("网格拟合未通过，未执行装备点击");
         var toCancel = grid.Cells.Where(c => c.Selected && (!options.Allows(c.Quality) || selected == 0)).ToArray();

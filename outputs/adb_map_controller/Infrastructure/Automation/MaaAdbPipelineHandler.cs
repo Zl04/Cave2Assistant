@@ -56,6 +56,7 @@ public sealed class MaaAdbPipelineHandler<TState> : IMaaPipelineHandler<TState>
         state.LastScreenSize = frame.Size;
         var visionTask = CreateVisionTask(task, state.ResourceRoot);
         var result = await state.Vision.RecognizeAsync(visionTask, frame, token: token);
+        var evidencePath = PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, state.Log);
         MaaRect? box = result.Box.IsEmpty
             ? null
             : new MaaRect(
@@ -69,7 +70,7 @@ public sealed class MaaAdbPipelineHandler<TState> : IMaaPipelineHandler<TState>
             box,
             result.Text,
             result.Detail,
-            null,
+            evidencePath,
             null);
     }
 

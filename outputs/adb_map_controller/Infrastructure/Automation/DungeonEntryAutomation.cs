@@ -21,13 +21,18 @@ public sealed class DungeonEntryAutomation
     readonly Action<string> state;
     readonly Func<int, bool>? difficultyAttemptsRecognized;
     readonly int? requiredDifficultyAttempts;
+    readonly bool stopBeforeChallenge;
     MapDump? mapBeforeChallenge;
     string? lastDungeonMapProbe;
+    string? activeEvidenceRunId;
+    int activeEvidenceTaskId;
+    string? lastFailureEvidencePath;
 
     public DungeonEntryAutomation(AdbClient adb, IMovementInput movement, int pulseHoldMs, EntryTemplateStore templates,
         Action<string> log, Action<string> state,
         Func<int, bool>? difficultyAttemptsRecognized = null,
-        int? requiredDifficultyAttempts = null)
+        int? requiredDifficultyAttempts = null,
+        bool stopBeforeChallenge = false)
     {
         this.adb = adb;
         this.movement = movement;
@@ -37,6 +42,7 @@ public sealed class DungeonEntryAutomation
         this.state = state;
         this.difficultyAttemptsRecognized = difficultyAttemptsRecognized;
         this.requiredDifficultyAttempts = requiredDifficultyAttempts;
+        this.stopBeforeChallenge = stopBeforeChallenge;
         vision = new VisionPipeline(adb.ReadOcrWordsAsync);
         var taskPath = Path.Combine(AppContext.BaseDirectory, "vision", "tasks.json");
         if (File.Exists(taskPath))
@@ -77,7 +83,9 @@ public sealed class DungeonEntryAutomation
 
         log($"自动进图 Pipeline 启动：目标 {selection.Map.Name} / {selection.Entry.Name} / {selection.Difficulty}");
         var result = await pipeline.RunAsync(this, ["开始自动进图"], token);
-        if (result.Succeeded)
+        if (result.Status == MaaPipelineExecutionStatus.Stopped && stopBeforeChallenge && result.LastTask == "识别并选择关卡")
+            log("已选中关卡，停在点击挑战前");
+        else if (result.Succeeded)
             log("自动进图 Pipeline 完成；后续由地图助手刷新并接管路线");
         else if (result.Status != MaaPipelineExecutionStatus.Canceled)
             log($"自动进图 Pipeline 停止：{result.Status}，{result.Error ?? "未知错误"}");
@@ -90,21 +98,22 @@ public sealed class DungeonEntryAutomation
     IMaaPipelineHandler<DungeonEntryAutomation> CreatePipelineHandler(DungeonEntrySelection selection)
         => new DelegateMaaPipelineHandler<DungeonEntryAutomation>(
             "DungeonEntryStep",
-            async (task, _, token) =>
+            async (task, context, token) =>
             {
                 if (task.Name == "点击小地图按钮")
                 {
                     using var markerFrame = await adb.CaptureScreenForAutomationAsync();
                     var marker = BuiltInUiTemplateCatalog.FindMinimapPlayer(markerFrame);
+                    var evidence = PipelineEvidenceStore.Save(markerFrame, context.RunId, context.TaskId, log);
                     return marker is null
-                        ? MaaPipelineRecognitionResult.Miss(detail: "未在小地图区域识别到玩家标记")
+                        ? MaaPipelineRecognitionResult.Miss(detail: "未在小地图区域识别到玩家标记", evidencePath: evidence)
                         : MaaPipelineRecognitionResult.Hit(
                             score: marker.Score,
                             box: new MaaRect(
                                 (int)Math.Round(marker.Center.X * VisionPipeline.DesignWidth / (double)markerFrame.Width),
                                 (int)Math.Round(marker.Center.Y * VisionPipeline.DesignHeight / (double)markerFrame.Height),
                                 1, 1),
-                            detail: $"多比例模板命中小地图玩家标记，得分 {marker.Score:0.000}");
+                            detail: $"多比例模板命中小地图玩家标记，得分 {marker.Score:0.000}", evidencePath: evidence);
                 }
                 if (task.Name == "等待副本地图加载")
                 {
@@ -125,7 +134,7 @@ public sealed class DungeonEntryAutomation
                 if (task.Name == "确认噩梦继续挑战")
                     return await RecognizeNightmareContinueDialog(selection, token);
                 if (task.Name == "检查所选难度次数")
-                    return await RecognizeDifficultyAttempts(selection, token);
+                    return await RecognizeDifficultyAttempts(selection, context, token);
                 if (!string.Equals(task.Name, "主城标题已识别", StringComparison.Ordinal))
                 {
                     if (task.Name == "当前地图标题匹配目标")
@@ -133,19 +142,25 @@ public sealed class DungeonEntryAutomation
                     return MaaPipelineRecognitionResult.Hit(detail: "Pipeline 节点由领域 handler 执行");
                 }
 
-                using var frame = await adb.CaptureScreenForAutomationAsync();
-                var title = BuiltInUiTemplateCatalog.FindBastanTitle(frame);
-                return title is not null
-                    ? MaaPipelineRecognitionResult.Hit(detail: "主城标题已确认")
-                    : MaaPipelineRecognitionResult.Miss(detail: "未确认主城标题");
+                var check = await CheckBastanMapOpenAsync(token);
+                using var frame = check.Frame;
+                var titleEvidence = PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log);
+                return check.Matched
+                    ? MaaPipelineRecognitionResult.Hit(detail: check.Detail, evidencePath: titleEvidence)
+                    : MaaPipelineRecognitionResult.Miss(detail: check.Detail, evidencePath: titleEvidence);
             },
-            async (task, recognition, _, token) =>
+            async (task, recognition, context, token) =>
             {
+                activeEvidenceRunId = context.RunId;
+                activeEvidenceTaskId = context.TaskId;
+                lastFailureEvidencePath = null;
                 if (task.Name == "检查所选难度次数")
                 {
                     if (recognition.Detail == "自动跑图次数已耗尽，正常结束")
                         return MaaPipelineActionResult.Stop();
-                    return MaaPipelineActionResult.Failure(recognition.Detail ?? "未能确认所选难度的剩余次数，未点击挑战");
+                    return MaaPipelineActionResult.Failure(
+                        recognition.Detail ?? "未能确认所选难度的剩余次数，未点击挑战",
+                        recognition.EvidencePath);
                 }
                 if (task.Name == "点击小地图按钮")
                 {
@@ -155,7 +170,24 @@ public sealed class DungeonEntryAutomation
                         marker.Y / (double)VisionPipeline.DesignHeight);
                     return MaaPipelineActionResult.Success();
                 }
-                await ExecutePipelineStepAsync(task.Name, selection, token);
+                try { await ExecutePipelineStepAsync(task.Name, selection, token); }
+                catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+                catch (Exception error)
+                {
+                    var evidence = lastFailureEvidencePath;
+                    if (evidence is null)
+                    {
+                        try
+                        {
+                            using var failureFrame = await adb.CaptureScreenForAutomationAsync(token);
+                            evidence = PipelineEvidenceStore.Save(failureFrame, context.RunId, context.TaskId, log);
+                        }
+                        catch (Exception captureError) { log($"失败现场截图未保存：{captureError.Message}"); }
+                    }
+                    return MaaPipelineActionResult.Failure(error.Message, evidence);
+                }
+                if (stopBeforeChallenge && task.Name == "识别并选择关卡")
+                    return MaaPipelineActionResult.Stop();
                 return MaaPipelineActionResult.Success();
             });
 
@@ -206,13 +238,15 @@ public sealed class DungeonEntryAutomation
         => previous is not null && current.Level != previous.Level;
 
     async Task<MaaPipelineRecognitionResult> RecognizeDifficultyAttempts(
-        DungeonEntrySelection selection, CancellationToken token)
+        DungeonEntrySelection selection, MaaPipelineTaskContext<DungeonEntryAutomation> context,
+        CancellationToken token)
     {
         if (selection.Difficulty == DungeonDifficulty.Normal)
             return MaaPipelineRecognitionResult.Miss(detail: "普通难度没有次数限制，继续挑战");
 
         token.ThrowIfCancellationRequested();
         using var frame = await adb.CaptureScreenForAutomationAsync();
+        var evidencePath = PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log);
         var words = await adb.ReadOcrWordsAsync(frame);
         var difficultyName = selection.Difficulty == DungeonDifficulty.Nightmare ? "噩梦" : "精英";
         var label = OcrTextLocator.Find(words, difficultyName,
@@ -221,7 +255,7 @@ public sealed class DungeonEntryAutomation
         {
             var failure = $"未能识别{difficultyName}难度按钮，无法确认剩余次数；为避免误消耗次数，未点击挑战";
             log(failure);
-            return MaaPipelineRecognitionResult.Hit(text: difficultyName, detail: failure);
+            return MaaPipelineRecognitionResult.Hit(text: difficultyName, detail: failure, evidencePath: evidencePath);
         }
 
         var nearbyCountWords = words.Where(word => word.Center.X >= frame.Width * .68 &&
@@ -235,24 +269,24 @@ public sealed class DungeonEntryAutomation
         {
             var failure = $"已定位{difficultyName}难度按钮，但未识别到其上方剩余次数（OCR：{(countText.Length == 0 ? "<空>" : countText)}）；未点击挑战";
             log(failure);
-            return MaaPipelineRecognitionResult.Hit(text: countText, detail: failure);
+            return MaaPipelineRecognitionResult.Hit(text: countText, detail: failure, evidencePath: evidencePath);
         }
 
         log($"挑战前检查次数：{difficultyName}可挑战{remaining}次");
         if (difficultyAttemptsRecognized?.Invoke(remaining) == true)
-            return MaaPipelineRecognitionResult.Hit(text: countText, detail: "自动跑图次数已耗尽，正常结束");
+            return MaaPipelineRecognitionResult.Hit(text: countText, detail: "自动跑图次数已耗尽，正常结束", evidencePath: evidencePath);
         if (requiredDifficultyAttempts is > 0 && remaining < requiredDifficultyAttempts.Value)
         {
             var insufficient = $"所选关卡的{difficultyName}剩余{remaining}次，少于本次任务尚需的{requiredDifficultyAttempts.Value}次；未点击挑战";
             log(insufficient);
-            return MaaPipelineRecognitionResult.Hit(text: countText, detail: insufficient);
+            return MaaPipelineRecognitionResult.Hit(text: countText, detail: insufficient, evidencePath: evidencePath);
         }
         if (remaining > 0)
-            return MaaPipelineRecognitionResult.Miss(detail: $"{difficultyName}剩余{remaining}次，允许挑战");
+            return MaaPipelineRecognitionResult.Miss(detail: $"{difficultyName}剩余{remaining}次，允许挑战", evidencePath: evidencePath);
 
         var exhausted = $"{difficultyName}难度可挑战次数不足（剩余0次），已停止进图，未点击挑战";
         log(exhausted);
-        return MaaPipelineRecognitionResult.Hit(text: countText, detail: exhausted);
+        return MaaPipelineRecognitionResult.Hit(text: countText, detail: exhausted, evidencePath: evidencePath);
     }
 
     async Task<MaaPipelineRecognitionResult> RecognizeNightmareContinueDialog(
@@ -585,8 +619,9 @@ public sealed class DungeonEntryAutomation
         for (var attempt = 1; attempt <= 10; attempt++)
         {
             token.ThrowIfCancellationRequested();
-            using var frame = await adb.CaptureScreenForAutomationAsync();
-            if (IsBastanMapFrame(frame))
+            var check = await CheckBastanMapOpenAsync(token);
+            using var frame = check.Frame;
+            if (check.Matched)
             {
                 state("已确认巴萨坦地图面板打开");
                 return;
@@ -668,6 +703,8 @@ public sealed class DungeonEntryAutomation
                 .ToArray();
             if (firstCandidates.Length == 0)
             {
+                if (attempt == 12 && activeEvidenceRunId is not null)
+                    lastFailureEvidencePath = PipelineEvidenceStore.Save(first, activeEvidenceRunId, activeEvidenceTaskId, log);
                 state($"搜索“{mapName}”入口图标 ({attempt}/12)");
                 await Delay(token, 250);
                 continue;
@@ -691,6 +728,8 @@ public sealed class DungeonEntryAutomation
                 .OrderByDescending(x => x.Score)
                 .ToArray();
             if (stable.Length > 0) return stable;
+            if (attempt == 12 && activeEvidenceRunId is not null)
+                lastFailureEvidencePath = PipelineEvidenceStore.Save(second, activeEvidenceRunId, activeEvidenceTaskId, log);
         }
         return [];
     }
@@ -720,13 +759,43 @@ public sealed class DungeonEntryAutomation
     bool IsBastanMapFrame(Bitmap frame)
     {
         var title = BuiltInUiTemplateCatalog.FindBastanTitle(frame);
-        if (title is null)
+        if (title is not null)
         {
-            return false;
+            log($"图片确认巴萨坦标题：({title.Center.X},{title.Center.Y})，相似度 {title.Score:0.000}");
+            return true;
         }
-
-        log($"图片确认巴萨坦标题：({title.Center.X},{title.Center.Y})，相似度 {title.Score:0.000}");
+        var score = BuiltInUiTemplateCatalog.MatchBastanMapBody(frame);
+        if (score < .92) return false;
+        log($"整张地图确认巴萨坦地图面板：相似度 {score:0.000}");
         return true;
+    }
+
+    async Task<(bool Matched, string Detail, Bitmap Frame)> CheckBastanMapOpenAsync(CancellationToken token)
+    {
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        while (true)
+        {
+            token.ThrowIfCancellationRequested();
+            var frame = await adb.CaptureScreenForAutomationAsync(token);
+            var title = BuiltInUiTemplateCatalog.FindBastanTitle(frame);
+            if (title is not null)
+            {
+                log($"图片确认巴萨坦标题：({title.Center.X},{title.Center.Y})，相似度 {title.Score:0.000}");
+                return (true, "主城标题已确认", frame);
+            }
+            if (timer.ElapsedMilliseconds >= 3000)
+            {
+                var score = BuiltInUiTemplateCatalog.MatchBastanMapBody(frame);
+                if (score >= .92)
+                {
+                    log($"标题 3 秒未命中，整张地图确认巴萨坦地图面板：相似度 {score:0.000}");
+                    return (true, $"整张地图已确认，相似度 {score:0.000}", frame);
+                }
+                return (false, $"标题 3 秒未命中，整张地图相似度 {score:0.000}", frame);
+            }
+            frame.Dispose();
+            await Task.Delay((int)Math.Min(300, 3000 - timer.ElapsedMilliseconds), token);
+        }
     }
 
     async Task SelectMapVariant(string variant, CancellationToken token)
@@ -813,22 +882,117 @@ public sealed class DungeonEntryAutomation
     async Task<bool> LocateAndSelectLayer(DungeonEntrySelection selection, CancellationToken token)
     {
         DungeonEntryOption? currentEntry = null;
-        const int maxPasses = 8;
-        for (var pass = 0; pass < maxPasses; pass++)
+        System.Drawing.Point? selectedBadgeCenter = null;
+        var visitedBadgeCenters = new List<System.Drawing.Point>();
+        var discoveredEntryIds = new HashSet<int>();
+        var passesWithoutNewEntry = 0;
+        var emptyRecognitionPasses = 0;
+        await WaitForMapToSettle(token);
+        for (var pass = 0; ; pass++)
         {
             token.ThrowIfCancellationRequested();
             using var frame = await adb.CaptureScreenForAutomationAsync();
-            var candidates = VisualNodeLocator.FindMapNodes(frame);
-            state($"识别到 {candidates.Count} 个层节点 ({pass + 1}/{maxPasses})");
-            log($"地图节点识别：{string.Join("、", candidates.Select(x => $"{x.Center.X},{x.Center.Y}"))}");
-
-            foreach (var candidate in candidates)
+            var selectedOnScreen = await ReadSelectedEntry(frame, selection.MapId);
+            if (selectedOnScreen is not null) currentEntry = selectedOnScreen;
+            if (currentEntry is not null)
+                passesWithoutNewEntry = discoveredEntryIds.Add(currentEntry.Id)
+                    ? 0 : passesWithoutNewEntry + 1;
+            if (currentEntry?.Id == selection.Entry.Id)
             {
-                await adb.TapScreen(candidate.Center.X / (double)frame.Width, candidate.Center.Y / (double)frame.Height);
+                state($"已确认目标节点 {selection.Entry.Name}");
+                return true;
+            }
+            var coloredBadges = selection.Map.IsTimeGate
+                ? VisualNodeLocator.FindBlueNodeBadges(frame)
+                : VisualNodeLocator.FindGoldNodeBadges(frame);
+            var genericNodes = VisualNodeLocator.FindMapNodes(frame);
+            var selectedIcon = VisualNodeLocator.FindSelectedMapNode(frame, genericNodes);
+            selectedBadgeCenter = selectedIcon?.Center;
+            if (selectedBadgeCenter is null)
+            {
+                // 画面中没有选中节点时，不沿用上一帧的位置；任一可见节点均可作为起点。
+                visitedBadgeCenters.Clear();
+            }
+            // 颜色掩码会漏掉灰色或被高亮覆盖的节点；两种识别结果应合并，而非二选一。
+            var candidates = coloredBadges.Concat(genericNodes.Where(node => coloredBadges.All(badge =>
+                Math.Abs(node.Center.X - badge.Center.X) > frame.Width * 35.0 / 1004 ||
+                Math.Abs(node.Center.Y - badge.Center.Y) > frame.Height * 35.0 / 565))).ToArray();
+            var sweepButtons = GetSweepExclusionRegions(frame, selectedBadgeCenter);
+            var source = selection.Map.IsTimeGate ? "蓝色徽章及通用地图节点" : "金色徽章及通用地图节点";
+            state($"识别到 {candidates.Length} 个{source}（第 {pass + 1} 轮）");
+            log($"{source}识别：{string.Join("、", candidates.Select(x => $"{x.Center.X},{x.Center.Y}"))}");
+
+            if (candidates.Length == 0)
+            {
+                emptyRecognitionPasses++;
+                if (emptyRecognitionPasses < 3)
+                {
+                    log($"地图节点暂未识别，保持视口并重新截图 ({emptyRecognitionPasses}/3)");
+                    await Delay(token, 400);
+                    continue;
+                }
+                log("连续3帧未识别到节点，逐点检查地图区域；每次点击后核对左侧关卡标题");
+                candidates = BuildMapScanCandidates(frame.Width, frame.Height, selection.Map.IsTimeGate);
+            }
+            else emptyRecognitionPasses = 0;
+
+            var scanMode = passesWithoutNewEntry >= 3 || emptyRecognitionPasses >= 3;
+            if (scanMode)
+            {
+                log($"连续识别不到新关卡（已知关卡重复{passesWithoutNewEntry}轮、无候选{emptyRecognitionPasses}帧），逐点扫描当前地图视口并核对 OCR");
+                candidates = BuildMapScanCandidates(frame.Width, frame.Height, selection.Map.IsTimeGate);
+            }
+
+            var towardRight = currentEntry is not null && selection.Entry.Id > currentEntry.Id;
+            var currentCenter = selectedBadgeCenter;
+            var unvisitedCandidates = candidates.Where(x => visitedBadgeCenters.All(visited =>
+                Math.Abs(x.Center.X - visited.X) > frame.Width * 35.0 / 1004 ||
+                Math.Abs(x.Center.Y - visited.Y) > frame.Height * 35.0 / 565)).ToArray();
+            // 普通地图关卡从左到右递增；先只尝试当前节点朝目标一侧的徽章。
+            var directionalCandidates = !selection.Map.IsTimeGate && currentEntry is not null && currentCenter is not null
+                ? unvisitedCandidates.Where(x => towardRight
+                    ? x.Center.X > currentCenter.Value.X + frame.Width * 25.0 / 1004
+                    : x.Center.X < currentCenter.Value.X - frame.Width * 25.0 / 1004).ToArray()
+                : unvisitedCandidates;
+            var orderedCandidates = currentCenter is null
+                ? unvisitedCandidates.AsEnumerable()
+                : selection.Map.IsTimeGate
+                ? unvisitedCandidates.OrderBy(x =>
+                    Math.Pow(x.Center.X - currentCenter.Value.X, 2) +
+                    Math.Pow(x.Center.Y - currentCenter.Value.Y, 2))
+                : directionalCandidates.OrderBy(x => Math.Abs(x.Center.X - currentCenter.Value.X));
+            var movedToAnotherLayer = false;
+            foreach (var candidate in orderedCandidates)
+            {
+                var tap = candidate.Center;
+                var coveringButton = sweepButtons.FirstOrDefault(button => button.Contains(tap));
+                if (coveringButton != System.Drawing.Rectangle.Empty)
+                {
+                    var upperIconY = coveringButton.Top - Math.Max(4, (int)(frame.Height * 8.0 / 565));
+                    if (upperIconY < candidate.Bounds.Top + candidate.Bounds.Height / 5)
+                    {
+                        log($"跳过候选 ({tap.X},{tap.Y})：与扫荡按钮重叠，无法安全点击徽章");
+                        continue;
+                    }
+                    tap = new System.Drawing.Point(tap.X, upperIconY);
+                    if (sweepButtons.Any(button => button.Contains(tap)))
+                    {
+                        log($"跳过候选 ({candidate.Center.X},{candidate.Center.Y})：安全点击点仍落在扫荡按钮内");
+                        continue;
+                    }
+                    log($"候选中心落在扫荡按钮内，改点徽章上半部：({tap.X},{tap.Y})");
+                }
+                await adb.TapScreen(tap.X / (double)frame.Width, tap.Y / (double)frame.Height);
                 await Delay(token, 380);
 
                 using var selectedFrame = await adb.CaptureScreenForAutomationAsync();
                 var selected = await ReadSelectedEntry(selectedFrame, selection.MapId);
+                if (selected is null || selected.Id == currentEntry?.Id)
+                {
+                    await Delay(token, 250);
+                    using var retryFrame = await adb.CaptureScreenForAutomationAsync();
+                    selected = await ReadSelectedEntry(retryFrame, selection.MapId) ?? selected;
+                }
                 if (selected is null)
                 {
                     log($"点击节点 ({candidate.Center.X},{candidate.Center.Y}) 后未得到可确认的层标题");
@@ -837,28 +1001,115 @@ public sealed class DungeonEntryAutomation
                 log(selected.Id == currentEntry?.Id
                     ? $"点击候选 ({candidate.Center.X},{candidate.Center.Y}) 后层标题仍为{selected.Name}，候选未切换当前选择"
                     : $"点击候选 ({candidate.Center.X},{candidate.Center.Y}) 后 OCR 标题为{selected.Name}");
+                if (selected.Id == selection.Entry.Id)
+                {
+                    state($"已确认目标节点 {selected.Name}");
+                    return true;
+                }
+                if (selected.Id == currentEntry?.Id) continue;
+                if (selectedBadgeCenter is not null) visitedBadgeCenters.Add(selectedBadgeCenter.Value);
+                selectedBadgeCenter = candidate.Center;
                 currentEntry = selected;
-                if (selected.Id != selection.Entry.Id) continue;
-
-                state($"已确认目标节点 {selected.Name}");
-                return true;
+                if (scanMode && !discoveredEntryIds.Add(selected.Id))
+                {
+                    // 扫荡按钮会跟着新选中的节点移动，继续逐点扫描前必须更新禁区。
+                    using var refreshedFrame = await adb.CaptureScreenForAutomationAsync();
+                    var refreshedNodes = VisualNodeLocator.FindMapNodes(refreshedFrame);
+                    selectedBadgeCenter = VisualNodeLocator.FindSelectedMapNode(refreshedFrame, refreshedNodes)?.Center;
+                    sweepButtons = GetSweepExclusionRegions(refreshedFrame, selectedBadgeCenter);
+                    continue;
+                }
+                discoveredEntryIds.Add(selected.Id);
+                passesWithoutNewEntry = 0;
+                movedToAnotherLayer = true;
+                break;
             }
 
-            if (pass >= maxPasses - 1) break;
+            // 一次只前进一个关卡，重新截图后再寻找下一枚徽章，避免同一帧内反复改选。
+            if (movedToAnotherLayer) continue;
+
             var targetIsRight = currentEntry is null || selection.Entry.Id > currentEntry.Id;
-            // 加大到屏幕宽度的 28%，超过游戏的拖拽触发阈值；慢速移动仍可避免把节点快速甩出视野。
-            var (fromX, toX) = targetIsRight ? (.66, .38) : (.34, .62);
+            // 地图惯性可能把视口甩到两端；每次只小幅移动，之后重新截图并逐点核对。
+            var (fromX, toX) = targetIsRight ? (.58, .42) : (.42, .58);
             var currentName = currentEntry?.Name ?? "未知";
             var direction = targetIsRight ? "右侧" : "左侧";
             var fingerDirection = targetIsRight ? "从右向左" : "从左向右";
-            state($"当前节点{currentName}，目标{selection.Entry.Name}在{direction}；缓慢拖动地图继续搜索 ({pass + 1}/{maxPasses - 1})");
-            log($"按关卡顺序判断：当前={currentName}(ID {currentEntry?.Id.ToString() ?? "未知"})，目标={selection.Entry.Name}(ID {selection.Entry.Id})，目标在{direction}；手指{fingerDirection}缓慢拖动约屏幕宽度的28%以显示目标方向");
+            state($"当前节点{currentName}，目标{selection.Entry.Name}在{direction}；缓慢拖动地图继续搜索（第 {pass + 1} 轮）");
+            log($"按关卡顺序判断：当前={currentName}(ID {currentEntry?.Id.ToString() ?? "未知"})，目标={selection.Entry.Name}(ID {selection.Entry.Id})，目标在{direction}；手指{fingerDirection}缓慢拖动约屏幕宽度的16%后重新识别");
             // 手指拖动方向与视口露出的地图方向相反：向左拖露出右侧，向右拖露出左侧。
             // 每次滑动后重新识别节点，避免在地图边缘继续向错误方向拖动。
-            await adb.SwipeScreen(fromX, .57, toX, .57, 1200);
-            await Delay(token, 450);
+            await adb.SwipeScreen(fromX, .57, toX, .57, 1600);
+            await WaitForMapToSettle(token);
+            selectedBadgeCenter = null;
+            visitedBadgeCenters.Clear();
         }
-        return false;
+    }
+
+    static VisualNodeCandidate[] BuildMapScanCandidates(int width, int height, bool isTimeGate)
+    {
+        // 仅在连续识别失败时使用：以小于徽章直径的间距覆盖地图画布，
+        // 点击后仍须由左侧标题 OCR 确认，扫荡按钮由点击前的禁区检查挡住。
+        var (left, top, right, bottom) = isTimeGate
+            ? (325, 85, 875, 415)
+            : (375, 155, 825, 355);
+        var candidates = new List<VisualNodeCandidate>();
+        for (var y = top; y <= bottom; y += 40)
+        for (var x = left; x <= right; x += 40)
+        {
+            if (x >= 815 && y >= 290) continue; // 右侧难度按钮
+            var centerX = (int)Math.Round(x * width / 1004.0);
+            var centerY = (int)Math.Round(y * height / 565.0);
+            var halfWidth = (int)Math.Round(20.0 * width / 1004);
+            var halfHeight = (int)Math.Round(20.0 * height / 565);
+            candidates.Add(new VisualNodeCandidate(new System.Drawing.Point(centerX, centerY),
+                new System.Drawing.Rectangle(centerX - halfWidth, centerY - halfHeight,
+                    halfWidth * 2, halfHeight * 2), 0));
+        }
+        return candidates.ToArray();
+    }
+
+    static IReadOnlyList<System.Drawing.Rectangle> GetSweepExclusionRegions(Bitmap frame,
+        System.Drawing.Point? selectedCenter)
+    {
+        var regions = VisualNodeLocator.FindSweepButtonRegions(frame).ToList();
+        if (selectedCenter is not null)
+        {
+            // 有些地图的“扫荡”条是灰色，颜色掩码无法识别；它总在当前剑形图标下方。
+            var halfWidth = (int)Math.Ceiling(55.0 * frame.Width / 1004);
+            var topOffset = (int)Math.Ceiling(15.0 * frame.Height / 565);
+            var bottomOffset = (int)Math.Ceiling(65.0 * frame.Height / 565);
+            regions.Add(new System.Drawing.Rectangle(selectedCenter.Value.X - halfWidth,
+                selectedCenter.Value.Y + topOffset, halfWidth * 2, bottomOffset - topOffset));
+        }
+        return regions;
+    }
+
+    async Task WaitForMapToSettle(CancellationToken token)
+    {
+        state("等待地图停止滚动");
+        await Delay(token, 350);
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        var stablePairs = 0;
+        double displacement = 0, response = 0;
+        var previous = await adb.CaptureScreenForAutomationAsync();
+        try
+        {
+            while (DateTime.UtcNow < deadline)
+            {
+                token.ThrowIfCancellationRequested();
+                await Delay(token, 250);
+                var current = await adb.CaptureScreenForAutomationAsync();
+                bool still;
+                try { still = VisualNodeLocator.IsMapStill(previous, current, out displacement, out response); }
+                finally { previous.Dispose(); previous = current; }
+                stablePairs = still ? stablePairs + 1 : 0;
+                if (stablePairs < 3) continue;
+                log($"地图已稳定：连续{stablePairs}帧位移不超过阈值，末次位移={displacement:0.00}，相关度={response:0.00}");
+                return;
+            }
+        }
+        finally { previous.Dispose(); }
+        throw new InvalidOperationException($"地图在10秒内未稳定，末次位移={displacement:0.00}，相关度={response:0.00}；未点击关卡");
     }
 
     async Task<DungeonEntryOption?> ReadSelectedEntry(Bitmap frame, int mapId)

@@ -392,6 +392,10 @@ public static class BuiltInUiTemplateCatalog
     static bool playerLoaded;
     static VisualTemplate? bastanTitle;
     static bool bastanTitleLoaded;
+    static VisualTemplate? bastanMapClose;
+    static bool bastanMapCloseLoaded;
+    static Mat? bastanMapBody;
+    static bool bastanMapBodyLoaded;
 
     public static VisualMatch? FindBastanTitle(Bitmap screen)
     {
@@ -408,12 +412,57 @@ public static class BuiltInUiTemplateCatalog
             candidates.Length > 1 ? candidates[1].Score : 0);
     }
 
+    public static VisualMatch? FindBastanMapClose(Bitmap screen)
+    {
+        var template = GetBastanMapClose();
+        if (template is null) return null;
+        var match = template.FindAll(screen, .78, 24)
+            .Where(x => x.Center.X >= screen.Width * .86 && x.Center.X <= screen.Width * .94 &&
+                        x.Center.Y >= screen.Height * .07 && x.Center.Y <= screen.Height * .19)
+            .OrderByDescending(x => x.Score)
+            .FirstOrDefault();
+        return match;
+    }
+
+    // 整块地图模板来自 1004x565 截图的 (50,90)-(955,525)。顶部横幅及红色标注边框均不在模板内。
+    public static double MatchBastanMapBody(Bitmap screen)
+    {
+        Mat? source;
+        lock (sync)
+        {
+            if (!bastanMapBodyLoaded)
+            {
+                bastanMapBodyLoaded = true;
+                var path = Path.Combine(AppContext.BaseDirectory, "templates", "ui", "bastan-map-body.png");
+                if (File.Exists(path)) bastanMapBody = Cv2.ImRead(path, ImreadModes.Color);
+            }
+            source = bastanMapBody;
+        }
+        if (source is null || source.Empty()) return 0;
+
+        var left = (int)Math.Round(screen.Width * 50.0 / 1004);
+        var top = (int)Math.Round(screen.Height * 90.0 / 565);
+        var right = (int)Math.Round(screen.Width * 955.0 / 1004);
+        var bottom = (int)Math.Round(screen.Height * 525.0 / 565);
+        if (right <= left || bottom <= top) return 0;
+        using var scene = OpenCvImage.ToMat(screen, ImreadModes.Color);
+        using var region = new Mat(scene, new OpenCvSharp.Rect(left, top, right - left, bottom - top));
+        using var resized = new Mat();
+        Cv2.Resize(source, resized, region.Size(), 0, 0, OpenCvSharp.InterpolationFlags.Area);
+        using var response = new Mat();
+        Cv2.MatchTemplate(region, resized, response, OpenCvSharp.TemplateMatchModes.CCoeffNormed);
+        return response.At<float>(0, 0);
+    }
+
     public static VisualMatch? FindMinimapPlayer(Bitmap screen)
     {
-        var left = Math.Clamp((int)Math.Round(screen.Width * .74), 0, screen.Width - 1);
-        var top = Math.Clamp((int)Math.Round(screen.Height * .03), 0, screen.Height - 1);
-        var width = Math.Max(1, screen.Width - left);
-        var height = Math.Min(screen.Height - top, Math.Max(1, (int)Math.Round(screen.Height * .36)));
+        // 只搜索小地图内部的红框区域，避开周围的城镇按钮和通知图标。
+        var left = Math.Clamp((int)Math.Round(screen.Width * .858), 0, screen.Width - 1);
+        var top = Math.Clamp((int)Math.Round(screen.Height * .075), 0, screen.Height - 1);
+        var right = Math.Clamp((int)Math.Round(screen.Width * .972), left + 1, screen.Width);
+        var bottom = Math.Clamp((int)Math.Round(screen.Height * .289), top + 1, screen.Height);
+        var width = right - left;
+        var height = bottom - top;
         using var minimapRegion = screen.Clone(new Rectangle(left, top, width, height),
             System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         var candidates = GetPlayerMarkers().SelectMany(template => template.FindAll(minimapRegion, .40, 24))
@@ -460,6 +509,21 @@ public static class BuiltInUiTemplateCatalog
             try { bastanTitle = VisualTemplate.FromFile(path, 79d / 565d, 30d / 565d); }
             catch { bastanTitle = null; }
             return bastanTitle;
+        }
+    }
+
+    static VisualTemplate? GetBastanMapClose()
+    {
+        lock (sync)
+        {
+            if (bastanMapCloseLoaded) return bastanMapClose;
+            bastanMapCloseLoaded = true;
+            var path = Path.Combine(AppContext.BaseDirectory, "templates", "ui", "bastan-map-close.png");
+            if (!File.Exists(path)) return null;
+            // 模板截自 1920x1080 主城地图截图的 (1680,88)-(1768,176)。
+            try { bastanMapClose = VisualTemplate.FromFile(path, 88d / 1080d, 88d / 1080d); }
+            catch { bastanMapClose = null; }
+            return bastanMapClose;
         }
     }
 }

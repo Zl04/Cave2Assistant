@@ -76,6 +76,8 @@ public sealed partial class MainForm
         var miningRange = new MiningRange(initial.Width - 1, initial.Height - 1);
         var mined = 0;
         var recovery = 0;
+        Cell? lastClickedWall = null;
+        var repeatedWallClicks = 0;
         var selectionMayBeOpen = false;
         try
         {
@@ -99,11 +101,19 @@ public sealed partial class MainForm
                     continue;
                 }
 
-                var toolStatus = await adb.ReadMiningToolStatusAsync(token);
+                var toolStatus = cardMiningTaskRunning
+                    ? await ReadCardMiningToolStatusAsync(token)
+                    : await adb.ReadMiningToolStatusAsync(token);
+                if (toolStatus is null)
+                { State("挖矿：镐子数量暂时无法确认，准备重新读取"); return MiningPassResult.Failed; }
                 if (toolStatus.Quantity is 0)
                 {
-                    Log($"挖矿道具已用完：已挖 {mined} 格");
-                    State($"挖矿完成：道具已用完，已挖 {mined} 格");
+                    Log(cardMiningTaskRunning
+                        ? $"挖矿道具首次读为 0：已挖 {mined} 格，交由卡矿任务再次核对"
+                        : $"挖矿道具已用完：已挖 {mined} 格");
+                    State(cardMiningTaskRunning
+                        ? "挖矿暂停：核对镐子是否真正耗尽"
+                        : $"挖矿完成：道具已用完，已挖 {mined} 格");
                     return MiningPassResult.Completed;
                 }
                 if (MiningToolGuard.StopReason(toolStatus) is { } toolStopReason)
@@ -143,6 +153,16 @@ public sealed partial class MainForm
                     continue;
                 }
 
+                if (lastClickedWall == plan.Wall && repeatedWallClicks > 3)
+                {
+                    Log($"挖矿连续 {repeatedWallClicks} 次点击同一格 {plan.Wall}，先移动角色再重新规划");
+                    if (!await MoveRandomlyForMiningRetry(token))
+                    { State("挖矿：同一格反复尝试后无法移动，已停止"); return MiningPassResult.Failed; }
+                    lastClickedWall = null;
+                    repeatedWallClicks = 0;
+                    continue;
+                }
+
                 await touch.TouchUp();
                 // 等待松开和镜头跟随后再读取人物位置，避免沿用移动前的点击偏差。
                 await Task.Delay(200, token);
@@ -152,7 +172,7 @@ public sealed partial class MainForm
                 if (!CanMineNow(initial, miningRange, player, plan.Wall)) continue;
                 var point = MiningScreenCoordinates.Wall(player, plan.Wall,
                     (double)miningTileWidth.Value, (double)miningTileHeight.Value);
-                var confirmed = false;
+                var clicked = false;
                 var interrupted = await RunMovementSlice(token, async sliceToken =>
                 {
                     sliceToken.ThrowIfCancellationRequested();
@@ -165,29 +185,22 @@ public sealed partial class MainForm
                     sliceToken.ThrowIfCancellationRequested();
                     if (!CanMineNow(initial, miningRange, player, plan.Wall)) return;
                     await adb.TapScreen(point.X, point.Y);
+                    clicked = true;
                     Log($"挖矿点击：人物 {player}，墙体 {plan.Wall}，屏幕比例 ({point.X:F4}, {point.Y:F4})");
-                    var deadline = Environment.TickCount64 + 5000;
-                    while (Environment.TickCount64 < deadline)
-                    {
-                        await Task.Delay(150, sliceToken);
-                        var refreshed = await RefreshMap(false, waitForLock: true);
-                        sliceToken.ThrowIfCancellationRequested();
-                        if (!refreshed) continue;
-                        if (!SameMiningMap(initial, dungeon.Map!)) return;
-                        if (dungeon.Map!.ByCell.TryGetValue(plan.Wall, out var tile) && tile.Ground)
-                        { confirmed = true; selectionMayBeOpen = false; return; }
-                    }
+                    selectionMayBeOpen = false;
                 });
-                if (interrupted || !confirmed)
+                if (interrupted)
                 {
-                    State("挖矿未确认，已停止：请检查道具数量、冷却或点击校准");
+                    State("挖矿被弹窗中断，已停止");
                     return MiningPassResult.Failed;
                 }
+                if (!clicked) continue;
+                repeatedWallClicks = lastClickedWall == plan.Wall ? repeatedWallClicks + 1 : 1;
+                lastClickedWall = plan.Wall;
                 mined++;
                 recovery = 0;
                 ClearMiningRoute();
-                State($"挖矿成功 {mined} 格，等待道具冷却");
-                Log($"已确认墙体 {plan.Wall} 变为道路");
+                State($"已使用镐子 {mined} 次，等待道具冷却");
                 await Task.Delay((int)miningInterval.Value, token);
             }
         }

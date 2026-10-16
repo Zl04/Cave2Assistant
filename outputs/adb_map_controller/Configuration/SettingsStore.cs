@@ -17,6 +17,30 @@ public interface ISettingsStore
 public sealed class JsonSettingsStore : ISettingsStore
 {
     static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    static readonly string[] CommonTaskFields =
+    [
+        nameof(ControllerSettings.TaskKind), nameof(ControllerSettings.TaskEnabled),
+        nameof(ControllerSettings.SwitchEquipmentSet), nameof(ControllerSettings.EquipmentSet)
+    ];
+    static readonly string[] TargetFields =
+    [
+        nameof(ControllerSettings.AttackBoss), nameof(ControllerSettings.Monsters),
+        nameof(ControllerSettings.Elites), nameof(ControllerSettings.Chests),
+        nameof(ControllerSettings.Pots), nameof(ControllerSettings.Bones),
+        nameof(ControllerSettings.Gold), nameof(ControllerSettings.Runes),
+        nameof(ControllerSettings.Chambers)
+    ];
+    static readonly string[] RouteFields =
+    [
+        nameof(ControllerSettings.TargetStopFloor), nameof(ControllerSettings.EscapeReturnFloor),
+        nameof(ControllerSettings.EscapeReturnAttackBoss), nameof(ControllerSettings.Mining),
+        nameof(ControllerSettings.CardMining), nameof(ControllerSettings.CardLayer)
+    ];
+    static readonly string[] EntryFields =
+    [
+        nameof(ControllerSettings.EntryMapId), nameof(ControllerSettings.EntryId),
+        nameof(ControllerSettings.EntryDifficulty)
+    ];
     readonly string path;
     readonly Action<string>? diagnostic;
 
@@ -48,12 +72,16 @@ public sealed class JsonSettingsStore : ISettingsStore
         try
         {
             var document = JsonSerializer.SerializeToNode(settings, JsonOptions)!.AsObject();
-            // 出售设置只保存在通用配置中；旧任务里的同名字段不再写回。
+            // 任务只保存编辑器提供的选项；旧配置中的额外字段在下次保存时清除。
             if (document[nameof(ControllerSettings.ExecutionTasks)] is JsonArray tasks)
-                foreach (var task in tasks.OfType<JsonObject>())
-                    foreach (var field in new[] { nameof(ControllerSettings.AutoEquipmentSale), nameof(ControllerSettings.SellBlueWhite),
-                        nameof(ControllerSettings.SellPurple), nameof(ControllerSettings.SellDarkGold), nameof(ControllerSettings.SellGold) })
-                        task.Remove(field);
+                foreach (var task in tasks.OfType<JsonObject>()) TrimTask(task);
+            if (document[nameof(ControllerSettings.TaskTemplates)] is JsonArray templates)
+                foreach (var template in templates.OfType<JsonObject>())
+                {
+                    template.Remove(nameof(TaskTemplate.Task));
+                    if (template[nameof(TaskTemplate.Tasks)] is JsonArray templateTasks)
+                        foreach (var task in templateTasks.OfType<JsonObject>()) TrimTask(task);
+                }
             File.WriteAllText(temp, document.ToJsonString(JsonOptions));
             File.Move(temp, path, true);
         }
@@ -62,5 +90,29 @@ public sealed class JsonSettingsStore : ISettingsStore
             try { if (File.Exists(temp)) File.Delete(temp); } catch { }
             Report("Save", ex);
         }
+    }
+
+    static void TrimTask(JsonObject task)
+    {
+                    var kind = Enum.TryParse<ExecutionTaskKind>(task[nameof(ControllerSettings.TaskKind)]?.GetValue<string>(), out var parsed)
+                        ? parsed : ExecutionTaskKind.EntryAndRun;
+                    var allowed = new HashSet<string>(CommonTaskFields);
+                    if (kind is ExecutionTaskKind.EntryAndRun or ExecutionTaskKind.CardMining)
+                        allowed.UnionWith(EntryFields);
+                    if (kind != ExecutionTaskKind.DreamTrial)
+                        allowed.UnionWith(TargetFields);
+                    if (kind is ExecutionTaskKind.EntryAndRun or ExecutionTaskKind.CurrentMapRun)
+                        allowed.UnionWith(RouteFields);
+                    if (kind == ExecutionTaskKind.EntryAndRun)
+                        allowed.Add(nameof(ControllerSettings.EntryRunCount));
+                    if (kind == ExecutionTaskKind.CardMining)
+                    {
+                        allowed.Add(nameof(ControllerSettings.CardMiningStartAt));
+                        allowed.Add(nameof(ControllerSettings.CardMiningMinimumTools));
+                    }
+                    if (kind == ExecutionTaskKind.DreamTrial)
+                        allowed.Add(nameof(ControllerSettings.DreamTrialBossMask));
+                    foreach (var field in task.Select(x => x.Key).Where(x => !allowed.Contains(x)).ToArray())
+                        task.Remove(field);
     }
 }

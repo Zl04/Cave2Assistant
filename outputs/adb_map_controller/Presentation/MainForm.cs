@@ -465,7 +465,20 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     {
         var s = settingsStore.Load();
         if (s is null) return;
-        scheduledTasks.AddRange(s.ExecutionTasks ?? []);
+        taskTemplates.AddRange(s.TaskTemplates ?? []);
+        foreach (var template in taskTemplates)
+        {
+            template.Tasks ??= [];
+            if (template.Task is not null && template.Tasks.Count == 0) template.Tasks.Add(template.Task);
+            template.Task = null;
+        }
+        if (s.ExecutionTasks is { Count: > 0 })
+        {
+            if (taskTemplates.Count == 0) taskTemplates.Add(new TaskTemplate { Name = "默认模板" });
+            taskTemplates[0].Tasks.InsertRange(0, s.ExecutionTasks);
+        }
+        selectedTaskTemplateName = s.SelectedTaskTemplateName;
+        RefreshLoadedTemplates();
         ApplySettings(s);
     }
     void ApplySettings(ControllerSettings s, bool applyEquipmentSale = true)
@@ -503,7 +516,9 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     void SaveSettings()
     {
         var s = CaptureSettings();
-        s.ExecutionTasks = scheduledTasks.ToList();
+        s.ExecutionTasks = [];
+        s.TaskTemplates = taskTemplates.ToList();
+        s.SelectedTaskTemplateName = selectedTaskTemplateName;
         settingsStore.Save(s);
     }
     ControllerSettings CaptureSettings()

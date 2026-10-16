@@ -46,7 +46,8 @@ public sealed partial class MainForm
         var map = dungeon.Map;
         if (map is null || !IsEscapeReturnFloor(map) || map.InBattle ||
             floorPhase is FloorPhase.WaitingFloorLoad or FloorPhase.WaitingReturnTown or FloorPhase.SelectBonus or FloorPhase.VerifyTransition ||
-            SelectedTargets(map, Options(), includeLockedBoss: true).Count > 0)
+            (map.Level == (int)escapeReturnFloor.Value &&
+             SelectedTargets(map, Options(), includeLockedBoss: true).Count > 0))
             return false;
 
         var now = Environment.TickCount64;

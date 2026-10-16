@@ -11,7 +11,16 @@ public enum ThemeMode
     System,
 }
 
-public enum ExecutionTaskKind { EntryAndRun, CurrentMapRun }
+public enum ExecutionTaskKind { EntryAndRun, CurrentMapRun, CardMining, DreamTrial }
+
+public sealed class TaskTemplate
+{
+    public string Name { get; set; } = "";
+    public List<ControllerSettings> Tasks { get; set; } = [];
+    // 兼容旧版单任务模板，加载时迁移到 Tasks。
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ControllerSettings? Task { get; set; }
+}
 
 public sealed class ControllerSettings
 {
@@ -63,5 +72,13 @@ public sealed class ControllerSettings
     public ExecutionTaskKind TaskKind { get; set; }
     // 新任务默认启用。
     public bool TaskEnabled { get; set; } = true;
+    public bool SwitchEquipmentSet { get; set; }
+    public int EquipmentSet { get; set; } = 1;
+    public DateTime CardMiningStartAt { get; set; } = DateTime.Today.AddDays(1);
+    public int CardMiningMinimumTools { get; set; } = 1;
+    // 从左到右六位分别对应梦境试炼的六位 Boss。
+    public int DreamTrialBossMask { get; set; } = 63;
     public List<ControllerSettings> ExecutionTasks { get; set; } = [];
+    public List<TaskTemplate> TaskTemplates { get; set; } = [];
+    public string SelectedTaskTemplateName { get; set; } = "";
 }

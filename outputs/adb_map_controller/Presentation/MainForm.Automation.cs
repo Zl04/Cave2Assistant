@@ -155,6 +155,7 @@ public sealed partial class MainForm
                 return MaaPipelineActionResult.Failure("地图未就绪");
             }
             if (dungeon.Map is not null) runTask.Observe(dungeon.Map);
+            if (await TryStopForCardMiningAsync(owner)) return MaaPipelineActionResult.Success();
             // 宝石选择覆盖层会消耗所有触摸输入。不要在其下方构建或启动移动路线；
             // RunLoop 会先执行有界的点击/重试序列，关闭后再恢复。
             if (runeSelectionVisible)
@@ -168,7 +169,7 @@ public sealed partial class MainForm
                 Log("启动检查已锁存秘境宝石选择，先执行一次专用点击流程");
                 await HandleRiftGemSelection(owner);
                 await RunLoop(owner, runTask, useInitialSnapshot: true);
-                return runTask.Completed ? MaaPipelineActionResult.Success() : MaaPipelineActionResult.Failure("跑图已停止，尚未返回主城或公会");
+                return runTask.Completed || cardMiningTaskRunning && (dungeon.TargetFloorStopped || cardMiningEarlyStop) ? MaaPipelineActionResult.Success() : MaaPipelineActionResult.Failure("跑图已停止，尚未返回主城或公会");
             }
             if (dungeon.Map is { } startupSaleMap) await HandleMerchantEquipmentSale(startupSaleMap, owner);
             if (await TryReturnWithEscapeScroll(owner))
@@ -179,13 +180,13 @@ public sealed partial class MainForm
             if (dungeon.Map is not null && !MapRunTask.IsReturnDestination(dungeon.Map) &&
                 floorPhase != FloorPhase.WaitingFloorLoad && await TryStopAtTargetFloor())
             {
-                return MaaPipelineActionResult.Failure("已在目标楼层暂停，尚未返回主城或公会");
+                return cardMiningTaskRunning ? MaaPipelineActionResult.Success() : MaaPipelineActionResult.Failure("已在目标楼层暂停，尚未返回主城或公会");
             }
             Log($"导航启动检查完成 {startup.ElapsedMilliseconds} ms");
             owner.ThrowIfCancellationRequested();
             State("运行中");
             await RunLoop(owner, runTask, useInitialSnapshot: true);
-            return runTask.Completed ? MaaPipelineActionResult.Success() : MaaPipelineActionResult.Failure("跑图已停止，尚未返回主城或公会");
+            return runTask.Completed || cardMiningTaskRunning && (dungeon.TargetFloorStopped || cardMiningEarlyStop) ? MaaPipelineActionResult.Success() : MaaPipelineActionResult.Failure("跑图已停止，尚未返回主城或公会");
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -204,6 +205,8 @@ public sealed partial class MainForm
         {
             while (!owner.IsCancellationRequested)
             {
+                if (dreamTrialRunning && await TryHandleDreamTrialVictoryAsync(owner))
+                    continue;
                 if (escapeScrollPending)
                 {
                     await TryReturnWithEscapeScroll(owner);
@@ -316,6 +319,7 @@ public sealed partial class MainForm
                 }
                 await TryRevealNewFloorAsync(owner);
                 if (await TryReturnWithEscapeScroll(owner)) continue;
+                if (await TryStopForCardMiningAsync(owner)) break;
                 if (await TryStopAtTargetFloor()) break;
                 // 已满足的楼层门控优先于探索。快捷入口会自行检查活动目标/Boss，
                 // 即使当前地图仍有迷雾，也允许继续前进。

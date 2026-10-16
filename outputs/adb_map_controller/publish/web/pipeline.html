@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>MAA Pipeline 监控</title>
+  <title>MAA Pipeline 调试</title>
   <style>
     :root { color-scheme: dark; --bg:#10151d; --panel:#18212d; --line:#2a3949; --text:#e5edf5; --muted:#93a4b7; --green:#59d494; --blue:#74b9ff; --yellow:#ffd166; --red:#ff7675; }
     * { box-sizing: border-box; }
-    body { margin:0; background:linear-gradient(135deg,#0e141c,#172332); color:var(--text); font:14px/1.45 "Segoe UI","Microsoft YaHei",sans-serif; }
+    body { margin:0; background:#121212; color:var(--text); font:14px/1.45 "Segoe UI","Microsoft YaHei",sans-serif; }
     header { padding:22px 28px 16px; border-bottom:1px solid var(--line); background:#121a24cc; position:sticky; top:0; z-index:2; backdrop-filter:blur(10px); }
     h1 { margin:0 0 5px; font-size:22px; }
     .subtle { color:var(--muted); }
@@ -34,15 +34,70 @@
     td.mono { font-family:Consolas,monospace; font-size:12px; }
     .ok { color:var(--green); } .running { color:var(--blue); } .warn { color:var(--yellow); } .error { color:var(--red); }
     .empty { padding:28px 15px; color:var(--muted); text-align:center; }
+    .debug-layout { display:grid; grid-template-columns:330px minmax(0,1fr); gap:16px; margin-bottom:16px; }
+    .node-list { max-height:420px; overflow:auto; }
+    .node { display:block; width:100%; border:0; border-bottom:1px solid var(--line); border-radius:0; background:transparent; text-align:left; }
+    .node.selected { background:#24405a; } .node.breakpoint::before { content:'● '; color:var(--red); }
+    .node.active { color:var(--yellow); }
+    .inspector { padding:16px; min-height:240px; }
+    .inspector dl { display:grid; grid-template-columns:110px 1fr; gap:9px 14px; margin:0; }
+    .inspector dt { color:var(--muted); } .inspector dd { margin:0; overflow-wrap:anywhere; }
+    .badge { padding:3px 8px; border-radius:4px; background:#344b60; }
+    .master { padding:18px; margin-bottom:16px; }
+    .master h2 { font-size:17px; margin:0 0 12px; }
+    .master-row { display:flex; align-items:end; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+    .master-row label { display:grid; gap:4px; color:var(--muted); font-size:12px; }
+    .master-row input,.master-row select,.master-row textarea { min-width:180px; padding:8px; color:var(--text); background:#101a25; border:1px solid var(--line); border-radius:5px; font:inherit; }
+    .master-row textarea { width:min(550px,90vw); min-height:48px; }
+    .master-row .wide { min-width:290px; }
+    .tabs { display:flex; gap:3px; border-bottom:1px solid var(--line); margin-bottom:14px; }
+    .tab { border:0; border-radius:5px 5px 0 0; background:transparent; }
+    .tab.active { color:var(--blue); border-bottom:2px solid var(--blue); }
+    .screenshot-row { display:flex; align-items:end; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+    .screenshot { position:relative; height:200px; min-width:300px; max-width:100%; border:1px solid var(--line); background:#080b10; display:grid; place-items:center; overflow:hidden; }
+    .screenshot img { height:100%; max-width:100%; object-fit:contain; cursor:crosshair; }
+    .control-state { color:var(--muted); font-size:12px; }
+    .runtime-groups { display:flex; gap:12px; overflow:auto; padding:14px; min-height:110px; }
+    .runtime-group { min-width:210px; max-width:320px; border:1px solid var(--line); border-radius:6px; background:#13202c; }
+    .runtime-head { font-weight:600; padding:9px 12px; border-bottom:1px solid var(--line); }
+    .runtime-item { display:block; width:100%; text-align:left; border:0; border-bottom:1px solid var(--line); border-radius:0; background:transparent; }
+    .runtime-item.hit { color:var(--green); } .runtime-item.miss { color:var(--red); } .runtime-item.pending { color:var(--muted); }
+    .evidence-frame { position:relative; width:min(960px,100%); margin:14px 0; border:1px solid var(--line); }
+    .evidence-frame img { display:block; width:100%; height:auto; }
+    .evidence-box { position:absolute; border:2px solid #ff5252; background:#ff525224; pointer-events:none; }
+    #events tr[data-index] { cursor:pointer; } #events tr[data-index]:hover { background:#263c53; }
+    #eventDialog { width:min(1080px,94vw); max-height:90vh; overflow:auto; color:var(--text); background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px; }
+    #eventDialog::backdrop { background:#000b; }
+    button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
     @media (max-width:900px) { main { padding:14px; } .cards { grid-template-columns:repeat(2,1fr); } .layout { grid-template-columns:1fr; } .runs { max-height:260px; } }
   </style>
 </head>
 <body>
   <header>
-    <h1>MAA Pipeline 监控</h1>
-    <div class="subtle">本地只读页面 · 数据来自主程序的实时 Trace 和 pipeline-traces 目录</div>
+    <h1>MAA Pipeline 调试</h1>
+    <div class="subtle">选择任务定义，设置断点；从主程序启动任务后可暂停、单步和查看实时 Trace。</div>
   </header>
   <main>
+    <section class="panel master" aria-label="MaaDebugger 主控制台">
+      <h2>Master Control</h2>
+      <div class="tabs" role="tablist" aria-label="设备类型"><button class="tab active" role="tab" aria-selected="true">Adb</button><button class="tab" role="tab" aria-selected="false" disabled title="本项目未接入 Win32 控制器">Win32</button><button class="tab" role="tab" aria-selected="false" disabled title="本项目未接入 Gamepad 控制器">Gamepad</button><button class="tab" role="tab" aria-selected="false" disabled title="本项目未接入 PlayCover 控制器">PlayCover</button><button class="tab" role="tab" aria-selected="false" disabled title="本项目未接入 Custom 控制器">Custom</button></div>
+      <div class="master-row"><span id="deviceState" class="badge">未连接</span><label>ADB Path<input value="主程序配置" disabled></label><label>ADB Address<select id="deviceSelect" aria-label="ADB 设备"></select></label><button id="scanButton">Scan</button><button id="connectButton">Connect</button><span id="controllerMessage" class="control-state"></span></div>
+      <div class="master-row"><span id="resourceState" class="badge">资源未加载</span><label>Resource Directory<textarea id="resourceDirectory" readonly></textarea></label><button id="loadButton">Load</button></div>
+      <div class="master-row"><span class="badge">内置执行器</span><label>Agent Identifier<input value="本地 .NET Pipeline" disabled></label><button disabled title="本项目使用内置执行器">Connect</button><button disabled title="本项目使用内置执行器">Disconnect</button></div>
+      <div class="master-row"><span id="taskState" class="badge">待运行</span><label>Task Entry<select id="entrySelect" class="wide"></select></label><label>Pipeline Override<input id="overrideInput" class="wide" value="{}" aria-describedby="overrideHint"></label><button id="startButton">Start</button><button id="stopButton">Stop</button><span id="overrideHint" class="control-state">覆盖配置只读预览，当前入口按主程序设置执行</span></div>
+      <div class="screenshot-row"><div id="screenshotBox" class="screenshot"><span class="subtle">连接设备后刷新截图</span><img id="screenshotImage" alt="设备截图" hidden></div><button id="screenshotButton">⟳</button><button id="downloadButton">↓</button><span class="control-state">点击截图可向设备发送触控</span></div>
+    </section>
+    <section class="panel" style="margin-bottom:16px"><div class="toolbar"><strong>Runtime Control</strong><button id="clearItemsButton">Clear Items</button><label><input id="reverseSwitch" type="checkbox" checked> Reverse</label><span class="subtle">点击识别项查看详情</span></div><div id="runtimeGroups" class="runtime-groups"><div class="empty">暂无运行节点</div></div><div id="recognitionDetail" class="inspector subtle" hidden></div></section>
+    <section class="debug-layout">
+      <div class="panel">
+        <div class="toolbar"><strong>任务节点</strong><select id="pipelineSelect" aria-label="Pipeline 文件"></select><input id="nodeSearch" placeholder="搜索节点" aria-label="搜索节点" style="width:100%;padding:7px;background:#101a25;color:var(--text);border:1px solid var(--line)"></div>
+        <div id="nodes" class="node-list"><div class="empty">读取中…</div></div>
+      </div>
+      <div class="panel">
+        <div class="toolbar"><strong>调试控制</strong><span id="pauseState" class="badge">未运行</span><button id="pauseButton">暂停</button><button id="stepButton">单步</button><button id="continueButton">继续</button><button id="breakButton">切换所选节点断点</button><button id="clearButton">清除断点</button></div>
+        <div id="inspector" class="inspector subtle">选择左侧节点查看识别、动作和分支配置。</div>
+      </div>
+    </section>
     <section class="cards">
       <div class="card"><div class="label">运行状态</div><div id="status" class="value">读取中…</div></div>
       <div class="card"><div class="label">Run ID</div><div id="runId" class="value">-</div></div>
@@ -70,12 +125,79 @@
       </div>
     </section>
   </main>
+  <dialog id="eventDialog" aria-label="Pipeline 事件详情"><div class="toolbar"><strong>事件详情</strong><button id="closeEventDialog" type="button">关闭</button></div><div id="eventDialogContent" class="inspector"></div></dialog>
   <script>
     let selectedFile = null;
     let lastRuns = [];
+    let nodes = [], selectedNode = null, debugState = {};
+    let currentEvents = [];
+    let runtimeClearedAt = 0;
     const $ = id => document.getElementById(id);
     const text = value => value === null || value === undefined || value === '' ? '-' : String(value);
     const escapeHtml = value => text(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const list = value => Array.isArray(value) && value.length ? value.join(' → ') : '-';
+    async function command(name, task) {
+      const response = await fetch('/api/debug', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({command:name,task})});
+      if (!response.ok) alert('调试命令失败');
+      await refreshLive();
+    }
+    async function controller(commandName, argument) {
+      const response = await fetch('/api/controller', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({command:commandName,argument})});
+      const result = await response.json();
+      $('controllerMessage').textContent = result.error || (result.ok ? '完成' : '操作未完成');
+      await refreshController();
+      return result;
+    }
+    async function refreshController() {
+      const data = await (await fetch('/api/controller')).json();
+      $('deviceState').textContent = data.connected ? '已连接' : '未连接';
+      $('resourceDirectory').value = data.resourceDirectory || '';
+      $('resourceState').textContent = data.resourceDirectory ? '已加载' : '资源未加载';
+      $('taskState').textContent = data.running ? '运行中' : '待运行';
+      const selected = $('deviceSelect').value;
+      $('deviceSelect').innerHTML = (data.devices || []).map(d => '<option value="' + escapeHtml(d) + '">' + escapeHtml(d) + '</option>').join('');
+      $('deviceSelect').value = (data.devices || []).includes(selected) ? selected : (data.serial || '');
+    }
+    async function refreshScreenshot() {
+      const result = await controller('screenshot');
+      if (!result.ok) return;
+      const img = $('screenshotImage'); img.src = result.image; img.hidden = false;
+      $('screenshotBox').querySelector('span').hidden = true;
+    }
+    function renderNodes() {
+      const query = $('nodeSearch').value.toLowerCase();
+      const visible = nodes.filter(n => n.name.toLowerCase().includes(query));
+      $('nodes').innerHTML = visible.length ? visible.map(n => '<button class="node ' +
+        (n.name === selectedNode ? 'selected ' : '') +
+        ((debugState.breakpoints || []).includes(n.name) ? 'breakpoint ' : '') +
+        (debugState.pausedTask === n.name ? 'active' : '') +
+        '" data-name="' + escapeHtml(n.name) + '">' + escapeHtml(n.name) +
+        '<span class="subtle"> · ' + escapeHtml(n.algorithm) + '</span></button>').join('') : '<div class="empty">没有匹配的节点</div>';
+      $('nodes').querySelectorAll('.node').forEach(button => button.onclick = () => { selectedNode = button.dataset.name; renderNodes(); renderInspector(); });
+    }
+    function renderInspector() {
+      const n = nodes.find(n => n.name === selectedNode);
+      if (!n) { $('inspector').textContent = '选择左侧节点查看配置。'; return; }
+      const fields = [['识别',n.algorithm],['动作',n.action],['Handler',n.handler],['ROI',n.roi ? JSON.stringify(n.roi) : '-'],
+        ['模板',list(n.templates)],['文本',list(n.text)],['阈值',list(n.templateThresholds)],['Sub',list(n.sub)],
+        ['Next',list(n.next)],['失败跳转',list(n.onErrorNext)],['超限跳转',list(n.exceededNext)],
+        ['次数上限',n.maxTimes],['超时 / 间隔',n.timeoutMs + ' / ' + n.rateLimitMs + ' ms']];
+      $('inspector').innerHTML = '<h2>' + escapeHtml(n.name) + '</h2><dl>' + fields.map(([k,v]) => '<dt>' + escapeHtml(k) + '</dt><dd>' + escapeHtml(v) + '</dd>').join('') + '</dl>';
+    }
+    async function loadPipeline() {
+      const file = $('pipelineSelect').value;
+      if (!file) return;
+      const response = await fetch('/api/pipelines/' + encodeURIComponent(file));
+      nodes = response.ok ? await response.json() : [];
+      $('entrySelect').innerHTML = nodes.map(n => '<option value="' + escapeHtml(n.name) + '">' + escapeHtml(n.name) + '</option>').join('');
+      selectedNode = nodes.some(n => n.name === selectedNode) ? selectedNode : null;
+      renderNodes(); renderInspector();
+    }
+    async function loadPipelines() {
+      const files = await (await fetch('/api/pipelines')).json();
+      $('pipelineSelect').innerHTML = files.map(f => '<option value="' + escapeHtml(f) + '">' + escapeHtml(f) + '</option>').join('');
+      await loadPipeline();
+    }
     function eventClass(kind) {
       if (!kind) return '';
       if (/Completed|Recognized|Started/.test(kind)) return 'ok';
@@ -83,11 +205,61 @@
       if (/Retry|Limit/.test(kind)) return 'warn';
       return '';
     }
+    function renderRuntime(events) {
+      currentEvents = events || [];
+      const groups = [];
+      let group = null;
+      currentEvents.forEach((event, index) => {
+        if (event.kind === 'TaskChainStarted' || event.kind === 'BranchSelected') {
+          group = { name:event.taskName || event.taskChain || 'Task', candidates:event.candidates || [], start:index };
+          groups.push(group);
+        }
+      });
+      if (!groups.length && currentEvents.length) groups.push({name:currentEvents[0].taskChain,candidates:[...new Set(currentEvents.map(e=>e.taskName).filter(Boolean))],start:0});
+      const shown = groups.filter(g => g.start >= runtimeClearedAt).slice(-30);
+      const ordered = $('reverseSwitch').checked ? shown.reverse() : shown;
+      $('runtimeGroups').innerHTML = ordered.length ? ordered.map((g, gi) => {
+        const end = groups[groups.indexOf(g)+1]?.start ?? currentEvents.length;
+        const candidates = g.candidates.length ? g.candidates : [...new Set(currentEvents.slice(g.start,end).map(e=>e.taskName).filter(Boolean))];
+        return '<div class="runtime-group"><div class="runtime-head">' + escapeHtml(g.name) + '</div>' + candidates.map(name => {
+          const result = currentEvents.slice(g.start,end).filter(e => e.kind === 'CandidateRecognized' && e.taskName === name).at(-1);
+          const cls = !result ? 'pending' : result.matched ? 'hit' : 'miss';
+          return '<button class="runtime-item ' + cls + '" data-index="' + (result ? currentEvents.indexOf(result) : -1) + '">' + (result ? result.matched ? '✓ ' : '✕ ' : '○ ') + escapeHtml(name) + (result ? ' <small>#' + escapeHtml(result.taskId) + '</small>' : '') + '</button>';
+        }).join('') + '</div>';
+      }).join('') : '<div class="empty">暂无运行节点</div>';
+      $('runtimeGroups').querySelectorAll('[data-index]').forEach(button => button.onclick = () => showRecognition(Number(button.dataset.index)));
+    }
+    function detailHtml(index) {
+      const event = currentEvents[index];
+      if (!event) return '';
+      const task = nodes.find(n => n.name === event.taskName);
+      const imageUrl = event.evidencePath ? '/api/evidence/' + encodeURIComponent(event.evidencePath) : null;
+      const box = event.box;
+      const frameWidth = event.taskChain && event.taskChain.startsWith('EquipmentSale') ? 1004 : 1280;
+      const frameHeight = event.taskChain && event.taskChain.startsWith('EquipmentSale') ? 565 : 720;
+      const overlay = box ? '<div class="evidence-box" style="left:' + (box.x / frameWidth * 100) + '%;top:' + (box.y / frameHeight * 100) + '%;width:' + (box.width / frameWidth * 100) + '%;height:' + (box.height / frameHeight * 100) + '%"></div>' : '';
+      return '<h2>' + (event.kind.includes('Failed') || event.matched === false ? '❌ ' : '✅ ') + escapeHtml(event.taskName || event.taskChain) + ' #' + escapeHtml(event.taskId) + '</h2>' +
+        '<p>事件：' + escapeHtml(event.kind) + '　识别：' + escapeHtml(task?.algorithm) + '　分数：' + escapeHtml(event.score) + '　耗时：' + escapeHtml(event.duration) + '</p>' +
+        '<p>结果：' + escapeHtml(event.text || event.detail) + '</p>' +
+        (event.error ? '<p class="error">错误：' + escapeHtml(event.error) + '</p>' : '') +
+        '<p>位置：' + escapeHtml(event.box ? JSON.stringify(event.box) : '-') + '</p>' +
+        (imageUrl ? '<div class="evidence-frame"><img src="' + imageUrl + '" alt="' + escapeHtml(event.taskName) + ' 识别或失败时的设备画面">' + overlay + '</div><a href="' + imageUrl + '" target="_blank" rel="noopener">打开原始截图</a>' : '<p class="subtle">该事件未保存截图。</p>') +
+        '<details><summary>原始事件与节点配置</summary><pre>' + escapeHtml(JSON.stringify({event,task}, null, 2)) + '</pre></details>';
+    }
+    function showRecognition(index) {
+      $('recognitionDetail').hidden = false;
+      $('recognitionDetail').innerHTML = detailHtml(index);
+    }
+    function showEvent(index) {
+      $('eventDialogContent').innerHTML = detailHtml(index);
+      $('eventDialog').showModal();
+    }
     function renderEvents(events) {
+      renderRuntime(events);
       const body = $('events');
       if (!events || !events.length) { body.innerHTML = '<tr><td colspan="8" class="empty">暂无事件</td></tr>'; return; }
       body.innerHTML = events.map((e, i) =>
-        '<tr><td class="mono">' + (i + 1) + '</td>' +
+        '<tr data-index="' + i + '" tabindex="0" aria-label="查看第 ' + (i + 1) + ' 条事件详情"><td class="mono">' + (i + 1) + '</td>' +
         '<td class="' + eventClass(e.kind) + '">' + escapeHtml(e.kind) + '</td>' +
         '<td>' + escapeHtml(e.taskName || e.taskChain) + '</td>' +
         '<td>' + escapeHtml(e.matched) + '</td>' +
@@ -96,8 +268,15 @@
         '<td class="mono">' + escapeHtml(e.duration) + '</td>' +
         '<td class="error">' + escapeHtml(e.error) + '</td></tr>'
       ).join('');
+      body.querySelectorAll('tr[data-index]').forEach(row => {
+        row.onclick = () => showEvent(Number(row.dataset.index));
+        row.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); showEvent(Number(row.dataset.index)); } };
+      });
     }
     function renderLive(data) {
+      debugState = data;
+      $('pauseState').textContent = data.pausedTask ? '已暂停：' + data.pausedTask : (data.running ? '运行中' : '未运行');
+      renderNodes();
       const last = data.events && data.events.length ? data.events[data.events.length - 1] : null;
       $('status').textContent = data.running ? '运行中' : (last ? (last.kind || '已结束') : '空闲');
       $('status').className = 'value ' + (data.running ? 'running' : (last && /Failed|Canceled|Stopped/.test(last.kind) ? 'error' : 'ok'));
@@ -134,8 +313,33 @@
     }
     $('liveButton').addEventListener('click', () => { selectedFile = null; refreshLive(); renderRuns(lastRuns); });
     $('refreshButton').addEventListener('click', () => { refreshRuns(); refreshLive(); });
-    refreshRuns(); refreshLive();
-    setInterval(refreshLive, 1000); setInterval(refreshRuns, 3000);
+    $('pipelineSelect').onchange = loadPipeline;
+    $('nodeSearch').oninput = renderNodes;
+    $('pauseButton').onclick = () => command('pause');
+    $('stepButton').onclick = () => command('step');
+    $('continueButton').onclick = () => command('continue');
+    $('breakButton').onclick = () => selectedNode && command('breakpoint', selectedNode);
+    $('clearButton').onclick = () => command('clear');
+    $('closeEventDialog').onclick = () => $('eventDialog').close();
+    $('clearItemsButton').onclick = () => { runtimeClearedAt = currentEvents.length; renderRuntime(currentEvents); $('recognitionDetail').hidden = true; };
+    $('reverseSwitch').onchange = () => renderRuntime(currentEvents);
+    $('scanButton').onclick = () => controller('scan');
+    $('connectButton').onclick = () => controller('connect', $('deviceSelect').value);
+    $('loadButton').onclick = loadPipelines;
+    $('startButton').onclick = async () => {
+      if ($('overrideInput').value.trim() !== '{}') { $('controllerMessage').textContent = '当前执行器尚不支持 Pipeline Override'; return; }
+      await controller('start', JSON.stringify({pipeline:$('pipelineSelect').value,entry:$('entrySelect').value}));
+    };
+    $('stopButton').onclick = () => controller('stop');
+    $('screenshotButton').onclick = refreshScreenshot;
+    $('downloadButton').onclick = () => { const img = $('screenshotImage'); if (!img.src) return; const a = document.createElement('a'); a.href = img.src; a.download = 'screenshot.png'; a.click(); };
+    $('screenshotImage').onclick = async event => {
+      const image = event.currentTarget, box = image.getBoundingClientRect();
+      const x = (event.clientX - box.left) / box.width, y = (event.clientY - box.top) / box.height;
+      if (x >= 0 && x <= 1 && y >= 0 && y <= 1) { await controller('click', x.toFixed(5) + ',' + y.toFixed(5)); await refreshScreenshot(); }
+    };
+    loadPipelines(); refreshController(); refreshRuns(); refreshLive();
+    setInterval(refreshLive, 1000); setInterval(refreshRuns, 3000); setInterval(refreshController, 3000);
   </script>
 </body>
 </html>

@@ -3,3 +3,4 @@
 /outputs/adb_map_controller/publish/pipeline-traces/
 /outputs/__pycache__/
 /outputs/adb_map_controller/publish/logs/errors-*.log
+/outputs/adb_map_controller/publish/logs/

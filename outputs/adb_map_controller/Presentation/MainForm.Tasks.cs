@@ -39,11 +39,13 @@ public sealed partial class MainForm
         var remove = Btn("删除", ThemeRole.DangerButton);
         var up = Btn("上移", ThemeRole.SecondaryButton);
         var down = Btn("下移", ThemeRole.SecondaryButton);
+        var selectAll = Btn("全选", ThemeRole.SecondaryButton);
+        var invertSelection = Btn("反选", ThemeRole.SecondaryButton);
         var run = Btn("执行列表", ThemeRole.SuccessButton);
         var stop = Btn("停止列表", ThemeRole.WarningButton);
-        bar.Controls.AddRange([templateChoice, newTemplate, editTemplate, add, update, remove, up, down, run, stop]);
+        bar.Controls.AddRange([templateChoice, newTemplate, editTemplate, add, update, remove, up, down, selectAll, invertSelection, run, stop]);
         var hint = new Label { Dock = DockStyle.Top, Height = 72, Padding = new(12, 6, 12, 6),
-            Text = "选择模板后管理其中的任务；新建模板会创建空列表，修改模板可重命名。双击任务修改设置；拖拽调整顺序。\nShift/Ctrl 多选后，点击任一选中项的勾选框统一启用/禁用；仅执行启用项。\n按列表顺序执行所选类型；失败或停层时停止列表。普通自动次数会无限运行，阻塞后续任务。", Tag = ThemeRole.MutedText };
+            Text = "选择模板后管理其中的任务；新建模板会创建空列表，修改模板可重命名。双击任务修改设置；拖拽调整顺序。\n全选启用全部任务，反选切换全部任务的启用状态；Shift/Ctrl 多选后可统一勾选；仅执行启用项。\n按列表顺序执行所选类型；失败或停层时停止列表。普通自动次数会无限运行，阻塞后续任务。", Tag = ThemeRole.MutedText };
         page.Controls.Add(taskList); page.Controls.Add(hint); page.Controls.Add(bar);
         bool Editable() => !closing && !stopping && !taskQueueRunning && activeEntry is not { IsCompleted: false } && activeMovement is not { IsCompleted: false };
         void RefreshTemplates(int selected = -1)
@@ -72,6 +74,29 @@ public sealed partial class MainForm
             RefreshTemplates(index); SaveSettings();
         };
         int Selected() => taskList.SelectedIndices.Count == 0 ? -1 : taskList.SelectedIndices[0];
+        void SetAllEnabled(bool invert)
+        {
+            if (!Editable() || scheduledTasks.Count == 0) return;
+            synchronizingTaskChecks = true;
+            taskList.BeginUpdate();
+            try
+            {
+                for (var i = 0; i < scheduledTasks.Count; i++)
+                {
+                    var enabled = !invert || !scheduledTasks[i].TaskEnabled;
+                    scheduledTasks[i].TaskEnabled = enabled;
+                    taskList.Items[i].Checked = enabled;
+                }
+            }
+            finally
+            {
+                synchronizingTaskChecks = false;
+                taskList.EndUpdate();
+            }
+            SaveSettings();
+        }
+        selectAll.Click += (_, _) => SetAllEnabled(invert: false);
+        invertSelection.Click += (_, _) => SetAllEnabled(invert: true);
         void SetEnabled(int index, bool enabled)
         {
             if (!Editable() || index < 0 || index >= scheduledTasks.Count) return;

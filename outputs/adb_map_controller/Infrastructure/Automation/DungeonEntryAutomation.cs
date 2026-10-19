@@ -11,6 +11,7 @@ namespace AdbMapController;
 
 public sealed class DungeonEntryAutomation
 {
+    const double BastanMapBodyThreshold = .85;
     readonly AdbClient adb;
     readonly IMovementInput movement;
     readonly int pulseHoldMs;
@@ -765,7 +766,7 @@ public sealed class DungeonEntryAutomation
             return true;
         }
         var score = BuiltInUiTemplateCatalog.MatchBastanMapBody(frame);
-        if (score < .92) return false;
+        if (score < BastanMapBodyThreshold) return false;
         log($"整张地图确认巴萨坦地图面板：相似度 {score:0.000}");
         return true;
     }
@@ -786,7 +787,7 @@ public sealed class DungeonEntryAutomation
             if (timer.ElapsedMilliseconds >= 3000)
             {
                 var score = BuiltInUiTemplateCatalog.MatchBastanMapBody(frame);
-                if (score >= .92)
+                if (score >= BastanMapBodyThreshold)
                 {
                     log($"标题 3 秒未命中，整张地图确认巴萨坦地图面板：相似度 {score:0.000}");
                     return (true, $"整张地图已确认，相似度 {score:0.000}", frame);

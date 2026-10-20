@@ -29,21 +29,39 @@ public static class OpenCvVisualNodeLocator
         return new Rect(x0, y0, x1 - x0, y1 - y0);
     }
 
-    public static IReadOnlyList<VisualNodeCandidate> FindMapNodes(System.Drawing.Bitmap source)
+    static Rect SelectionRegion(int width, int height, int? mapId)
+    {
+        if (!MapSelectionRegion.HasCustomBounds(mapId)) return MapRegion(width, height);
+        var bounds = MapSelectionRegion.ForFrame(mapId.GetValueOrDefault(), width, height);
+        return new Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+    }
+    public static IReadOnlyList<VisualNodeCandidate> FindMapNodes(System.Drawing.Bitmap source, int? mapId = null)
     {
         using var image = OpenCvImage.ToMat(source, ImreadModes.Color);
         using var hsv = image.CvtColor(ColorConversionCodes.BGR2HSV);
         // 地图底色和岩石也有一定饱和度；提高 S 阈值可压掉大部分背景色，只保留高饱和度节点徽章。
         using var colourMask = hsv.InRange(new Scalar(0, 120, 100), new Scalar(180, 255, 255));
 
-        // 用户最新标记的节点识别红框：1004×565 截图中的 (350,133) 至 (852,375)。
-        // 只在框内寻找地图节点，避免右侧难度徽章成为点击候选。
-        var region = MapRegion(image.Width, image.Height);
+        // 各地图使用独立红框，未标定地图继续使用原通用框。
+        var selectionRegion = SelectionRegion(image.Width, image.Height, mapId);
+        var region = selectionRegion;
+        if (mapId is 4 or 5 or DungeonEntryCatalog.TimeGateHeroMapId)
+        {
+            // 红框可能穿过边缘节点：保留轮廓上下文，仅接纳中心在红框内的节点。
+            var marginX = (int)Math.Ceiling(45.0 * image.Width / 1004);
+            var marginY = (int)Math.Ceiling(45.0 * image.Height / 565);
+            var left = Math.Max(0, region.Left - marginX);
+            var top = Math.Max(0, region.Top - marginY);
+            region = new Rect(left, top, Math.Min(image.Width, region.Right + marginX) - left,
+                Math.Min(image.Height, region.Bottom + marginY) - top);
+        }
         var x0 = region.X;
         var y0 = region.Y;
         using var roi = new Mat(colourMask, region).Clone();
         // 剑形图标与彩色徽章的高饱和度区域可能被白色剑刃分开，先连接近邻像素再提取整枚徽章。
-        using var closeKernel = Cv2.GetStructuringElement(MorphShapes.Ellipse, new OpenCvSharp.Size(11, 11));
+        using var closeKernel = Cv2.GetStructuringElement(MorphShapes.Ellipse, mapId == DungeonEntryCatalog.TimeGateHeroMapId
+            ? new OpenCvSharp.Size(Math.Max(3, (int)Math.Round(11.0 * image.Width / 1004) | 1), Math.Max(3, (int)Math.Round(11.0 * image.Height / 565) | 1))
+            : new OpenCvSharp.Size(11, 11));
         Cv2.MorphologyEx(roi, roi, MorphTypes.Close, closeKernel);
         using var labels = new Mat();
         using var stats = new Mat();
@@ -58,8 +76,13 @@ public static class OpenCvVisualNodeLocator
             var width = stats.Get<int>(label, (int)ConnectedComponentsTypes.Width);
             var height = stats.Get<int>(label, (int)ConnectedComponentsTypes.Height);
             var aspect = width / (double)Math.Max(1, height);
-            if (area < 500 || area > 16000 || width < 42 || height < 42 ||
-                width > 190 || height > 190 || aspect < .45 || aspect > 2.20)
+            var scaledWidth = width * 1004.0 / image.Width;
+            var scaledHeight = height * 565.0 / image.Height;
+            var scaledArea = area * (1004.0 * 565) / (image.Width * image.Height);
+            if (!MapSelectionRegion.HasCustomBounds(mapId)) { scaledWidth = width; scaledHeight = height; scaledArea = area; }
+            if (scaledArea < 500 || scaledArea > 16000 ||
+                scaledWidth < 42 || scaledHeight < (MapSelectionRegion.HasCustomBounds(mapId) ? 32 : 42) ||
+                scaledWidth > 190 || scaledHeight > 190 || aspect < .45 || aspect > 2.20)
                 continue;
 
             var center = new DrawingPoint(left + width / 2, top + height / 2);
@@ -68,7 +91,10 @@ public static class OpenCvVisualNodeLocator
         }
 
         return candidates
-            .Where(x => x.Bounds.Width >= 48 && x.Bounds.Height >= 48)
+            .Where(x => selectionRegion.Contains(new OpenCvSharp.Point(x.Center.X, x.Center.Y)))
+            .Where(x => MapSelectionRegion.HasCustomBounds(mapId)
+                ? x.Bounds.Width * 1004.0 / image.Width >= 42 && x.Bounds.Height * 565.0 / image.Height >= 32
+                : x.Bounds.Width >= 48 && x.Bounds.Height >= 48)
             .OrderBy(x => x.Center.X)
             .ThenBy(x => x.Center.Y)
             .ToArray();
@@ -103,12 +129,12 @@ public static class OpenCvVisualNodeLocator
         return selected;
     }
 
-    public static IReadOnlyList<VisualNodeCandidate> FindGoldNodeBadges(System.Drawing.Bitmap source)
+    public static IReadOnlyList<VisualNodeCandidate> FindGoldNodeBadges(System.Drawing.Bitmap source, int? mapId = null)
     {
         using var image = OpenCvImage.ToMat(source, ImreadModes.Color);
         using var hsv = image.CvtColor(ColorConversionCodes.BGR2HSV);
         using var gold = hsv.InRange(new Scalar(8, 90, 65), new Scalar(35, 255, 255));
-        var region = MapRegion(image.Width, image.Height);
+        var region = SelectionRegion(image.Width, image.Height, mapId);
         using var roi = new Mat(gold, region).Clone();
         var kernelSize = Math.Max(3, (int)Math.Round(7.0 * image.Width / 1004) | 1);
         using var kernel = Cv2.GetStructuringElement(MorphShapes.Ellipse, new OpenCvSharp.Size(kernelSize, kernelSize));
@@ -137,13 +163,13 @@ public static class OpenCvVisualNodeLocator
         return candidates.OrderBy(x => x.Center.X).ToArray();
     }
 
-    public static IReadOnlyList<VisualNodeCandidate> FindBlueNodeBadges(System.Drawing.Bitmap source)
+    public static IReadOnlyList<VisualNodeCandidate> FindBlueNodeBadges(System.Drawing.Bitmap source, int? mapId = null)
     {
         using var image = OpenCvImage.ToMat(source, ImreadModes.Color);
         using var hsv = image.CvtColor(ColorConversionCodes.BGR2HSV);
         // 时光之门关卡的蓝色圆徽章与连接它们的细点可通过连通区域尺寸区分。
         using var blue = hsv.InRange(new Scalar(90, 100, 110), new Scalar(108, 255, 255));
-        var region = TimeGateRegion(image.Width, image.Height);
+        var region = mapId is null ? TimeGateRegion(image.Width, image.Height) : SelectionRegion(image.Width, image.Height, mapId);
         using var roi = new Mat(blue, region);
         using var labels = new Mat();
         using var stats = new Mat();
@@ -169,12 +195,12 @@ public static class OpenCvVisualNodeLocator
         return candidates.OrderBy(x => x.Center.X).ToArray();
     }
 
-    public static IReadOnlyList<DrawingRectangle> FindSweepButtonRegions(System.Drawing.Bitmap source)
+    public static IReadOnlyList<DrawingRectangle> FindSweepButtonRegions(System.Drawing.Bitmap source, int? mapId = null)
     {
         using var image = OpenCvImage.ToMat(source, ImreadModes.Color);
         using var hsv = image.CvtColor(ColorConversionCodes.BGR2HSV);
         using var yellow = hsv.InRange(new Scalar(15, 110, 90), new Scalar(40, 255, 255));
-        var region = MapRegion(image.Width, image.Height);
+        var region = SelectionRegion(image.Width, image.Height, mapId);
         using var roi = new Mat(yellow, region);
         using var labels = new Mat();
         using var stats = new Mat();

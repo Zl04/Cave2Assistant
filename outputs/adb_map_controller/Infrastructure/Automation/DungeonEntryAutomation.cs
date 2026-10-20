@@ -942,10 +942,10 @@ public sealed class DungeonEntryAutomation
                 state($"已确认目标节点 {selection.Entry.Name}");
                 return true;
             }
-            var coloredBadges = selection.Map.IsTimeGate
-                ? VisualNodeLocator.FindBlueNodeBadges(frame)
-                : VisualNodeLocator.FindGoldNodeBadges(frame);
-            var genericNodes = VisualNodeLocator.FindMapNodes(frame);
+            var coloredBadges = (selection.Map.IsTimeGate && !selection.Map.IsHeroVariant)
+                ? VisualNodeLocator.FindBlueNodeBadges(frame, selection.MapId)
+                : VisualNodeLocator.FindGoldNodeBadges(frame, selection.MapId);
+            var genericNodes = VisualNodeLocator.FindMapNodes(frame, selection.MapId);
             var selectedIcon = VisualNodeLocator.FindSelectedMapNode(frame, genericNodes);
             var hasSelectedIcon = selectedIcon is not null;
             selectedBadgeCenter = hasSelectedIcon ? selectedIcon!.Center : null;
@@ -958,8 +958,8 @@ public sealed class DungeonEntryAutomation
             var candidates = coloredBadges.Concat(genericNodes.Where(node => coloredBadges.All(badge =>
                 Math.Abs(node.Center.X - badge.Center.X) > frame.Width * 35.0 / 1004 ||
                 Math.Abs(node.Center.Y - badge.Center.Y) > frame.Height * 35.0 / 565))).ToArray();
-            var sweepButtons = GetSweepExclusionRegions(frame, selectedBadgeCenter);
-            var source = selection.Map.IsTimeGate ? "蓝色徽章及通用地图节点" : "金色徽章及通用地图节点";
+            var sweepButtons = GetSweepExclusionRegions(frame, selectedBadgeCenter, selection.MapId);
+            var source = selection.Map.IsTimeGate && !selection.Map.IsHeroVariant ? "蓝色徽章及通用地图节点" : "金色徽章及通用地图节点";
             state($"识别到 {candidates.Length} 个{source}（第 {pass + 1} 轮）");
             log($"{source}识别：{string.Join("、", candidates.Select(x => $"{x.Center.X},{x.Center.Y}"))}");
 
@@ -972,7 +972,7 @@ public sealed class DungeonEntryAutomation
                     await Delay(token, 400);
                     continue;
                 }
-                candidates = BuildMapScanCandidates(frame.Width, frame.Height, selection.Map.IsTimeGate);
+                candidates = BuildMapScanCandidates(frame.Width, frame.Height, selection.MapId);
                 log($"连续3帧未识别到节点，逐点检查地图区域 {candidates.Length} 个点；每次点击后核对左侧关卡标题");
             }
             else emptyRecognitionPasses = 0;
@@ -1054,7 +1054,7 @@ public sealed class DungeonEntryAutomation
                 currentEntry = selected;
                 discoveredEntryIds.Add(selected.Id);
                 // 扫荡按钮跟随选中节点移动，用刚截的这一帧刷新禁区。
-                sweepButtons = GetSweepExclusionRegions(selectedFrame, selectedBadgeCenter);
+                sweepButtons = GetSweepExclusionRegions(selectedFrame, selectedBadgeCenter, selection.MapId);
                 if (!closerToTarget)
                 {
                     log($"候选 ({candidate.Center.X},{candidate.Center.Y}) 选中 {selected.Name}，比上一节点更远离目标 {selection.Entry.Name}，继续尝试本视口其它候选");
@@ -1093,18 +1093,19 @@ public sealed class DungeonEntryAutomation
         }
     }
 
-    static VisualNodeCandidate[] BuildMapScanCandidates(int width, int height, bool isTimeGate)
+    static VisualNodeCandidate[] BuildMapScanCandidates(int width, int height, int mapId)
     {
         // 仅在连续识别失败时使用：以小于徽章直径的间距覆盖地图画布，
         // 点击后仍须由左侧标题 OCR 确认，扫荡按钮由点击前的禁区检查挡住。
-        var (left, top, right, bottom) = isTimeGate
-            ? (325, 85, 875, 415)
-            : (375, 155, 825, 355);
+        var bounds = MapSelectionRegion.DesignBounds(mapId);
+        var (left, top, right, bottom) = MapSelectionRegion.HasCustomBounds(mapId)
+            ? (bounds.Left + 20, bounds.Top + 20, bounds.Right - 20, bounds.Bottom - 20)
+            : DungeonEntryCatalog.MapOrDefault(mapId).IsTimeGate ? (325, 85, 875, 415) : (375, 155, 825, 355);
         var grid = new List<(int X, int Y)>();
         for (var y = top; y <= bottom; y += 36)
         for (var x = left; x <= right; x += 36)
         {
-            if (x >= 815 && y >= 290) continue; // 右侧难度按钮
+            if (!MapSelectionRegion.HasCustomBounds(mapId) && x >= 815 && y >= 290) continue; // 右侧难度按钮
             grid.Add((x, y));
         }
         // 每次盲扫控制在 24 个点以内，避免一个回合点击+OCR 耗时过长。
@@ -1126,9 +1127,9 @@ public sealed class DungeonEntryAutomation
     }
 
     static IReadOnlyList<System.Drawing.Rectangle> GetSweepExclusionRegions(Bitmap frame,
-        System.Drawing.Point? selectedCenter)
+        System.Drawing.Point? selectedCenter, int mapId)
     {
-        var regions = VisualNodeLocator.FindSweepButtonRegions(frame).ToList();
+        var regions = VisualNodeLocator.FindSweepButtonRegions(frame, mapId).ToList();
         if (selectedCenter is not null)
         {
             // 有些地图的“扫荡”条是灰色，颜色掩码无法识别；它总在当前剑形图标下方。
@@ -1171,13 +1172,24 @@ public sealed class DungeonEntryAutomation
 
     async Task<DungeonEntryOption?> ReadSelectedEntry(Bitmap frame, int mapId)
     {
-        var y = (int)(frame.Height * .08);
+        var isHero = mapId == DungeonEntryCatalog.TimeGateHeroMapId;
+        var y = (int)(frame.Height * (isHero ? .19 : .08));
         var width = Math.Max(1, (int)(frame.Width * .30));
-        var height = Math.Max(1, (int)(frame.Height * .38));
+        var height = Math.Max(1, (int)(frame.Height * (isHero ? .10 : .38)));
         using var title = frame.Clone(new Rectangle(0, y, width, height), System.Drawing.Imaging.PixelFormat.Format24bppRgb);
         var words = await adb.ReadOcrWordsAsync(title);
         var compact = OcrTextLocator.Compact(string.Concat(words.OrderBy(x => x.Top).ThenBy(x => x.Left).Select(x => x.Text)));
 
+        // 英雄地图的实际标题只有地名，不带目录中的“图三[...]”前缀。
+        if (isHero)
+        {
+            foreach (var entry in DungeonEntryCatalog.EntriesForMap(mapId))
+            {
+                var name = Regex.Match(entry.Name, @"\[(?<name>[^\]]+)\]").Groups["name"].Value;
+                if (name.Length > 0 && compact.Contains(OcrTextLocator.Compact(name), StringComparison.Ordinal))
+                    return entry;
+            }
+        }
         var layer = Regex.Match(compact, @"(?:第)?(?<value>\d{1,3})层");
         if (layer.Success && int.TryParse(layer.Groups["value"].Value, out var value))
         {

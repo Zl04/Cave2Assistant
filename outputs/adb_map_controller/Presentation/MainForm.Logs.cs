@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Collections.Concurrent;
 using System.Threading;
+using System.Text;
 using System.Windows.Forms;
 
 namespace AdbMapController;
@@ -112,17 +113,55 @@ public sealed partial class MainForm
         }
         // 不显示部分匹配结果，避免超时后让用户误以为筛选已经完成。
         if (logFilter.Error != null) matchedEntries.Clear();
-        log.SuspendLayout();
-        try
+        // 先在内存中生成完整的带颜色文本，再一次提交给 RichEdit。
+        // SuspendLayout 只暂停布局，无法阻止 AppendText 逐条更新和重绘。
+        var rtf = new StringBuilder(@"{\rtf1\ansi\deff0{\fonttbl{\f0 ");
+        AppendRtfText(rtf, log.Font.Name);
+        rtf.Append(@";}}{\colortbl ;");
+        foreach (var level in Enum.GetValues<LogLevel>())
         {
-            log.Clear();
-            foreach (var entry in matchedEntries) AppendLogEntry(entry);
+            var color = LogColor(level);
+            rtf.Append($@"\red{color.R}\green{color.G}\blue{color.B};");
         }
-        finally { log.ResumeLayout(); }
+        rtf.Append(@"}\viewkind4\uc1\pard\f0\fs");
+        rtf.Append((int)Math.Round(log.Font.SizeInPoints * 2));
+        rtf.Append(' ');
+        foreach (var entry in matchedEntries)
+        {
+            rtf.Append(@"\cf").Append((int)entry.Level + 1).Append(' ');
+            AppendRtfText(rtf, entry.DisplayText);
+            rtf.Append(@"\par ");
+        }
+        // RichEdit 不将文档最后的段落标记计入 Text，额外保留日志末尾换行。
+        if (matchedEntries.Count > 0) rtf.Append(@"\par ");
+        rtf.Append('}');
+        log.ReplaceRtf(rtf.ToString());
         visibleLogEntries = matchedEntries.Count;
         if (logAutoScroll.Checked) ScrollLogToEnd();
         else log.ScrollToLine(firstVisibleLine);
         UpdateLogFilterStatus();
+    }
+
+    static void AppendRtfText(StringBuilder builder, string text)
+    {
+        for (var index = 0; index < text.Length; index++)
+        {
+            var character = text[index];
+            switch (character)
+            {
+                case '\\': case '{': case '}': builder.Append('\\').Append(character); break;
+                case '\r':
+                    if (index + 1 < text.Length && text[index + 1] == '\n') index++;
+                    builder.Append(@"\par ");
+                    break;
+                case '\n': builder.Append(@"\par "); break;
+                case '\t': builder.Append(@"\tab "); break;
+                default:
+                    if (character >= ' ' && character <= '~') builder.Append(character);
+                    else builder.Append(@"\u").Append((short)character).Append('?');
+                    break;
+            }
+        }
     }
 
     void AppendLogEntry(LogEntry entry)

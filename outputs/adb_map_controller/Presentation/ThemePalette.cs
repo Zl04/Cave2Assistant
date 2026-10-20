@@ -882,6 +882,7 @@ public sealed class ThemedTextBox : TextBox
 
 public sealed class ThemedRichTextBox : RichTextBox
 {
+    const int WmSetRedraw = 0x000B;
     const int WmPaint = 0x000F;
     const int WmNcPaint = 0x0085;
     const int WmSize = 0x0005;
@@ -915,6 +916,22 @@ public sealed class ThemedRichTextBox : RichTextBox
         if (!IsHandleCreated) return;
         var delta = Math.Max(0, line) - FirstVisibleLine;
         if (delta != 0) _ = SendMessage(Handle, EmLineScroll, IntPtr.Zero, new IntPtr(delta));
+    }
+
+    public void ReplaceRtf(string rtf)
+    {
+        // WM_SETREDRAW 在隐藏窗口上会改变原生可见状态，因此仅在可见时使用。
+        var suspendRedraw = IsHandleCreated && Visible;
+        if (suspendRedraw) _ = SendMessage(Handle, WmSetRedraw, IntPtr.Zero, IntPtr.Zero);
+        try { Rtf = rtf; }
+        finally
+        {
+            if (suspendRedraw)
+            {
+                _ = SendMessage(Handle, WmSetRedraw, new IntPtr(1), IntPtr.Zero);
+                Invalidate(true);
+            }
+        }
     }
 
     protected override void OnHandleCreated(EventArgs e)

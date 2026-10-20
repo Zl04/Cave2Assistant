@@ -11,6 +11,17 @@ public sealed partial class MainForm
     bool escapeScrollPending;
     long escapeScrollUsedAt;
     long escapeScrollLastProbeAt;
+    string? escapeReturnDiagnostic;
+    long escapeReturnDiagnosticAt;
+
+    void LogEscapeReturnDiagnostic(string message)
+    {
+        var now = Environment.TickCount64;
+        if (message == escapeReturnDiagnostic && now - escapeReturnDiagnosticAt < 15000) return;
+        escapeReturnDiagnostic = message;
+        escapeReturnDiagnosticAt = now;
+        Log($"卷轴回城诊断：{message}");
+    }
 
     async Task<bool> TryReturnWithEscapeScroll(CancellationToken token)
     {
@@ -22,6 +33,7 @@ public sealed partial class MainForm
             {
                 var text = OcrTextLocator.Compact(string.Concat((await adb.ReadOcrWordsAsync(body, token))
                     .OrderBy(word => word.Top).ThenBy(word => word.Left).Select(word => word.Text)));
+                LogEscapeReturnDiagnostic($"等待确认框，OCR正文={ (string.IsNullOrEmpty(text) ? "<空>" : text) }");
                 if (text.Contains("是否使用", StringComparison.Ordinal) &&
                     text.Contains("逃脱卷轴", StringComparison.Ordinal) &&
                     text.Contains("返回城镇", StringComparison.Ordinal))
@@ -44,28 +56,58 @@ public sealed partial class MainForm
         }
 
         var map = dungeon.Map;
-        if (map is null || !IsEscapeReturnFloor(map) || map.InBattle ||
-            floorPhase is FloorPhase.WaitingFloorLoad or FloorPhase.WaitingReturnTown or FloorPhase.SelectBonus or FloorPhase.VerifyTransition ||
-            (map.Level == (int)escapeReturnFloor.Value &&
-             SelectedTargets(map, Options(), includeLockedBoss: true).Count > 0))
+        var target = (int)escapeReturnFloor.Value;
+        var context = map is null
+            ? $"设置层={target}，地图=<空>"
+            : $"设置层={target}，当前层={map.Level}，地图={map.MapName}，SceneType={map.SceneType}，CaveMode={map.CaveMode}，最高层={CardFloorPolicy.MaximumFloor(map)?.ToString() ?? "未知"}，战斗={map.InBattle}，阶段={floorPhase}，回城前攻击Boss={escapeReturnAttackBoss.Checked}";
+        string? blocked = null;
+        if (map is null) blocked = "地图未就绪";
+        else if (!IsEscapeReturnFloor(map))
+            blocked = target <= 0 ? "功能关闭" :
+                CardFloorPolicy.MaximumFloor(map) is not { } maximum ? "玩法最高层未知" :
+                target >= maximum ? "设置层必须低于最高层" : map.Level < target ? "尚未到达设置层" : "当前层已到达或超过最高层";
+        else if (map.InBattle) blocked = "正在战斗";
+        else if (floorPhase is FloorPhase.WaitingFloorLoad or FloorPhase.WaitingReturnTown or FloorPhase.SelectBonus or FloorPhase.VerifyTransition)
+            blocked = "等待换层、奖励或回城流程结束";
+        else if (map.Level == target)
+        {
+            var remaining = SelectedTargets(map, Options(), includeLockedBoss: true);
+            if (remaining.Count > 0)
+                blocked = $"设置层所选目标未完成，剩余={remaining.Count}";
+        }
+        if (blocked is not null || map is null)
+        {
+            LogEscapeReturnDiagnostic($"{blocked}；{context}");
             return false;
+        }
 
         var now = Environment.TickCount64;
-        if (now - escapeScrollLastProbeAt < 1200) return false;
+        if (now - escapeScrollLastProbeAt < 1200)
+        {
+            await Task.Delay(120, token);
+            return true;
+        }
         escapeScrollLastProbeAt = now;
 
         var tool = await adb.FindBottomToolAsync(BottomToolKind.EscapeScroll, token);
         if (tool is null)
         {
+            LogEscapeReturnDiagnostic($"未识别到底栏逃脱卷轴；{context}");
             State($"已到 {map.Level} 层，等待获得逃脱卷轴");
-            return false;
+            await touch.EmergencyRelease();
+            await Task.Delay(120, token);
+            return true;
         }
-        if (tool.Quantity is not > 0)
+        if (tool.Quantity is <= 0)
         {
-            State($"已到 {map.Level} 层，卷轴数量未确认，继续跑图");
-            return false;
+            LogEscapeReturnDiagnostic($"已识别卷轴但数量不满足，数量={tool.Quantity?.ToString() ?? "未识别"}，坐标=({tool.X:F4},{tool.Y:F4})；{context}");
+            State($"已到 {map.Level} 层，卷轴数量为零，等待卷轴，不再下楼");
+            await touch.EmergencyRelease();
+            await Task.Delay(120, token);
+            return true;
         }
 
+        LogEscapeReturnDiagnostic($"条件满足，准备点击卷轴，数量={tool.Quantity?.ToString() ?? "未识别，将通过确认框验证"}，坐标=({tool.X:F4},{tool.Y:F4})；{context}");
         await touch.EmergencyRelease();
         await adb.TapScreen(tool.X, tool.Y);
         escapeScrollPending = true;

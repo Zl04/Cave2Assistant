@@ -114,6 +114,8 @@ public sealed partial class MainForm
         dungeon.FloorMiningSkippedLevel = -1;
         escapeScrollPending = false;
         escapeScrollLastProbeAt = 0;
+        escapeReturnDiagnostic = null;
+        escapeReturnDiagnosticAt = 0;
         var owner = pipelineToken;
         var runTask = new MapRunTask();
         try

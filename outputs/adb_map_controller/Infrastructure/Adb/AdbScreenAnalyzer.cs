@@ -35,6 +35,11 @@ internal sealed class AdbScreenAnalyzer : IDisposable
         // Captured directly from the in-game quick slot at 1920x1080.
         return File.Exists(path) ? VisualTemplate.FromFile(path, 85d / 1080d, 89d / 1080d) : null;
     });
+    readonly Lazy<QuickbarBackground?> quickbarBackground = new(() =>
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "vision", "quickbar-background.png");
+        return File.Exists(path) ? new QuickbarBackground(path) : null;
+    });
 
     public async Task<BottomToolInfo?> FindBottomToolAsync(
         Bitmap source, BottomToolKind kind, CancellationToken token = default)
@@ -57,7 +62,7 @@ internal sealed class AdbScreenAnalyzer : IDisposable
             var y = center.Y / (double)source.Height;
             if (x is < .12 or > .88 || y is < .82 or > .97) continue;
             var quantity = MiningToolGuard.ParseQuantityText(
-                await ReadBottomToolQuantityTextAsync(source, center, kind, token));
+                await ReadBottomToolQuantityTextAsync(source, center, token));
             return new BottomToolInfo(kind, x, y, quantity);
         }
         return null;
@@ -123,17 +128,41 @@ internal sealed class AdbScreenAnalyzer : IDisposable
             match.Center.X >= source.Width * .90 && match.Center.Y >= source.Height * .85);
     }
 
-    async Task<string> ReadBottomToolQuantityTextAsync(Bitmap source, Point center, BottomToolKind kind, CancellationToken token)
+    internal static Rectangle BottomToolQuantityBounds(Size frame, Point slotCenter)
     {
-        // Count labels share a baseline below the bottom quick-slot icons.
-        var sx = Math.Clamp((int)Math.Round(center.X + source.Width * (kind == BottomToolKind.FogReveal ? .006 : -.003)), 0, source.Width - 1);
-        var sy = Math.Clamp((int)Math.Round(source.Height * .963), 0, source.Height - 1);
-        var sw = Math.Clamp((int)Math.Round(source.Width * (kind == BottomToolKind.FogReveal ? .026 : .043)), 1, source.Width - sx);
-        var sh = Math.Clamp((int)Math.Round(source.Height * .037), 1, source.Height - sy);
-        using var crop = source.Clone(new Rectangle(sx, sy, sw, sh), PixelFormat.Format24bppRgb);
-        if (kind != BottomToolKind.FogReveal) return await ReadTextAsync(crop, token);
+        // All six quick slots use the same artwork and count-label layout.
+        // Scale from the same base dimension used by icon template matching.
+        var scale = Math.Min(frame.Width, frame.Height) / 1080d;
+        var x = (int)Math.Round(slotCenter.X - 10 * scale);
+        var y = (int)Math.Round(slotCenter.Y + 39 * scale);
+        var width = Math.Max(1, (int)Math.Round(83 * scale));
+        var height = Math.Max(1, (int)Math.Round(40 * scale));
+        return Rectangle.Intersect(new Rectangle(Point.Empty, frame),
+            new Rectangle(x, y, width, height));
+    }
+
+    async Task<string> ReadBottomToolQuantityTextAsync(Bitmap source, Point slotCenter, CancellationToken token)
+    {
+        var bounds = BottomToolQuantityBounds(source.Size, slotCenter);
+        if (bounds.Width == 0 || bounds.Height == 0) return string.Empty;
+        using var crop = source.Clone(bounds, PixelFormat.Format24bppRgb);
+        var original = await ReadTextAsync(crop, token);
+        if (MiningToolGuard.ParseQuantityText(original) is not null) return original;
+
         using var enlarged = new Bitmap(crop, new Size(crop.Width * 4, crop.Height * 4));
-        return await ReadTextAsync(enlarged, token);
+        var enlargedText = await ReadTextAsync(enlarged, token);
+        if (MiningToolGuard.ParseQuantityText(enlargedText) is not null) return enlargedText;
+        if (quickbarBackground.Value is null) return original;
+
+        using var foreground = quickbarBackground.Value.RemoveFromQuantity(source, bounds);
+        if (foreground is null) return original;
+        var foregroundText = await ReadTextAsync(foreground, token);
+        if (MiningToolGuard.ParseQuantityText(foregroundText) is not null) return foregroundText;
+
+        using var enlargedForeground = new Bitmap(foreground, new Size(bounds.Width * 4, bounds.Height * 4));
+        var enlargedForegroundText = await ReadTextAsync(enlargedForeground, token);
+        return MiningToolGuard.ParseQuantityText(enlargedForegroundText) is not null
+            ? enlargedForegroundText : original;
     }
 
     public bool HasNextFloorButton(Bitmap source)
@@ -281,5 +310,9 @@ internal sealed class AdbScreenAnalyzer : IDisposable
         return text;
     }
 
-    public void Dispose() => paddleOcr.Dispose();
+    public void Dispose()
+    {
+        if (quickbarBackground.IsValueCreated) quickbarBackground.Value?.Dispose();
+        paddleOcr.Dispose();
+    }
 }

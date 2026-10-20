@@ -188,7 +188,7 @@ public sealed partial class MainForm
         var target = (int)escapeReturnFloor.Value;
         var maximum = CardFloorPolicy.MaximumFloor(map);
         return target > 0 && maximum is { } last && target < last &&
-            map.SceneType == 2 && map.Level >= target && map.Level <= last;
+            map.Level >= target && map.Level < last;
     }
 
     bool ShouldCancelNextFloorDialog(MapDump map)

@@ -57,7 +57,7 @@ public sealed class ControllerSettings
     // TargetStopFloor=0 禁用楼层停止。到达目标楼层后，按“目标”选项
     // 执行当前楼层目标，所选目标全部完成后自动停止。
     public int TargetStopFloor { get; set; }
-    // 到达普通关卡的指定层后，持有逃脱卷轴时主动回城。
+    // 到达指定层后且当前层低于玩法最高层时，持有逃脱卷轴则主动回城，不限制场景类型。
     public int EscapeReturnFloor { get; set; }
     public bool EscapeReturnAttackBoss { get; set; }
     public bool CardLayer { get; set; }

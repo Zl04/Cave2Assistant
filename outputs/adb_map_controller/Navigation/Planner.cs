@@ -8,6 +8,8 @@ public sealed class PlanOptions
 {
     // 默认保持现有行为：除非用户明确取消 UI 选项，否则 Boss 目标可执行。
     public bool AttackBoss = true;
+    public bool DirectBossNpc;
+    public IReadOnlySet<TargetKey>? IgnoredTargets;
     public bool Monsters, Elites, Chests, Pots, Bones, Gold, Runes, Chambers;
     public int VisionRadius = 6;
 }
@@ -224,6 +226,7 @@ public static class Planner
                 (role.Kind != "机关" || (!tile.Reached && !(completedMechanisms?.Contains(new Cell(tile.X, tile.Y)) ?? false))) &&
                 (role.Kind is not ("Boss" or "小Boss") || IsBossAttackable(map, role)))
                 .Select(role => new TargetKey(new Cell(tile.X, tile.Y), role.Kind)))
+            .Where(target => !(options.IgnoredTargets?.Contains(target) ?? false))
             .Distinct().ToList();
         // 禁用 Boss 攻击时，在所有探索/已选任务完成后仍前往 Boss 区域，
         // 但将 Boss 排除在可执行目标集合之外，避免协调逻辑把有意不交互的 Boss
@@ -549,7 +552,7 @@ public static class Planner
 
     static bool RequiresExplicitInteraction(string kind) => kind is
         "小怪" or "群怪" or "精英" or "小Boss" or "Boss" or
-        "罐子" or "石堆" or "木箱" or "金箱" or "点金台";
+        "罐子" or "石堆" or "木箱" or "金箱" or "点金台" or "直接挑战Boss NPC";
     static IEnumerable<Cell> TaskStops(TargetKey target, Dictionary<Cell, TileInfo> tiles)
     {
         if (PortalRouting.IsPortalKind(target.Kind) &&

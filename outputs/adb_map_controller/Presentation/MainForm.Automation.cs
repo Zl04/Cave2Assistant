@@ -472,6 +472,19 @@ public sealed partial class MainForm
                             continue;
                         }
                     }
+                    else if (plannedTask.Target.Kind == "直接挑战Boss NPC")
+                    {
+                        if (await SendInteraction((delta, plannedTask.Target.Kind), owner))
+                        {
+                            await HandleMovementPopupInterrupt(owner);
+                            continue;
+                        }
+                        await HandleDirectBossDialogAsync(plannedTask.Target, owner);
+                        route = []; plannedInteractions = []; plannedTargetUniverse.Clear();
+                        mapPanel.Route = route; mapPanel.Invalidate();
+                        await RefreshMap(false, waitForLock: true);
+                        continue;
+                    }
                     else if (IsCombatInteraction(plannedTask.Target.Kind))
                     {
                         if (await FightWhileHolding(plannedTask, owner))

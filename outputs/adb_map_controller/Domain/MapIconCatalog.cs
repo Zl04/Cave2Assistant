@@ -63,6 +63,7 @@ public static class MapIconCatalog
             [39] = new("采集物", "采", MapIconPalette.Emerald),
             [40] = new("公会拍卖师", "拍", MapIconPalette.Violet),
             [41] = new("公会副本", "副", MapIconPalette.Rose),
+            [42] = new("直接挑战Boss NPC", "挑", MapIconPalette.Rose),
             [43] = new("庄园商人", "庄", MapIconPalette.Emerald),
             [44] = new("庄园入口", "入", MapIconPalette.Emerald),
             [45] = new("易物台", "易", MapIconPalette.Amber),
@@ -169,6 +170,7 @@ public static class MapIconCatalog
     {
         icon = null!;
         if (role.ClassName != "TriggerNpcData") return false;
+        if (role.MinimapType == 42 && !role.IsDirectBossNpc) return false;
         var icons = role.RoleType == 7 ? FunctionIcons : role.RoleType == 1 ? TransferIcons : null;
         return icons is not null && icons.TryGetValue(role.MinimapType, out icon!);
     }

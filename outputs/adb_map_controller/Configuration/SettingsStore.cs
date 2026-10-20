@@ -24,7 +24,7 @@ public sealed class JsonSettingsStore : ISettingsStore
     ];
     static readonly string[] TargetFields =
     [
-        nameof(ControllerSettings.AttackBoss), nameof(ControllerSettings.Monsters),
+        nameof(ControllerSettings.AttackBoss), nameof(ControllerSettings.DirectBossNpc), nameof(ControllerSettings.Monsters),
         nameof(ControllerSettings.Elites), nameof(ControllerSettings.Chests),
         nameof(ControllerSettings.Pots), nameof(ControllerSettings.Bones),
         nameof(ControllerSettings.Gold), nameof(ControllerSettings.Runes),

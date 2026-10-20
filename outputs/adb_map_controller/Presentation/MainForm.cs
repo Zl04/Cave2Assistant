@@ -57,7 +57,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     readonly CheckBox mining = Box("挖矿");
     readonly CheckBox cardMining = Box("卡矿（自动匹配）");
     readonly CheckBox cardLayer = Box("卡层（自动匹配）");
-    readonly CheckBox attackBoss = Box("攻击Boss"), monsters = Box("全清小怪"), elites = Box("清除精英"), chests = Box("箱子"), pots = Box("罐子"), bones = Box("石堆"), gold = Box("金币"), runes = Box("符文/点金台"), chambers = Box("密室");
+    readonly CheckBox attackBoss = Box("攻击Boss"), directBossNpc = Box("交互直接挑战Boss NPC"), monsters = Box("全清小怪"), elites = Box("清除精英"), chests = Box("箱子"), pots = Box("罐子"), bones = Box("石堆"), gold = Box("金币"), runes = Box("符文/点金台"), chambers = Box("密室");
     readonly ThemedRichTextBox log = new() { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = RichTextBoxScrollBars.Vertical, Tag = ThemeRole.Log };
     readonly System.Windows.Forms.Timer refreshTimer = new() { Interval = 500 };
     readonly SemaphoreSlim refreshLock = new(1, 1);
@@ -228,7 +228,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             new Label { Text = "主题", AutoSize = true, Padding = new(10, 6, 0, 0) },
             themeChoice]);
         var options = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 9, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
-        options.Controls.AddRange([new Label { Text = "目标（钥匙必选）：", AutoSize = true }, attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, bonusPriorityToggle, autoEquipmentSale, sellBlueWhite, sellPurple, sellDarkGold, sellGold]);
+        options.Controls.AddRange([new Label { Text = "目标（钥匙必选）：", AutoSize = true }, attackBoss, directBossNpc, monsters, elites, chests, pots, bones, gold, runes, chambers, bonusPriorityToggle, autoEquipmentSale, sellBlueWhite, sellPurple, sellDarkGold, sellGold]);
         var floorStop = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
         floorStop.Controls.AddRange([new Label { Text = "指定层停住：", AutoSize = true }, targetStopFloor, new Label { Text = "层（0=关闭，完成所选目标后自动停住）", AutoSize = true }, mining, cardMining, cardLayer]);
         var escapeReturnOptions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
@@ -301,9 +301,9 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             await RefreshMap();
             if (!closing) refreshTimer.Start();
         });
-        foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers, autoEquipmentSale, sellBlueWhite, sellPurple, sellDarkGold, sellGold, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, escapeReturnFloor, escapeReturnAttackBoss, mining, cardMining, cardLayer, entryMapChoice, entryChoice, entryDifficulty, entryRunCount })
+        foreach (var control in new Control[] { attackBoss, directBossNpc, monsters, elites, chests, pots, bones, gold, runes, chambers, autoEquipmentSale, sellBlueWhite, sellPurple, sellDarkGold, sellGold, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, escapeReturnFloor, escapeReturnAttackBoss, mining, cardMining, cardLayer, entryMapChoice, entryChoice, entryDifficulty, entryRunCount })
             control.Validated += (_, _) => SaveSettings();
-        foreach (var control in new Control[] { attackBoss, monsters, elites, chests, pots, bones, gold, runes, chambers })
+        foreach (var control in new Control[] { attackBoss, directBossNpc, monsters, elites, chests, pots, bones, gold, runes, chambers })
         {
             control.Validated += (_, _) => dungeon.TargetFloorStopped = false;
             if (control is CheckBox checkBox) checkBox.CheckedChanged += (_, _) => dungeon.TargetFloorStopped = false;
@@ -492,7 +492,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         themeChoice.SelectedIndex = Math.Clamp((int)s.Theme, 0, 2);
         alwaysOnTop.Checked = s.AlwaysOnTop;
         SetValue(entryRunCount, s.EntryRunCount);
-        attackBoss.Checked = s.AttackBoss; monsters.Checked = s.Monsters; elites.Checked = s.Elites; chests.Checked = s.Chests; pots.Checked = s.Pots;
+        attackBoss.Checked = s.AttackBoss; directBossNpc.Checked = s.DirectBossNpc; monsters.Checked = s.Monsters; elites.Checked = s.Elites; chests.Checked = s.Chests; pots.Checked = s.Pots;
         bones.Checked = s.Bones; gold.Checked = s.Gold; runes.Checked = s.Runes; chambers.Checked = s.Chambers;
         SetValue(singleCellPulseHold, s.SingleCellPulseHold); SetValue(movementReleaseLead, s.MovementReleaseLead);
         SetValue(interactionHold, s.InteractionHold); SetValue(stallTimeout, s.StallTimeout); SetValue(newFloorStartDelay, s.NewFloorStartDelay); SetValue(routeRecoveryAttempts, s.RouteRecoveryAttempts);
@@ -530,6 +530,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             AlwaysOnTop = alwaysOnTop.Checked,
             EntryRunCount = (int)entryRunCount.Value,
             AttackBoss = attackBoss.Checked,
+            DirectBossNpc = directBossNpc.Checked,
             Monsters = monsters.Checked,
             Elites = elites.Checked,
             Chests = chests.Checked,

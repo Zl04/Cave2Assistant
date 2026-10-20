@@ -14,7 +14,7 @@ if not exist "%PROJECT_FILE%" (
 
 echo Stopping running project processes...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$publishDir = [IO.Path]::GetFullPath('%PUBLISH_DIR%').TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar; foreach ($p in (Get-CimInstance Win32_Process -ErrorAction Stop)) { if ($p.ExecutablePath -and $p.ExecutablePath.StartsWith($publishDir, [StringComparison]::OrdinalIgnoreCase)) { Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop } }"
+  "$publishDir = [IO.Path]::GetFullPath('%PUBLISH_DIR%').TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar; foreach ($p in (Get-Process -ErrorAction Stop)) { try { $exe = $p.Path } catch { continue }; if ($exe -and $exe.StartsWith($publishDir, [StringComparison]::OrdinalIgnoreCase)) { Stop-Process -Id $p.Id -Force -ErrorAction Stop } }"
 if errorlevel 1 goto :stop_failed
 
 echo Publishing Release build...

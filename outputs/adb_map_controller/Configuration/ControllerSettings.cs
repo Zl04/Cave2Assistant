@@ -28,6 +28,7 @@ public sealed class ControllerSettings
     public ThemeMode Theme { get; set; } = ThemeMode.Light;
     public bool AlwaysOnTop { get; set; }
     public bool AttackBoss { get; set; } = true;
+    public bool DirectBossNpc { get; set; }
     public bool Monsters { get; set; }
     public bool Elites { get; set; }
     public bool Chests { get; set; }

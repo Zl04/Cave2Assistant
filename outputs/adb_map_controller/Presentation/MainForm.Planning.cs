@@ -128,6 +128,7 @@ public sealed partial class MainForm
     }
     PlanOptions Options()
     {
+        if (dungeon.Map?.MapName != "神秘商人") ignoredDirectBossTargets.Clear();
         var includeAll = dungeon.Map is not null && FloorPlanningPolicy.IncludeAllInteractions(dungeon.Map);
         return new PlanOptions
         {
@@ -136,6 +137,8 @@ public sealed partial class MainForm
             AttackBoss = (dungeon.Map is not null && IsEscapeReturnFloor(dungeon.Map)
                     ? escapeReturnAttackBoss.Checked : includeAll || attackBoss.Checked) ||
                 (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
+            DirectBossNpc = directBossNpc.Checked,
+            IgnoredTargets = ignoredDirectBossTargets,
             Monsters = includeAll || monsters.Checked ||
                 (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
             Elites = includeAll || elites.Checked || (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
@@ -152,12 +155,13 @@ public sealed partial class MainForm
         .ToDictionary(tile => new Cell(tile.X, tile.Y), tile => tile.Walkable && !dungeon.Blocked.Contains(new Cell(tile.X, tile.Y)));
     static int OptionsSignature(PlanOptions o) => HashCode.Combine(
         HashCode.Combine(o.AttackBoss, o.Monsters, o.Elites, o.Chests, o.Pots, o.Bones, o.Gold),
-        HashCode.Combine(o.Runes, o.Chambers, o.VisionRadius));
+        HashCode.Combine(o.Runes, o.Chambers, o.DirectBossNpc, o.VisionRadius));
     HashSet<TargetKey> SelectedTargets(MapDump map, PlanOptions options, bool includeLockedBoss = false) => map.Tiles.SelectMany(row => row)
         .SelectMany(tile => tile.Roles.Where(role => TargetPolicy.IsSelected(role, options) && !(role.RoleType == 5 && role.Opened) &&
             (role.Kind != "机关" || (!tile.Reached && !visitedMechanisms.Contains(new Cell(tile.X, tile.Y)))) &&
             (includeLockedBoss || role.Kind is not ("Boss" or "小Boss") || Planner.IsBossAttackable(map, role)))
-            .Select(role => new TargetKey(new Cell(tile.X, tile.Y), role.Kind))).ToHashSet();
+            .Select(role => new TargetKey(new Cell(tile.X, tile.Y), role.Kind)))
+        .Where(target => !(options.IgnoredTargets?.Contains(target) ?? false)).ToHashSet();
 
     HashSet<TargetKey> ActiveTargets(MapDump map, PlanOptions options) => SelectedTargets(map, options);
 

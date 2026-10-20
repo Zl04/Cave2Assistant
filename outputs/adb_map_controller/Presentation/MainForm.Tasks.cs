@@ -294,6 +294,7 @@ public sealed partial class MainForm
         if (task.TaskKind != ExecutionTaskKind.DreamTrial)
         {
             result.AttackBoss = task.AttackBoss;
+            result.DirectBossNpc = task.DirectBossNpc;
             result.Monsters = task.Monsters;
             result.Elites = task.Elites;
             result.Chests = task.Chests;
@@ -468,7 +469,7 @@ public sealed partial class MainForm
         returnBoss.CheckedChanged += (_, _) => config.EscapeReturnAttackBoss = returnBoss.Checked;
         if (config.TaskKind is not (ExecutionTaskKind.CardMining or ExecutionTaskKind.DreamTrial)) Row("主动回城", returnBoss);
         var checks = new List<Control>();
-        foreach (var field in config.TaskKind == ExecutionTaskKind.DreamTrial ? Array.Empty<(string, string)>() : new[] { ("AttackBoss", "Boss"), ("Monsters", "小怪"), ("Elites", "精英"), ("Chests", "箱子"), ("Pots", "罐子"), ("Bones", "石堆"), ("Gold", "金币"), ("Runes", "符文/点金台"), ("Chambers", "密室"), ("Mining", "挖矿"), ("CardMining", "卡矿"), ("CardLayer", "卡层") })
+        foreach (var field in config.TaskKind == ExecutionTaskKind.DreamTrial ? Array.Empty<(string, string)>() : new[] { ("AttackBoss", "Boss"), ("DirectBossNpc", "直接挑战Boss NPC"), ("Monsters", "小怪"), ("Elites", "精英"), ("Chests", "箱子"), ("Pots", "罐子"), ("Bones", "石堆"), ("Gold", "金币"), ("Runes", "符文/点金台"), ("Chambers", "密室"), ("Mining", "挖矿"), ("CardMining", "卡矿"), ("CardLayer", "卡层") })
         {
             if (config.TaskKind == ExecutionTaskKind.CardMining && field.Item1 is "Mining" or "CardMining" or "CardLayer") continue;
             var property = typeof(ControllerSettings).GetProperty(field.Item1)!;

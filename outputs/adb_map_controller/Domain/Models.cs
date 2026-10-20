@@ -57,16 +57,16 @@ public sealed class RoleInfo
     public bool Opened { get; set; }
     public string ClassName { get; set; } = "";
 
-    // 预留类型说明：roleType=7、minimapType=42、treasureType=39 是“Boss直达”节点。
-    // 游戏表现为与节点交互后弹出“挑战BOSS”确认框，显示 Boss 名称和剩余次数（例如 3/3）。
-    // 点击确认会消耗一次次数并直接切换到 Boss 房间；取消不会消耗次数。
-    // 当前阶段只记录该语义，不将它加入自动规划目标，也不执行自动点击。
+    // 神秘商人地图中的 Boss 直达 NPC；与商人同为功能 NPC，但使用独立的小地图类型。
+    [JsonIgnore] public bool IsDirectBossNpc => ClassName == "TriggerNpcData" &&
+        RoleType == 7 && MinimapType == 42 && TreasureType == 39;
 
     public string Kind
     {
         get
         {
             if (Opened && ClassName == "TriggerNpcData" && RoleType is 2 or 3 or 8) return "";
+            if (IsDirectBossNpc) return "直接挑战Boss NPC";
             if (MapIconCatalog.TryGetKind(this, out var mapKind)) return mapKind;
             return ClassName switch
             {

@@ -8,7 +8,7 @@ public enum TargetKind
 {
     None, Unknown, NormalMonster, GroupMonster, Elite, SmallBoss, Boss,
     Pot, StonePile, WoodChest, GoldChest, Gold, Key, Rune,
-    Altar, Enchanting, Merchant, Trap, Exit, Portal, Chamber, Mechanism,
+    Altar, Enchanting, Merchant, DirectBossNpc, Trap, Exit, Portal, Chamber, Mechanism,
     GuildTechnology, GuildMerchant, GuildBoard, WishingPool, GuildAuction, GuildDungeon
 }
 
@@ -31,6 +31,7 @@ public static class TargetPolicy
         "点金台" => TargetKind.Altar,
         "附魔台" => TargetKind.Enchanting,
         "商人" => TargetKind.Merchant,
+        "直接挑战Boss NPC" => TargetKind.DirectBossNpc,
         "陷阱" => TargetKind.Trap,
         "出口" => TargetKind.Exit,
         "传送门" or "秘境传送门" => TargetKind.Portal,
@@ -50,6 +51,7 @@ public static class TargetPolicy
         => Classify(role) switch
         {
             TargetKind.Boss or TargetKind.SmallBoss => options.AttackBoss,
+            TargetKind.DirectBossNpc => options.DirectBossNpc,
             TargetKind.Key => true,
             TargetKind.NormalMonster or TargetKind.GroupMonster => options.Monsters,
             TargetKind.Elite => options.Monsters || options.Elites,

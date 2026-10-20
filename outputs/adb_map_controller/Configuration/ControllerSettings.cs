@@ -11,7 +11,7 @@ public enum ThemeMode
     System,
 }
 
-public enum ExecutionTaskKind { EntryAndRun, CurrentMapRun, CardMining, DreamTrial }
+public enum ExecutionTaskKind { EntryAndRun, CurrentMapRun, CardMining, DreamTrial, SoulArtifactCultivation }
 
 public sealed class TaskTemplate
 {

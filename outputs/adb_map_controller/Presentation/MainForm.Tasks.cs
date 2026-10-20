@@ -28,7 +28,7 @@ public sealed partial class MainForm
             taskList.Columns.Add(column.Item1, column.Item2);
         var bar = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new(10, 8, 10, 8), Tag = ThemeRole.Surface };
         var taskType = new ThemedComboBox { Width = 135, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "添加任务类型" };
-        taskType.Items.AddRange(["进图并跑图", "当前地图跑图", "卡矿任务", "梦境试炼"]); taskType.SelectedIndex = 0;
+        taskType.Items.AddRange(["进图并跑图", "当前地图跑图", "卡矿任务", "梦境试炼", "培养魂器"]); taskType.SelectedIndex = 0;
         var templateChoice = new ThemedComboBox { Width = 160, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "任务模板" };
         taskTemplateChoice = templateChoice;
         var newTemplate = Btn("新建模板", ThemeRole.SecondaryButton);
@@ -43,7 +43,7 @@ public sealed partial class MainForm
         var invertSelection = Btn("反选", ThemeRole.SecondaryButton);
         var run = Btn("执行列表", ThemeRole.SuccessButton);
         var stop = Btn("停止列表", ThemeRole.WarningButton);
-        bar.Controls.AddRange([templateChoice, newTemplate, editTemplate, add, update, remove, up, down, selectAll, invertSelection, run, stop]);
+        bar.Controls.AddRange([templateChoice, newTemplate, editTemplate, taskType, add, update, remove, up, down, selectAll, invertSelection, run, stop]);
         var hint = new Label { Dock = DockStyle.Top, Height = 72, Padding = new(12, 6, 12, 6),
             Text = "选择模板后管理其中的任务；新建模板会创建空列表，修改模板可重命名。双击任务修改设置；拖拽调整顺序。\n全选启用全部任务，反选切换全部任务的启用状态；Shift/Ctrl 多选后可统一勾选；仅执行启用项。\n按列表顺序执行所选类型；失败或停层时停止列表。普通自动次数会无限运行，阻塞后续任务。", Tag = ThemeRole.MutedText };
         page.Controls.Add(taskList); page.Controls.Add(hint); page.Controls.Add(bar);
@@ -182,8 +182,9 @@ public sealed partial class MainForm
                         var config = ResolveTaskSettings(original, task);
                         ApplySettings(config, applyEquipmentSale: false); RefreshTaskList(i);
                         Log($"执行任务列表：第 {i + 1}/{scheduledTasks.Count} 项");
-                        if (config.SwitchEquipmentSet) await TrySwitchTaskEquipmentAsync(config.EquipmentSet, token);
-                        if (config.TaskKind == ExecutionTaskKind.CardMining) await RunCardMiningTaskAsync(config, token);
+                        if (config.SwitchEquipmentSet && config.TaskKind != ExecutionTaskKind.SoulArtifactCultivation) await TrySwitchTaskEquipmentAsync(config.EquipmentSet, token);
+                        if (config.TaskKind == ExecutionTaskKind.SoulArtifactCultivation) await RunSoulArtifactCultivationAsync(token);
+                        else if (config.TaskKind == ExecutionTaskKind.CardMining) await RunCardMiningTaskAsync(config, token);
                         else if (config.TaskKind == ExecutionTaskKind.DreamTrial) await RunDreamTrialTaskAsync(config, token);
                         else if (config.TaskKind == ExecutionTaskKind.EntryAndRun) await RunEntryRunPipelineAsync(token);
                         else if (config.TaskKind == ExecutionTaskKind.CurrentMapRun)
@@ -399,6 +400,13 @@ public sealed partial class MainForm
             control.ValueChanged += (_, _) => { info.SetValue(config, info.PropertyType == typeof(decimal) ? (object)control.Value : (int)control.Value); };
             Row(caption, control);
         }
+        if (config.TaskKind == ExecutionTaskKind.SoulArtifactCultivation)
+        {
+            config.SwitchEquipmentSet = false;
+            Row("流程", new Label { Text = "打开背包 → 魂器 → 普通培养至次数耗尽 → 关闭", AutoSize = true });
+            ThemeManager.Apply(dialog, currentPalette);
+            return dialog.ShowDialog(this) == DialogResult.OK;
+        }
         var switchEquipment = Box("装备检测"); switchEquipment.Checked = config.SwitchEquipmentSet;
         var equipmentSets = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new(0), Enabled = switchEquipment.Checked };
         var setOptions = new List<RadioButton>();
@@ -515,6 +523,14 @@ public sealed partial class MainForm
                 dream.Checked = s.TaskEnabled;
                 taskList.Items.Add(dream);
                 if (i == selected) { dream.Selected = true; dream.EnsureVisible(); }
+                continue;
+            }
+            if (s.TaskKind == ExecutionTaskKind.SoulArtifactCultivation)
+            {
+                var soul = new ListViewItem(new[] { (i + 1).ToString(), "培养魂器", "—", "剩余次数", "普通培养", "完成后关闭背包" });
+                soul.Checked = s.TaskEnabled;
+                taskList.Items.Add(soul);
+                if (i == selected) { soul.Selected = true; soul.EnsureVisible(); }
                 continue;
             }
             var item = new ListViewItem(new[] { (i + 1).ToString(), (s.TaskKind == ExecutionTaskKind.CurrentMapRun ? "当前地图跑图" : $"{(s.TaskKind == ExecutionTaskKind.CardMining ? "卡矿任务" : "进图并跑图")} · {map?.Name ?? s.EntryMapId.ToString()} / {entry?.Name ?? s.EntryId.ToString()}") + equipment,

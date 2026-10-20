@@ -240,7 +240,7 @@ public static class Planner
         // 当预警封印存在但尚未打开时，用户可以不勾选“全清小怪”。
         // 仍只添加达到唤醒分数所需的最少附近敌人（每次击杀贡献 11%），
         // 否则被锁定的 Boss 会被排除，规划器可能在明明可以推进时返回空路线。
-        if (map.BossSeal.Present && !map.BossSeal.Ready && !options.Monsters)
+        if (BossSealPolicy.IsActive(map) && !map.BossSeal.Ready && !options.Monsters)
         {
             var needed = Math.Max(0, (int)Math.Ceiling((map.BossSeal.WakeScore - map.BossSeal.CurScore) / 11d));
             if (needed > 0)
@@ -663,7 +663,7 @@ public static class Planner
     // 达到要求前，不得将其加入可执行目标集合。SpriteID 只是资源标识符，
     // 绝不能拿它与 Boss 实例比较。
     public static bool IsBossAttackable(MapDump map, RoleInfo role)
-        => !map.BossSeal.Present || map.BossSeal.Ready;
+        => !BossSealPolicy.IsActive(map) || map.BossSeal.Ready;
 
     public static (Cell Delta, string Kind)? InteractionAt(MapDump map, Cell from, PlanOptions options)
     {

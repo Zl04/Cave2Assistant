@@ -235,7 +235,7 @@ public sealed class MapPanel : Panel
             e.Graphics.DrawRectangle(border, 0, 0, Math.Max(0, Width - 1), Math.Max(0, Height - 1));
             return;
         }
-        DrawWarningOverlay(e.Graphics, Map.BossSeal);
+        if (BossSealPolicy.AppliesTo(Map)) DrawWarningOverlay(e.Graphics, Map.BossSeal);
         DrawMapNameOverlay(e.Graphics);
         DrawInfoOverlay(e.Graphics);
         DrawTownSummary(e.Graphics);

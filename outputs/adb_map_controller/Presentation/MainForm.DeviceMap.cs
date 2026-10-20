@@ -98,8 +98,9 @@ public sealed partial class MainForm
             var latest = dungeon.Route.Snapshot!;
             if (planned.Level != latest.Level || planned.Player != latest.Player ||
                 planned.StructureHash != latest.StructureHash ||
-                planned.Map.BossSeal.Ready != latest.Map.BossSeal.Ready ||
-                planned.Map.BossSeal.CurScore != latest.Map.BossSeal.CurScore)
+                (BossSealPolicy.AppliesTo(latest.Map) &&
+                    (planned.Map.BossSeal.Ready != latest.Map.BossSeal.Ready ||
+                     planned.Map.BossSeal.CurScore != latest.Map.BossSeal.CurScore)))
                 onMapReady();
             return true;
         }
@@ -219,6 +220,7 @@ public sealed partial class MainForm
             foreach (var message in result.Messages) Log(message);
             mapPanel.Map = map; mapPanel.Route = miningRouteDisplaySuppressed ? [] : route; mapPanel.Invalidate();
             var seal = map.BossSeal;
+            warningState.Visible = BossSealPolicy.AppliesTo(map);
             var warning = seal.Present
                 ? $"  预警 {seal.CurScore}/{seal.WakeScore} ({seal.Percent}%) {(seal.Ready ? "守层Boss可攻击" : "守层Boss未解锁")}"
                 : "  预警 --";

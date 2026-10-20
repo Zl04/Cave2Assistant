@@ -310,6 +310,14 @@ public sealed class BossSealInfo
     public bool Ready { get; set; }
 }
 
+public static class BossSealPolicy
+{
+    // 与游戏 MainUILayer:onSealBossUpdate 的场景限制一致。
+    public static bool AppliesTo(MapDump map) => map.SceneType == 2 && map.CaveMode is 9 or 17;
+
+    public static bool IsActive(MapDump map) => AppliesTo(map) && map.BossSeal.Present;
+}
+
 public sealed class PlayerStatus
 {
     public int Level { get; set; }

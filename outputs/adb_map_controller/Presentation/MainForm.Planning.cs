@@ -273,7 +273,7 @@ public sealed partial class MainForm
     {
         // 已存在的封印具有权威性：在其分数达到唤醒阈值前，守护 Boss 必须继续作为战斗目标。
         var requireBoss = !IsEscapeReturnFloor(map) || escapeReturnAttackBoss.Checked;
-        if (requireBoss && map.BossSeal.Present && !map.BossSeal.Ready) return false;
+        if (requireBoss && BossSealPolicy.IsActive(map) && !map.BossSeal.Ready) return false;
         if (requireBoss && map.Tiles.SelectMany(r => r).SelectMany(t => t.Roles)
             .Any(r => r.Kind is "Boss" or "小Boss")) return false;
         // 探索进度不是下楼的前置条件。满足战斗/目标前置条件后，
@@ -351,13 +351,13 @@ public sealed partial class MainForm
         if (portal == default)
         {
             dungeon.PortalCandidate = null; dungeon.PortalConfirmCount = 0;
-            floorPhase = map.BossSeal.Present && !map.BossSeal.Ready ? FloorPhase.CollectWarning : FloorPhase.Explore;
+            floorPhase = BossSealPolicy.IsActive(map) && !map.BossSeal.Ready ? FloorPhase.CollectWarning : FloorPhase.Explore;
             return false;
         }
         if (dungeon.PortalCandidate == portal) dungeon.PortalConfirmCount++; else { dungeon.PortalCandidate = portal; dungeon.PortalConfirmCount = 1; }
         if (!PortalPrerequisitesMet(map))
         {
-            floorPhase = map.BossSeal.Present && !map.BossSeal.Ready ? FloorPhase.CollectWarning : FloorPhase.Explore;
+            floorPhase = BossSealPolicy.IsActive(map) && !map.BossSeal.Ready ? FloorPhase.CollectWarning : FloorPhase.Explore;
             return false;
         }
         if (dungeon.PortalConfirmCount < 2) { floorPhase = FloorPhase.ConfirmPortal; return false; }
@@ -380,7 +380,7 @@ public sealed partial class MainForm
         var options = Options();
         return Planner.HasReachableUnexplored(map, dungeon.Blocked) ||
             ReachableActiveTargets(map, options).Count > 0 ||
-            (map.BossSeal.Present && !map.BossSeal.Ready && !options.Monsters && map.BossSeal.WakeScore > map.BossSeal.CurScore);
+            (BossSealPolicy.IsActive(map) && !map.BossSeal.Ready && !options.Monsters && map.BossSeal.WakeScore > map.BossSeal.CurScore);
     }
 
     static bool HasMapDownstairsEntrance(MapDump map)
@@ -711,7 +711,7 @@ public sealed partial class MainForm
         var diagnosticTargets = ActiveTargets(map, options).OrderBy(t => t.Cell.Y).ThenBy(t => t.Cell.X)
             .Select(t => $"{t.Kind}@({t.Cell.X},{t.Cell.Y})");
         Log($"planning targets: {string.Join(" | ", diagnosticTargets)}");
-        var warningNeed = map.BossSeal.Present && !map.BossSeal.Ready && !options.Monsters
+        var warningNeed = BossSealPolicy.IsActive(map) && !map.BossSeal.Ready && !options.Monsters
             ? Math.Max(0, (int)Math.Ceiling((map.BossSeal.WakeScore - map.BossSeal.CurScore) / 11d)) : 0;
         Log($"规划诊断：阶段 {floorPhase}，可走 {walkable}，未探索 {unexplored}，已选目标 {active}，预警还需 {warningNeed} 个小怪");
         EnsureRoute(true);

@@ -59,7 +59,8 @@ public static class TargetPolicy
             TargetKind.Pot => options.Pots,
             TargetKind.StonePile => options.Bones,
             TargetKind.Gold => options.Gold,
-            TargetKind.Rune or TargetKind.Altar => options.Runes,
+            TargetKind.Rune => options.Runes,
+            TargetKind.Altar => options.Altars,
             TargetKind.Chamber or TargetKind.Mechanism => options.Chambers,
             _ => false
         };

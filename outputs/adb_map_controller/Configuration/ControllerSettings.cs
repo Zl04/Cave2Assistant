@@ -36,6 +36,7 @@ public sealed class ControllerSettings
     public bool Bones { get; set; }
     public bool Gold { get; set; }
     public bool Runes { get; set; }
+    public bool Altars { get; set; }
     public bool Chambers { get; set; }
     public bool AutoEquipmentSale { get; set; }
     public bool SellBlueWhite { get; set; } = true;

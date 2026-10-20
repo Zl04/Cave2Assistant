@@ -147,6 +147,7 @@ public sealed partial class MainForm
             Bones = includeAll || bones.Checked,
             Gold = includeAll || gold.Checked,
             Runes = includeAll || runes.Checked,
+            Altars = includeAll || altars.Checked,
             Chambers = includeAll || chambers.Checked
         };
     }
@@ -155,7 +156,7 @@ public sealed partial class MainForm
         .ToDictionary(tile => new Cell(tile.X, tile.Y), tile => tile.Walkable && !dungeon.Blocked.Contains(new Cell(tile.X, tile.Y)));
     static int OptionsSignature(PlanOptions o) => HashCode.Combine(
         HashCode.Combine(o.AttackBoss, o.Monsters, o.Elites, o.Chests, o.Pots, o.Bones, o.Gold),
-        HashCode.Combine(o.Runes, o.Chambers, o.DirectBossNpc, o.VisionRadius));
+        HashCode.Combine(o.Runes, o.Altars, o.Chambers, o.DirectBossNpc, o.VisionRadius));
     HashSet<TargetKey> SelectedTargets(MapDump map, PlanOptions options, bool includeLockedBoss = false) => map.Tiles.SelectMany(row => row)
         .SelectMany(tile => tile.Roles.Where(role => TargetPolicy.IsSelected(role, options) && !(role.RoleType == 5 && role.Opened) &&
             (role.Kind != "机关" || (!tile.Reached && !visitedMechanisms.Contains(new Cell(tile.X, tile.Y)))) &&

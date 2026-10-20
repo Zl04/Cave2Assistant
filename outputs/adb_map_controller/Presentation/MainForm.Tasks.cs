@@ -302,6 +302,7 @@ public sealed partial class MainForm
             result.Bones = task.Bones;
             result.Gold = task.Gold;
             result.Runes = task.Runes;
+            result.Altars = task.Altars;
             result.Chambers = task.Chambers;
         }
         if (task.TaskKind != ExecutionTaskKind.CardMining && task.TaskKind != ExecutionTaskKind.DreamTrial)
@@ -469,7 +470,7 @@ public sealed partial class MainForm
         returnBoss.CheckedChanged += (_, _) => config.EscapeReturnAttackBoss = returnBoss.Checked;
         if (config.TaskKind is not (ExecutionTaskKind.CardMining or ExecutionTaskKind.DreamTrial)) Row("主动回城", returnBoss);
         var checks = new List<Control>();
-        foreach (var field in config.TaskKind == ExecutionTaskKind.DreamTrial ? Array.Empty<(string, string)>() : new[] { ("AttackBoss", "Boss"), ("DirectBossNpc", "直接挑战Boss NPC"), ("Monsters", "小怪"), ("Elites", "精英"), ("Chests", "箱子"), ("Pots", "罐子"), ("Bones", "石堆"), ("Gold", "金币"), ("Runes", "符文/点金台"), ("Chambers", "密室"), ("Mining", "挖矿"), ("CardMining", "卡矿"), ("CardLayer", "卡层") })
+        foreach (var field in config.TaskKind == ExecutionTaskKind.DreamTrial ? Array.Empty<(string, string)>() : new[] { ("AttackBoss", "Boss"), ("DirectBossNpc", "直接挑战Boss"), ("Monsters", "小怪"), ("Elites", "精英"), ("Chests", "箱子"), ("Pots", "罐子"), ("Bones", "石堆"), ("Gold", "金币"), ("Runes", "符文"), ("Altars", "点金台"), ("Chambers", "密室"), ("Mining", "挖矿"), ("CardMining", "卡矿"), ("CardLayer", "卡层") })
         {
             if (config.TaskKind == ExecutionTaskKind.CardMining && field.Item1 is "Mining" or "CardMining" or "CardLayer") continue;
             var property = typeof(ControllerSettings).GetProperty(field.Item1)!;
@@ -503,7 +504,7 @@ public sealed partial class MainForm
             var s = scheduledTasks[i];
             var map = DungeonEntryCatalog.Maps.FirstOrDefault(x => x.Id == s.EntryMapId);
             var entry = DungeonEntryCatalog.EntriesForMap(s.EntryMapId).FirstOrDefault(x => x.Id == s.EntryId);
-            var targets = new[] { (s.AttackBoss, "Boss"), (s.Monsters, "小怪"), (s.Elites, "精英"), (s.Chests, "箱子"), (s.Pots, "罐子"), (s.Bones, "石堆"), (s.Gold, "金币"), (s.Runes, "符文"), (s.Chambers, "密室") };
+            var targets = new[] { (s.AttackBoss, "Boss"), (s.Monsters, "小怪"), (s.Elites, "精英"), (s.Chests, "箱子"), (s.Pots, "罐子"), (s.Bones, "石堆"), (s.Gold, "金币"), (s.Runes, "符文"), (s.Altars, "点金台"), (s.Chambers, "密室") };
             var count = s.EntryRunCount > 0 ? $"{s.EntryRunCount} 次" : s.EntryDifficulty == DungeonDifficulty.Normal ? "自动（无限）" : "自动（剩余次数）";
             var equipment = s.SwitchEquipmentSet ? $" · 装备检测/方案{Math.Clamp(s.EquipmentSet, 1, 3)}" : "";
             if (s.TaskKind == ExecutionTaskKind.DreamTrial)

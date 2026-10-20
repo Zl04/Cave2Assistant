@@ -30,6 +30,7 @@ public sealed partial class MainForm
         config.Bones = false;
         config.Gold = false;
         config.Runes = false;
+        config.Altars = false;
         config.Chambers = false;
         config.AutoEquipmentSale = false;
         config.Mining = false;

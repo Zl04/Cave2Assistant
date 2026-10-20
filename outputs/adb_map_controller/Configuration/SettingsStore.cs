@@ -27,7 +27,7 @@ public sealed class JsonSettingsStore : ISettingsStore
         nameof(ControllerSettings.AttackBoss), nameof(ControllerSettings.DirectBossNpc), nameof(ControllerSettings.Monsters),
         nameof(ControllerSettings.Elites), nameof(ControllerSettings.Chests),
         nameof(ControllerSettings.Pots), nameof(ControllerSettings.Bones),
-        nameof(ControllerSettings.Gold), nameof(ControllerSettings.Runes),
+        nameof(ControllerSettings.Gold), nameof(ControllerSettings.Runes), nameof(ControllerSettings.Altars),
         nameof(ControllerSettings.Chambers)
     ];
     static readonly string[] RouteFields =
@@ -61,9 +61,27 @@ public sealed class JsonSettingsStore : ISettingsStore
         try
         {
             if (!File.Exists(path)) return null;
-            return JsonSerializer.Deserialize<ControllerSettings>(File.ReadAllText(path));
+            var document = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+            // 旧版“符文/点金台”由 Runes 同时控制；迁移时保留两者原有选择。
+            MigrateAltars(document);
+            if (document[nameof(ControllerSettings.ExecutionTasks)] is JsonArray tasks)
+                foreach (var task in tasks.OfType<JsonObject>()) MigrateAltars(task);
+            if (document[nameof(ControllerSettings.TaskTemplates)] is JsonArray templates)
+                foreach (var template in templates.OfType<JsonObject>())
+                {
+                    if (template[nameof(TaskTemplate.Task)] is JsonObject oldTask) MigrateAltars(oldTask);
+                    if (template[nameof(TaskTemplate.Tasks)] is JsonArray templateTasks)
+                        foreach (var task in templateTasks.OfType<JsonObject>()) MigrateAltars(task);
+                }
+            return document.Deserialize<ControllerSettings>();
         }
         catch (Exception ex) { Report("Load", ex); return null; }
+    }
+
+    static void MigrateAltars(JsonObject settings)
+    {
+        if (!settings.ContainsKey(nameof(ControllerSettings.Altars)))
+            settings[nameof(ControllerSettings.Altars)] = settings[nameof(ControllerSettings.Runes)]?.GetValue<bool>() ?? false;
     }
 
     public void Save(ControllerSettings settings)

@@ -10,7 +10,7 @@ public sealed class PlanOptions
     public bool AttackBoss = true;
     public bool DirectBossNpc;
     public IReadOnlySet<TargetKey>? IgnoredTargets;
-    public bool Monsters, Elites, Chests, Pots, Bones, Gold, Runes, Chambers;
+    public bool Monsters, Elites, Chests, Pots, Bones, Gold, Runes, Altars, Chambers;
     public int VisionRadius = 6;
 }
 

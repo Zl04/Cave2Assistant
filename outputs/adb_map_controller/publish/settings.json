@@ -81,13 +81,6 @@
           "CardMiningMinimumTools": 50
         },
         {
-          "TaskKind": "DreamTrial",
-          "TaskEnabled": false,
-          "SwitchEquipmentSet": true,
-          "EquipmentSet": 1,
-          "DreamTrialBossMask": 31
-        },
-        {
           "AttackBoss": true,
           "DirectBossNpc": false,
           "Monsters": true,
@@ -126,7 +119,7 @@
           "Runes": false,
           "Altars": false,
           "Chambers": false,
-          "Mining": true,
+          "Mining": false,
           "CardMining": false,
           "TargetStopFloor": 0,
           "EscapeReturnFloor": 0,
@@ -153,7 +146,7 @@
           "Runes": false,
           "Altars": false,
           "Chambers": false,
-          "Mining": true,
+          "Mining": false,
           "CardMining": false,
           "TargetStopFloor": 0,
           "EscapeReturnFloor": 0,
@@ -164,7 +157,7 @@
           "EntryDifficulty": "Elite",
           "EntryRunCount": 0,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": false,
+          "TaskEnabled": true,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 2
         },
@@ -180,7 +173,7 @@
           "Runes": false,
           "Altars": false,
           "Chambers": false,
-          "Mining": true,
+          "Mining": false,
           "CardMining": false,
           "TargetStopFloor": 0,
           "EscapeReturnFloor": 0,
@@ -191,7 +184,7 @@
           "EntryDifficulty": "Elite",
           "EntryRunCount": 0,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": false,
+          "TaskEnabled": true,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 2
         },
@@ -302,6 +295,13 @@
           "TaskEnabled": false,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 2
+        },
+        {
+          "TaskKind": "DreamTrial",
+          "TaskEnabled": true,
+          "SwitchEquipmentSet": true,
+          "EquipmentSet": 1,
+          "DreamTrialBossMask": 31
         }
       ]
     },

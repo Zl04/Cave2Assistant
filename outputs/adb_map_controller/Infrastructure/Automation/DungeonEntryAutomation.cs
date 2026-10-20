@@ -134,6 +134,8 @@ public sealed class DungeonEntryAutomation
                 }
                 if (task.Name == "确认噩梦继续挑战")
                     return await RecognizeNightmareContinueDialog(selection, token);
+                if (task.Name == "确认宝箱已搜取提示")
+                    return await RecognizeLootedChestDialog(token);
                 if (task.Name == "检查所选难度次数")
                     return await RecognizeDifficultyAttempts(selection, context, token);
                 if (!string.Equals(task.Name, "主城标题已识别", StringComparison.Ordinal))
@@ -204,6 +206,11 @@ public sealed class DungeonEntryAutomation
                 throw new InvalidOperationException("未能识别主城标题或小地图玩家标记，已停止进图；请确认仍在巴萨坦主城并检查游戏分辨率/缩放");
             case "点击噩梦继续绿色勾":
                 await ConfirmNightmareContinue(selection, token);
+                return;
+            case "确认宝箱已搜取提示":
+                return;
+            case "点击宝箱提示绿色勾":
+                await ConfirmLootedChestDialog(token);
                 return;
             case "进入目标地图":
                 await EnterDungeon(selection, token);
@@ -339,6 +346,40 @@ public sealed class DungeonEntryAutomation
         await adb.TapScreen(confirmX, confirmY);
         await Delay(token, 600);
     }
+
+    async Task<MaaPipelineRecognitionResult> RecognizeLootedChestDialog(CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        using var frame = await adb.CaptureScreenForAutomationAsync();
+        var words = await adb.ReadOcrWordsAsync(frame);
+        var text = OcrTextLocator.Compact(string.Concat(words.OrderBy(word => word.Top)
+            .ThenBy(word => word.Left).Select(word => word.Text)));
+        var greenRatio = OpenCvPopupColorAnalysis.Ratio(frame, (.50, .70, .54, .75),
+            PopupColorKind.GreenButton);
+        var panelRatio = OpenCvPopupColorAnalysis.Ratio(frame, (.28, .72, .25, .78),
+            PopupColorKind.LightNeutralPanel);
+        var matched = IsLootedChestPrompt(text) && greenRatio >= .08 && panelRatio >= .30;
+        log($"识别宝箱已搜取提示：文字匹配={IsLootedChestPrompt(text)}，绿色按钮比例={greenRatio:0.00}，面板比例={panelRatio:0.00}");
+        return matched
+            ? MaaPipelineRecognitionResult.Hit(text: text, detail: "已确认宝箱已搜取提示及绿色确认按钮")
+            : MaaPipelineRecognitionResult.Miss(detail: "未确认宝箱已搜取提示");
+    }
+
+    async Task ConfirmLootedChestDialog(CancellationToken token)
+    {
+        var recognition = await RecognizeLootedChestDialog(token);
+        if (!recognition.Matched)
+            throw new InvalidOperationException("宝箱已搜取提示在点击前已消失或无法确认绿色按钮，未执行点击");
+        const double confirmX = .59;
+        const double confirmY = .64;
+        log("已确认宝箱已搜取提示，点击绿色勾");
+        await adb.TapScreen(confirmX, confirmY);
+        await Delay(token, 600);
+    }
+
+    internal static bool IsLootedChestPrompt(string text)
+        => text.Contains("宝箱已经被搜取", StringComparison.Ordinal) &&
+           text.Contains("是否继续", StringComparison.Ordinal);
 
     async Task EnterDungeon(DungeonEntrySelection selection, CancellationToken token)
     {

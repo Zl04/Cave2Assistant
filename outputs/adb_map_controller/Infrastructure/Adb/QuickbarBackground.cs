@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.IO;
 using OpenCvSharp;
+using DrawingSize = System.Drawing.Size;
 using CvSize = OpenCvSharp.Size;
 
 namespace AdbMapController;
@@ -12,10 +13,26 @@ namespace AdbMapController;
 /// </summary>
 internal sealed class QuickbarBackground : IDisposable
 {
+    // Game source: config.lua uses a 1136x640 design resolution and switches
+    // between FIXED_HEIGHT/FIXED_WIDTH. MainUILayer centers the 580x540
+    // ItemPanel 5 units above the bottom. Component/cc.Layer uses its local
+    // lower-left as the child origin; quickBarAllNode stays at local (0,0).
+    // ItemPanel places a 552x233 Scale9 quickbar at (-15,-153) and explicitly
+    // gives that sprite anchor (0,0), so the position is its lower-left. No
+    // half-width/half-height anchor correction belongs in this transform.
+    // Only its unchanged top strip
+    // is visible on screen, so the original 552x133 sprite can be sampled at
+    // the game's design-to-frame scale.
+    const double DesignWidth = 1136d;
+    const double DesignHeight = 640d;
+    const double ItemPanelWidth = 580d;
+    const double ItemPanelBottom = 5d;
+    const double QuickbarX = -15d;
+    const double QuickbarY = -153d;
+    const double QuickbarHeight = 233d;
     readonly Mat source;
-    Alignment? cached;
 
-    readonly record struct Alignment(int Width, int Height, double Scale, int X, int Y);
+    readonly record struct Alignment(double Scale, int X, int Y);
 
     public QuickbarBackground(string path)
     {
@@ -27,17 +44,10 @@ internal sealed class QuickbarBackground : IDisposable
     public Bitmap? RemoveFromQuantity(Bitmap frame, Rectangle quantity)
     {
         using var scene = OpenCvImage.ToMat(frame);
-        var alignment = cached;
-        if (alignment is null || alignment.Value.Width != frame.Width || alignment.Value.Height != frame.Height ||
-            UnchangedFraction(scene, alignment.Value) < .35)
-        {
-            alignment = Calibrate(scene);
-            cached = alignment;
-        }
-        if (alignment is null) return null;
+        var alignment = FromResolution(frame.Size);
 
-        using var scaled = Resize(alignment.Value.Scale);
-        var local = new Rect(quantity.X - alignment.Value.X, quantity.Y - alignment.Value.Y,
+        using var scaled = Resize(alignment.Scale);
+        var local = new Rect(quantity.X - alignment.X, quantity.Y - alignment.Y,
             quantity.Width, quantity.Height);
         if (local.X < 0 || local.Y < 0 || local.Right > scaled.Width || local.Bottom > scaled.Height)
             return null;
@@ -83,85 +93,26 @@ internal sealed class QuickbarBackground : IDisposable
         return new Bitmap(decoded);
     }
 
-    Alignment? Calibrate(Mat scene)
+    internal static (double Scale, int X, int Y) AlignmentFor(DrawingSize frame)
     {
-        var nominal = 1.685 * scene.Height / 1080d;
-        var visibleHeight = Math.Max(24, (int)Math.Round(scene.Height * .115));
-        var left = Math.Max(0, (int)Math.Round(scene.Width * .18));
-        var top = Math.Max(0, (int)Math.Round(scene.Height * .82));
-        var right = Math.Min(scene.Width, (int)Math.Round(scene.Width * .75));
-        var bottom = Math.Min(scene.Height, (int)Math.Round(scene.Height * .996));
-        if (right <= left || bottom <= top) return null;
-        using var search = new Mat(scene, new Rect(left, top, right - left, bottom - top));
-
-        double bestMatch = 0;
-        Alignment? coarse = null;
-        for (var step = -4; step <= 4; step++)
-        {
-            var scale = nominal * (1 + step * .005);
-            using var scaled = Resize(scale);
-            if (scaled.Width > search.Width || visibleHeight > search.Height || visibleHeight > scaled.Height)
-                continue;
-            using var strip = new Mat(scaled, new Rect(0, 0, scaled.Width, visibleHeight));
-            using var color = new Mat();
-            using var alpha = new Mat();
-            using var mask = new Mat();
-            Cv2.CvtColor(strip, color, ColorConversionCodes.BGRA2BGR);
-            Cv2.ExtractChannel(strip, alpha, 3);
-            Cv2.Threshold(alpha, mask, 249, 255, ThresholdTypes.Binary);
-            using var response = new Mat();
-            Cv2.MatchTemplate(search, color, response, TemplateMatchModes.CCorrNormed, mask);
-            Cv2.MinMaxLoc(response, out _, out var score, out _, out var location);
-            if (score <= bestMatch) continue;
-            bestMatch = score;
-            coarse = new Alignment(scene.Width, scene.Height, scale, left + location.X, top + location.Y);
-        }
-        if (coarse is null || bestMatch < .60) return null;
-
-        // Icons obscure much of the sprite. Score the fraction of pixels that
-        // remain unchanged to refine the location without trusting icon colors.
-        Alignment? best = null;
-        var bestFraction = 0d;
-        for (var scaleStep = -2; scaleStep <= 2; scaleStep++)
-        {
-            var scale = coarse.Value.Scale * (1 + scaleStep * .0015);
-            for (var dx = -3; dx <= 3; dx++)
-            for (var dy = -4; dy <= 4; dy++)
-            {
-                var candidate = new Alignment(scene.Width, scene.Height, scale,
-                    coarse.Value.X + dx, coarse.Value.Y + dy);
-                var fraction = UnchangedFraction(scene, candidate);
-                if (fraction <= bestFraction) continue;
-                bestFraction = fraction;
-                best = candidate;
-            }
-        }
-        return bestFraction >= .35 ? best : null;
+        var fixedHeight = frame.Width / (double)frame.Height >= DesignWidth / DesignHeight;
+        var scale = fixedHeight ? frame.Height / DesignHeight : frame.Width / DesignWidth;
+        var designFrameWidth = frame.Width / scale;
+        var panelX = (designFrameWidth - ItemPanelWidth) / 2d;
+        var quickbarLeft = panelX + QuickbarX;
+        var quickbarTop = ItemPanelBottom + QuickbarY + QuickbarHeight;
+        return (scale,
+            (int)Math.Round(quickbarLeft * scale),
+            (int)Math.Round(frame.Height - quickbarTop * scale));
     }
 
-    double UnchangedFraction(Mat scene, Alignment alignment)
+    internal static double ScaleRelativeToFullHd(DrawingSize frame)
+        => AlignmentFor(frame).Scale / (1080d / DesignHeight);
+
+    static Alignment FromResolution(DrawingSize frame)
     {
-        using var scaled = Resize(alignment.Scale);
-        var height = Math.Min(scaled.Height, scene.Height - alignment.Y);
-        if (alignment.X < 0 || alignment.Y < 0 ||
-            alignment.X + scaled.Width > scene.Width || height < 24) return 0;
-        using var strip = new Mat(scaled, new Rect(0, 0, scaled.Width, height));
-        using var color = new Mat();
-        using var alpha = new Mat();
-        using var mask = new Mat();
-        Cv2.CvtColor(strip, color, ColorConversionCodes.BGRA2BGR);
-        Cv2.ExtractChannel(strip, alpha, 3);
-        Cv2.Threshold(alpha, mask, 249, 255, ThresholdTypes.Binary);
-        using var current = new Mat(scene, new Rect(alignment.X, alignment.Y, scaled.Width, height));
-        using var difference = new Mat();
-        using var grayscale = new Mat();
-        using var unchanged = new Mat();
-        Cv2.Absdiff(current, color, difference);
-        Cv2.CvtColor(difference, grayscale, ColorConversionCodes.BGR2GRAY);
-        Cv2.Threshold(grayscale, unchanged, 4, 255, ThresholdTypes.BinaryInv);
-        Cv2.BitwiseAnd(unchanged, mask, unchanged);
-        var opaqueCount = Cv2.CountNonZero(mask);
-        return opaqueCount == 0 ? 0 : Cv2.CountNonZero(unchanged) / (double)opaqueCount;
+        var (scale, x, y) = AlignmentFor(frame);
+        return new Alignment(scale, x, y);
     }
 
     Mat Resize(double scale)

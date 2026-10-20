@@ -131,8 +131,10 @@ internal sealed class AdbScreenAnalyzer : IDisposable
     internal static Rectangle BottomToolQuantityBounds(Size frame, Point slotCenter)
     {
         // All six quick slots use the same artwork and count-label layout.
-        // Scale from the same base dimension used by icon template matching.
-        var scale = Math.Min(frame.Width, frame.Height) / 1080d;
+        // These offsets were measured in a 1920x1080 frame. Convert them with
+        // the game's FIXED_HEIGHT/FIXED_WIDTH scale, which also preserves the
+        // ItemPanel and quickbar anchor transform on non-16:9 displays.
+        var scale = QuickbarBackground.ScaleRelativeToFullHd(frame);
         var x = (int)Math.Round(slotCenter.X - 10 * scale);
         var y = (int)Math.Round(slotCenter.Y + 39 * scale);
         var width = Math.Max(1, (int)Math.Round(83 * scale));
@@ -145,24 +147,19 @@ internal sealed class AdbScreenAnalyzer : IDisposable
     {
         var bounds = BottomToolQuantityBounds(source.Size, slotCenter);
         if (bounds.Width == 0 || bounds.Height == 0) return string.Empty;
+        var alignment = QuickbarBackground.AlignmentFor(source.Size);
+        OcrTimingLog?.Invoke(
+            $"快捷栏数量取图：分辨率={source.Width}x{source.Height}，底板左上=({alignment.X},{alignment.Y})，" +
+            $"倍率={alignment.Scale:F4}，底板锚点=(0,0)，数字区域=({bounds.X},{bounds.Y},{bounds.Width},{bounds.Height})");
         using var crop = source.Clone(bounds, PixelFormat.Format24bppRgb);
-        var original = await ReadTextAsync(crop, token);
-        if (MiningToolGuard.ParseQuantityText(original) is not null) return original;
+        using var foreground = quickbarBackground.Value?.RemoveFromQuantity(source, bounds);
+        var preferred = foreground ?? crop;
+        var text = await ReadTextAsync(preferred, token);
+        if (MiningToolGuard.ParseQuantityText(text) is not null) return text;
 
-        using var enlarged = new Bitmap(crop, new Size(crop.Width * 4, crop.Height * 4));
+        using var enlarged = new Bitmap(preferred, new Size(preferred.Width * 4, preferred.Height * 4));
         var enlargedText = await ReadTextAsync(enlarged, token);
-        if (MiningToolGuard.ParseQuantityText(enlargedText) is not null) return enlargedText;
-        if (quickbarBackground.Value is null) return original;
-
-        using var foreground = quickbarBackground.Value.RemoveFromQuantity(source, bounds);
-        if (foreground is null) return original;
-        var foregroundText = await ReadTextAsync(foreground, token);
-        if (MiningToolGuard.ParseQuantityText(foregroundText) is not null) return foregroundText;
-
-        using var enlargedForeground = new Bitmap(foreground, new Size(bounds.Width * 4, bounds.Height * 4));
-        var enlargedForegroundText = await ReadTextAsync(enlargedForeground, token);
-        return MiningToolGuard.ParseQuantityText(enlargedForegroundText) is not null
-            ? enlargedForegroundText : original;
+        return MiningToolGuard.ParseQuantityText(enlargedText) is not null ? enlargedText : text;
     }
 
     public bool HasNextFloorButton(Bitmap source)

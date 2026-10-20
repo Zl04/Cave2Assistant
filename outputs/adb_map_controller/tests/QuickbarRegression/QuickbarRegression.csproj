@@ -14,6 +14,7 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     <Compile Include="..\QuickbarBackgroundTests.cs" Link="QuickbarBackgroundTests.cs" />
     <None Include="..\VisualFixtures\quickbar-*.png" Link="Fixtures\Visual\%(Filename)%(Extension)" CopyToOutputDirectory="Always" />
+    <None Include="..\..\..\..\game-screen\2026-10-20_17-12-28-655.png" Link="Fixtures\Visual\quickbar-mining-runtime.png" CopyToOutputDirectory="Always" />
     <None Include="..\..\Resources\Vision\quickbar-background.png" Link="vision\quickbar-background.png" CopyToOutputDirectory="Always" />
   </ItemGroup>
   <Target Name="CopyNativeOcrRuntime" AfterTargets="Build">

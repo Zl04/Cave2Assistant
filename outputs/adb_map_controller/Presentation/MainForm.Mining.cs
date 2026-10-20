@@ -9,6 +9,7 @@ namespace AdbMapController;
 
 public sealed partial class MainForm
 {
+    bool miningRouteDisplaySuppressed;
     readonly ThemedNumericUpDown miningTileWidth = new() { Minimum = 20, Maximum = 500, Value = 200, Width = 65 };
     readonly ThemedNumericUpDown miningTileHeight = new() { Minimum = 20, Maximum = 300, Value = 100, Width = 65 };
     readonly ThemedNumericUpDown miningInterval = new() { Minimum = 500, Maximum = 30000, Increment = 500, Value = 3000, Width = 75 };
@@ -76,8 +77,10 @@ public sealed partial class MainForm
         var miningRange = new MiningRange(initial.Width - 1, initial.Height - 1);
         var mined = 0;
         var recovery = 0;
-        Cell? lastClickedWall = null;
-        var repeatedWallClicks = 0;
+        lastMiningRetryOrigin = null;
+        miningRouteDisplaySuppressed = true;
+        mapPanel.Route = [];
+        mapPanel.Invalidate();
         var selectionMayBeOpen = false;
         try
         {
@@ -132,7 +135,6 @@ public sealed partial class MainForm
                 route = plan.Movement.Route;
                 plannedInteractions = plan.Movement.Interactions;
                 plannedTargetUniverse = plan.Movement.TargetUniverse;
-                mapPanel.Route = route; mapPanel.Invalidate();
                 var player = new Cell(map.Player.X, map.Player.Y);
                 var fight = plannedInteractions.FirstOrDefault(task => task.Stop == player);
                 if (fight != default)
@@ -153,16 +155,6 @@ public sealed partial class MainForm
                     continue;
                 }
 
-                if (lastClickedWall == plan.Wall && repeatedWallClicks > 3)
-                {
-                    Log($"挖矿连续 {repeatedWallClicks} 次点击同一格 {plan.Wall}，先移动角色再重新规划");
-                    if (!await MoveRandomlyForMiningRetry(token))
-                    { State("挖矿：同一格反复尝试后无法移动，已停止"); return MiningPassResult.Failed; }
-                    lastClickedWall = null;
-                    repeatedWallClicks = 0;
-                    continue;
-                }
-
                 await touch.TouchUp();
                 // 等待松开和镜头跟随后再读取人物位置，避免沿用移动前的点击偏差。
                 await Task.Delay(200, token);
@@ -170,53 +162,122 @@ public sealed partial class MainForm
                 { State("挖矿：点击前地图读取失败"); return MiningPassResult.Failed; }
                 token.ThrowIfCancellationRequested();
                 if (!CanMineNow(initial, miningRange, player, plan.Wall)) continue;
-                var point = MiningScreenCoordinates.Wall(player, plan.Wall,
-                    (double)miningTileWidth.Value, (double)miningTileHeight.Value);
                 var clicked = false;
+                var confirmed = false;
+                var mapChanged = false;
+                var noHighlight = false;
+                var beforeMap = dungeon.Map!;
                 var interrupted = await RunMovementSlice(token, async sliceToken =>
                 {
                     sliceToken.ThrowIfCancellationRequested();
+                    // A previous selection may still be closing. Never use an
+                    // already highlighted frame as the difference baseline.
+                    if (await adb.HasMiningCancelIconAsync(sliceToken))
+                    {
+                        if (!await CancelMiningSelectionAsync(sliceToken)) return;
+                        await Task.Delay(350, sliceToken);
+                    }
+                    using var before = await adb.CaptureScreenForAutomationAsync(sliceToken);
                     var tool = MiningScreenCoordinates.ToolSlot;
                     selectionMayBeOpen = true;
                     await adb.TapScreen(tool.X, tool.Y);
-                    await Task.Delay(250, sliceToken);
-                    // 道具面板打开后再次复核坐标。失败时停止，不在未知界面继续移动。
+                    MiningHighlight? highlight = null;
+                    var cancelSeen = false;
+                    var inspectedFrames = 0;
+                    var selectionDeadline = Environment.TickCount64 + 5000;
+                    while (Environment.TickCount64 < selectionDeadline)
+                    {
+                        await Task.Delay(150, sliceToken);
+                        using var after = await adb.CaptureScreenForAutomationAsync(sliceToken);
+                        inspectedFrames++;
+                        if (!adb.HasMiningCancelIcon(after)) continue;
+                        cancelSeen = true;
+                        highlight = MiningHighlightDetector.Find(before, after);
+                        if (highlight is not null) break;
+                    }
+                    if (highlight is null)
+                    {
+                        noHighlight = true;
+                        Log($"挖矿高亮未命中：取消按钮={(cancelSeen ? "已出现" : "未出现")}，检查帧数={inspectedFrames}");
+                        return;
+                    }
+                    // Confirm that the player is still in the same safe game state.
                     if (!await RefreshMap(false, waitForLock: true)) return;
                     sliceToken.ThrowIfCancellationRequested();
                     if (!CanMineNow(initial, miningRange, player, plan.Wall)) return;
-                    await adb.TapScreen(point.X, point.Y);
+                    var point = highlight.Value.Click;
+                    await adb.TapScreen(point.X / (double)before.Width, point.Y / (double)before.Height);
                     clicked = true;
-                    Log($"挖矿点击：人物 {player}，墙体 {plan.Wall}，屏幕比例 ({point.X:F4}, {point.Y:F4})");
-                    selectionMayBeOpen = false;
+                    Log($"挖矿高亮点击：人物 {player}，位置 ({point.X}, {point.Y})，高亮面积 {highlight.Value.Area:F0}");
+                    var deadline = Environment.TickCount64 + 5000;
+                    while (Environment.TickCount64 < deadline)
+                    {
+                        await Task.Delay(150, sliceToken);
+                        if (!await RefreshMap(false, waitForLock: true)) continue;
+                        sliceToken.ThrowIfCancellationRequested();
+                        if (!SameMiningMap(initial, dungeon.Map!))
+                        {
+                            mapChanged = true;
+                            return;
+                        }
+                        if (HasNewlyMinedWall(beforeMap, dungeon.Map!))
+                        {
+                            confirmed = true;
+                            selectionMayBeOpen = false;
+                            return;
+                        }
+                    }
                 });
                 if (interrupted)
                 {
                     State("挖矿被弹窗中断，已停止");
                     return MiningPassResult.Failed;
                 }
-                if (!clicked) continue;
-                repeatedWallClicks = lastClickedWall == plan.Wall ? repeatedWallClicks + 1 : 1;
-                lastClickedWall = plan.Wall;
+                if (!clicked)
+                {
+                    if (!await CancelMiningSelectionAsync(token))
+                    { State("挖矿选择未能取消，已停止"); return MiningPassResult.Failed; }
+                    selectionMayBeOpen = false;
+                    if (!noHighlight) continue;
+                    Log("未识别到明显的挖矿高亮，随机移动一格后重试");
+                    if (!await MoveRandomlyForMiningRetry(token))
+                    { State("未识别到高亮且无法移动，已停止"); return MiningPassResult.Failed; }
+                    continue;
+                }
+                if (mapChanged)
+                {
+                    State("挖矿确认时地图已切换，已停止");
+                    return MiningPassResult.Failed;
+                }
+                if (!confirmed)
+                {
+                    if (!await CancelMiningSelectionAsync(token))
+                    { State("挖矿选择未能取消，已停止"); return MiningPassResult.Failed; }
+                    selectionMayBeOpen = false;
+                    Log("高亮墙体在 5 秒内未确认变为道路，随机移动后继续挖矿");
+                    State("挖矿未确认，随机移动后继续尝试");
+                    if (!await MoveRandomlyForMiningRetry(token))
+                    {
+                        State("挖矿未确认且无法随机移动，已停止");
+                        return MiningPassResult.Failed;
+                    }
+                    await Task.Delay((int)miningInterval.Value, token);
+                    continue;
+                }
                 mined++;
                 recovery = 0;
                 ClearMiningRoute();
-                State($"已使用镐子 {mined} 次，等待道具冷却");
+                State($"挖矿成功 {mined} 格，等待道具冷却");
+                Log("已确认挖矿后墙体变为道路");
                 await Task.Delay((int)miningInterval.Value, token);
             }
         }
         finally
         {
+            miningRouteDisplaySuppressed = false;
             if (selectionMayBeOpen)
             {
-                try
-                {
-                    await touch.EmergencyRelease();
-                    if (await adb.HasMiningCancelIconAsync())
-                    {
-                        await adb.TapScreen(.956, .92);
-                        Log("挖矿失败后已取消道具选择");
-                    }
-                }
+                try { await CancelMiningSelectionAsync(CancellationToken.None); }
                 catch (Exception ex) { Error(ex); }
             }
         }
@@ -255,6 +316,17 @@ public sealed partial class MainForm
         return true;
     }
 
+    async Task<bool> CancelMiningSelectionAsync(CancellationToken token)
+    {
+        await touch.EmergencyRelease();
+        if (!await adb.HasMiningCancelIconAsync(token)) return true;
+        await adb.TapScreen(.956, .92);
+        await Task.Delay(120, token);
+        if (await adb.HasMiningCancelIconAsync(token)) return false;
+        Log("挖矿已取消残留的道具选择");
+        return true;
+    }
+
     bool CanMineNow(MapDump initial, MiningRange miningRange, Cell player, Cell wall)
         => dungeon.Map is { InBattle: false, IsDead: false } map && SameMiningMap(initial, map) &&
             miningRange.Contains(wall) &&
@@ -262,6 +334,10 @@ public sealed partial class MainForm
             dungeon.MotionInterrupt.Reason == MotionInterruptReason.None &&
             new Cell(map.Player.X, map.Player.Y) == player &&
             MiningPlanner.IsWall(map, wall) && MiningPlanner.InRange(player, wall);
+
+    static bool HasNewlyMinedWall(MapDump before, MapDump after)
+        => before.ByCell.Any(pair => pair.Value.TerrainType == 1 &&
+            after.ByCell.TryGetValue(pair.Key, out var tile) && tile.Ground);
 
     static bool SameMiningMap(MapDump first, MapDump second)
         => first.Level == second.Level && first.SceneType == second.SceneType && first.CaveMode == second.CaveMode &&

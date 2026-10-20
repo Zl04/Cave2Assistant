@@ -7,6 +7,8 @@ namespace AdbMapController;
 
 public sealed partial class MainForm
 {
+    Cell? lastMiningRetryOrigin;
+
     static void EnforceCardMiningOptions(ControllerSettings config)
     {
         config.CardLayer = true;
@@ -207,14 +209,20 @@ public sealed partial class MainForm
 
     async Task<bool> MoveRandomlyForMiningRetry(CancellationToken token)
     {
-        if (!await RefreshMap(false, waitForLock: true) || dungeon.Map is null) return false;
+        if (!await RefreshMap(false, waitForLock: true) || dungeon.Map is null)
+        {
+            if (await adb.HasMiningCancelIconAsync(token)) await CancelMiningSelectionAsync(token);
+            return false;
+        }
         var map = dungeon.Map;
         var start = new Cell(map.Player.X, map.Player.Y);
         var choices = new[] { new Cell(start.X + 1, start.Y), new Cell(start.X - 1, start.Y),
             new Cell(start.X, start.Y + 1), new Cell(start.X, start.Y - 1) }
             .Where(cell => map.ByCell.TryGetValue(cell, out var tile) && tile.Walkable &&
                 !tile.Roles.Any(role => PortalRouting.IsPortalKind(role.Kind)))
-            .OrderBy(_ => Random.Shared.Next()).ToArray();
+            .OrderByDescending(cell => MiningPlanner.OpenGroundNeighbors(map, cell))
+            .ThenBy(cell => cell == lastMiningRetryOrigin ? 1 : 0)
+            .ThenBy(_ => Random.Shared.Next()).ToArray();
         foreach (var destination in choices)
         {
             route = [start, destination];
@@ -223,9 +231,12 @@ public sealed partial class MainForm
             var result = await ExecuteRouteSlice(token);
             if (!result.InterruptedByPopup && dungeon.Map is { } moved &&
                 new Cell(moved.Player.X, moved.Player.Y) == destination)
-            { ClearMiningRoute(); return true; }
+            { lastMiningRetryOrigin = start; ClearMiningRoute(); return true; }
         }
         ClearMiningRoute();
+        // A failed movement attempt must not leave the pickaxe selected.
+        if (await adb.HasMiningCancelIconAsync(token) && !await CancelMiningSelectionAsync(token))
+            Warn("随机移动失败后，挖矿选择仍未能取消");
         return false;
     }
 }

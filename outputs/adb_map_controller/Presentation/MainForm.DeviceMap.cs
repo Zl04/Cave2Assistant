@@ -217,7 +217,7 @@ public sealed partial class MainForm
             var map = result.Map;
             foreach (var diagnostic in result.Diagnostics) runtime.Diagnostics.Record("JSON: " + diagnostic);
             foreach (var message in result.Messages) Log(message);
-            mapPanel.Map = map; mapPanel.Route = route; mapPanel.Invalidate();
+            mapPanel.Map = map; mapPanel.Route = miningRouteDisplaySuppressed ? [] : route; mapPanel.Invalidate();
             var seal = map.BossSeal;
             var warning = seal.Present
                 ? $"  预警 {seal.CurScore}/{seal.WakeScore} ({seal.Percent}%) {(seal.Ready ? "守层Boss可攻击" : "守层Boss未解锁")}"

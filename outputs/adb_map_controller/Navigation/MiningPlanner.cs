@@ -37,6 +37,26 @@ public static class MiningToolGuard
 public static class MiningPlanner
 {
     static readonly Cell[] Directions = [new(1, 0), new(0, 1), new(-1, 0), new(0, -1)];
+    static readonly Cell[] MiningOffsets =
+    [
+        new(1, 0), new(0, 1), new(-1, 0), new(0, -1),
+        new(1, 1), new(-1, 1), new(-1, -1), new(1, -1)
+    ];
+
+    // An exposed tile is a poor mining stop: fewer known walkable neighbors
+    // means the player is closer to the edge of the explored floor.
+    public static int OpenGroundNeighbors(MapDump map, Cell cell)
+    {
+        var count = 0;
+        for (var dx = -1; dx <= 1; dx++)
+        for (var dy = -1; dy <= 1; dy++)
+        {
+            if (dx == 0 && dy == 0) continue;
+            if (map.ByCell.TryGetValue(new Cell(cell.X + dx, cell.Y + dy), out var tile) &&
+                tile.Walkable) count++;
+        }
+        return count;
+    }
 
     public static bool IsWall(MapDump map, Cell cell)
         => IsWall(map.ByCell, cell);
@@ -62,35 +82,31 @@ public static class MiningPlanner
         var walls = tiles.Keys.Where(cell => IsWall(tiles, cell) &&
             (miningRange is null || miningRange.Value.Contains(cell))).ToHashSet();
         var previous = new Dictionary<Cell, Cell>();
+        var depth = new Dictionary<Cell, int> { [start] = 0 };
         var seen = new HashSet<Cell> { start };
         var queue = new Queue<Cell>();
         queue.Enqueue(start);
+        Cell? bestStop = null;
+        Cell? bestWall = null;
+        var bestDepth = int.MaxValue;
+        var bestOpenness = -1;
+        var comfortableDepth = int.MaxValue;
         while (queue.TryDequeue(out var stop))
         {
-            // BFS 先选择无需移动的墙，再选择步数最少的可达停靠点。
-            var nearby = walls.Where(wall => InRange(stop, wall))
+            var steps = depth[stop];
+            if (steps > comfortableDepth) break;
+            var nearby = MiningOffsets.Select(offset => new Cell(stop.X + offset.X, stop.Y + offset.Y))
+                .Where(walls.Contains)
                 .OrderBy(wall => Math.Abs(wall.X - stop.X) + Math.Abs(wall.Y - stop.Y))
                 .ThenBy(wall => wall.Y).ThenBy(wall => wall.X).ToList();
             if (nearby.Count > 0)
             {
-                var path = new List<Cell> { stop };
-                for (var cursor = stop; cursor != start;)
-                { cursor = previous[cursor]; path.Add(cursor); }
-                path.Reverse();
-                // 和普通导航一样，路上的怪物是交互停靠点，战斗后重新读取地图。
-                for (var i = 1; i < path.Count; i++)
-                {
-                    var monster = tiles[path[i]].Roles.FirstOrDefault(r => r.Kind is "小怪" or "群怪" or "精英");
-                    if (monster is null) continue;
-                    var target = new TargetKey(path[i], monster.Kind);
-                    return new(nearby[0], stop, new RoutePlan
-                    {
-                        Route = path.Take(i).ToList(),
-                        Interactions = [new(path[i - 1], target)], TargetUniverse = [target]
-                    });
-                }
-                return new(nearby[0], stop, new RoutePlan { Route = path });
+                var openness = OpenGroundNeighbors(map, stop);
+                if (openness >= 6) comfortableDepth = Math.Min(comfortableDepth, steps);
+                if (openness > bestOpenness || (openness == bestOpenness && steps < bestDepth))
+                { bestOpenness = openness; bestDepth = steps; bestStop = stop; bestWall = nearby[0]; }
             }
+            if (steps >= comfortableDepth) continue;
             foreach (var delta in Directions)
             {
                 var next = new Cell(stop.X + delta.X, stop.Y + delta.Y);
@@ -99,10 +115,28 @@ public static class MiningPlanner
                 // 挖矿路线不主动触发换层、传送门或其它 NPC 交互。
                 if (tile.Roles.Any(r => !r.MasterHero && r.Kind is not
                     ("" or "金币" or "钥匙" or "符文" or "小怪" or "群怪" or "精英"))) continue;
-                seen.Add(next); previous[next] = stop; queue.Enqueue(next);
+                seen.Add(next); previous[next] = stop; depth[next] = steps + 1; queue.Enqueue(next);
             }
         }
-        return null;
+        if (bestStop is not { } chosenStop || bestWall is not { } chosenWall) return null;
+        var path = new List<Cell> { chosenStop };
+        for (var cursor = chosenStop; cursor != start;)
+        { cursor = previous[cursor]; path.Add(cursor); }
+        path.Reverse();
+        // As in ordinary navigation, fight a monster on the route first,
+        // then read the map again before continuing to the mining stop.
+        for (var i = 1; i < path.Count; i++)
+        {
+            var monster = tiles[path[i]].Roles.FirstOrDefault(r => r.Kind is "小怪" or "群怪" or "精英");
+            if (monster is null) continue;
+            var target = new TargetKey(path[i], monster.Kind);
+            return new(chosenWall, chosenStop, new RoutePlan
+            {
+                Route = path.Take(i).ToList(),
+                Interactions = [new(path[i - 1], target)], TargetUniverse = [target]
+            });
+        }
+        return new(chosenWall, chosenStop, new RoutePlan { Route = path });
     }
 }
 

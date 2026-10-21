@@ -42,6 +42,12 @@ internal sealed class QuickbarBackground : IDisposable
     }
 
     public Bitmap? RemoveFromQuantity(Bitmap frame, Rectangle quantity)
+        => RemoveFromQuantity(frame, quantity, preserveColor: false);
+
+    public Bitmap? RemoveFromQuantityPreservingColor(Bitmap frame, Rectangle quantity)
+        => RemoveFromQuantity(frame, quantity, preserveColor: true);
+
+    Bitmap? RemoveFromQuantity(Bitmap frame, Rectangle quantity, bool preserveColor)
     {
         using var scene = OpenCvImage.ToMat(frame);
         var alignment = FromResolution(frame.Size);
@@ -61,9 +67,19 @@ internal sealed class QuickbarBackground : IDisposable
         Cv2.Threshold(alpha, opaque, 249, 255, ThresholdTypes.Binary);
         using var current = new Mat(scene, new Rect(quantity.X, quantity.Y, quantity.Width, quantity.Height));
         using var difference = new Mat();
+        Cv2.Absdiff(current, backgroundBgr, difference);
+        if (preserveColor)
+        {
+            // Subtract the aligned sprite but keep the count's color and soft
+            // edges. Alpha scales the difference without thresholding pixels.
+            using var alphaBgr = new Mat();
+            using var colorDifference = new Mat();
+            Cv2.CvtColor(alpha, alphaBgr, ColorConversionCodes.GRAY2BGR);
+            Cv2.Multiply(difference, alphaBgr, colorDifference, 1d / 255d);
+            return ToBitmap(colorDifference);
+        }
         using var grayscale = new Mat();
         using var foreground = new Mat();
-        Cv2.Absdiff(current, backgroundBgr, difference);
         Cv2.CvtColor(difference, grayscale, ColorConversionCodes.BGR2GRAY);
         Cv2.Threshold(grayscale, foreground, 20, 255, ThresholdTypes.Binary);
         Cv2.BitwiseAnd(foreground, opaque, foreground);
@@ -87,7 +103,12 @@ internal sealed class QuickbarBackground : IDisposable
         }
         if (Cv2.CountNonZero(foreground) == 0) return null;
 
-        Cv2.ImEncode(".png", foreground, out var bytes);
+        return ToBitmap(foreground);
+    }
+
+    static Bitmap ToBitmap(Mat pixels)
+    {
+        Cv2.ImEncode(".png", pixels, out var bytes);
         using var stream = new MemoryStream(bytes);
         using var decoded = new Bitmap(stream);
         return new Bitmap(decoded);

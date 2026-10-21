@@ -151,15 +151,26 @@ internal sealed class AdbScreenAnalyzer : IDisposable
         OcrTimingLog?.Invoke(
             $"快捷栏数量取图：分辨率={source.Width}x{source.Height}，底板左上=({alignment.X},{alignment.Y})，" +
             $"倍率={alignment.Scale:F4}，底板锚点=(0,0)，数字区域=({bounds.X},{bounds.Y},{bounds.Width},{bounds.Height})");
-        using var crop = source.Clone(bounds, PixelFormat.Format24bppRgb);
-        using var foreground = quickbarBackground.Value?.RemoveFromQuantity(source, bounds);
-        var preferred = foreground ?? crop;
-        var text = await ReadTextAsync(preferred, token);
-        if (MiningToolGuard.ParseQuantityText(text) is not null) return text;
+        var background = quickbarBackground.Value;
+        if (background is null) return string.Empty;
+        using var color = background.RemoveFromQuantityPreservingColor(source, bounds);
+        if (color is not null)
+        {
+            var colorText = await ReadTextAsync(color, token);
+            if (MiningToolGuard.ParseQuantityText(colorText) is not null) return colorText;
+            using var enlargedColor = new Bitmap(color, new Size(color.Width * 4, color.Height * 4));
+            var enlargedColorText = await ReadTextAsync(enlargedColor, token);
+            if (MiningToolGuard.ParseQuantityText(enlargedColorText) is not null) return enlargedColorText;
+        }
 
-        using var enlarged = new Bitmap(preferred, new Size(preferred.Width * 4, preferred.Height * 4));
-        var enlargedText = await ReadTextAsync(enlarged, token);
-        return MiningToolGuard.ParseQuantityText(enlargedText) is not null ? enlargedText : text;
+        using var binary = background.RemoveFromQuantity(source, bounds);
+        if (binary is null) return string.Empty;
+        var binaryText = await ReadTextAsync(binary, token);
+        if (MiningToolGuard.ParseQuantityText(binaryText) is not null) return binaryText;
+        using var enlargedBinary = new Bitmap(binary, new Size(binary.Width * 4, binary.Height * 4));
+        var enlargedBinaryText = await ReadTextAsync(enlargedBinary, token);
+        return MiningToolGuard.ParseQuantityText(enlargedBinaryText) is not null
+            ? enlargedBinaryText : string.Empty;
     }
 
     public bool HasNextFloorButton(Bitmap source)

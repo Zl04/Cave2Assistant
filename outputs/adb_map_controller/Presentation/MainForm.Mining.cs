@@ -105,7 +105,7 @@ public sealed partial class MainForm
                 }
 
                 var toolStatus = cardMiningTaskRunning
-                    ? await ReadCardMiningToolStatusAsync(token)
+                    ? await ReadCardMiningToolStatusWithFallbackAsync(token)
                     : await adb.ReadMiningToolStatusAsync(token);
                 if (toolStatus is null)
                 { State("挖矿：镐子数量暂时无法确认，准备重新读取"); return MiningPassResult.Failed; }
@@ -265,6 +265,7 @@ public sealed partial class MainForm
                     continue;
                 }
                 mined++;
+                RecordConfirmedCardMiningUse();
                 recovery = 0;
                 ClearMiningRoute();
                 State($"挖矿成功 {mined} 格，等待道具冷却");

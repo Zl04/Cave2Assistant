@@ -82,6 +82,18 @@ public sealed class QuickbarBackgroundTests
         Assert.Equal(1, tool.Quantity);
     }
 
+    [Fact]
+    [Trait("Category", "NativeOCR")]
+    public async Task MiningCountNineIsReadFromUserFrame()
+    {
+        using var frame = Frame("quickbar-mining-nine.png");
+        using var analyzer = new AdbScreenAnalyzer();
+        var tool = await analyzer.FindBottomToolAsync(frame, BottomToolKind.Mining);
+        Assert.NotNull(tool);
+        Assert.Equal(9, tool.Quantity);
+    }
+
+
     static Bitmap Frame(string name)
         => new(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Visual", name));
 }

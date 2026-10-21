@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -8,6 +9,9 @@ namespace AdbMapController;
 public sealed partial class MainForm
 {
     Cell? lastMiningRetryOrigin;
+    long pendingCardMiningToolReadStartedAt;
+    int? cardMiningEstimatedTools;
+    bool cardMiningEstimateUsed;
 
     static void EnforceCardMiningOptions(ControllerSettings config)
     {
@@ -27,6 +31,8 @@ public sealed partial class MainForm
         cardMiningTaskRunning = true;
         cardMiningEarlyStop = false;
         cardMiningNextToolCheck = 0;
+        cardMiningEstimatedTools = null;
+        cardMiningEstimateUsed = false;
         activeCardMiningConfig = config;
         // 列表任务持有 Entry 操作锁；地图刷新只有在该操作授权导航时才允许执行。
         entryRunMovementScope = true;
@@ -55,9 +61,9 @@ public sealed partial class MainForm
             while (!reachedTargetFloor)
             {
                 token.ThrowIfCancellationRequested();
-                var status = await ReadCardMiningToolStatusAsync(token);
+                var status = await ReadCardMiningToolStatusWithFallbackAsync(token);
                 if (status is null)
-                { State("卡矿任务：镐子读取超时，稍后重试"); await Task.Delay(1000, token); continue; }
+                { State("卡矿任务：镐子读取超时，等待可用数量"); await Task.Delay(1000, token); continue; }
                 if (status.Quantity is 0)
                 {
                     State($"卡矿任务：等待镐子达到 {config.CardMiningMinimumTools}，当前 0");
@@ -78,12 +84,12 @@ public sealed partial class MainForm
             while (true)
             {
                 token.ThrowIfCancellationRequested();
-                var status = await ReadCardMiningToolStatusAsync(token);
+                var status = await ReadCardMiningToolStatusWithFallbackAsync(token);
                 if (status is null)
-                { State("卡矿任务：镐子读取超时，稍后重试"); await Task.Delay(1000, token); continue; }
+                { State("卡矿任务：镐子读取超时，等待本次读取完成"); await Task.Delay(1000, token); continue; }
                 if (status.Quantity is 0)
                 {
-                    if (await ConfirmCardMiningToolsExhaustedAsync(token)) break;
+                    if (await ConfirmCardMiningToolsExhaustedAsync(token) || InferredCardMiningToolsExhausted()) break;
                     State("卡矿任务：镐子数量为 0 的识别未通过三次核对，继续挖矿");
                     continue;
                 }
@@ -95,12 +101,12 @@ public sealed partial class MainForm
                 dungeon.Blocked.Clear();
                 var pass = await MineFloorCore(token, dungeon.Map);
                 token.ThrowIfCancellationRequested();
-                status = await ReadCardMiningToolStatusAsync(token);
+                status = await ReadCardMiningToolStatusWithFallbackAsync(token);
                 if (status is null)
-                { State("卡矿任务：镐子读取超时，稍后重试"); await Task.Delay(1000, token); continue; }
+                { State("卡矿任务：镐子读取超时，等待本次读取完成"); await Task.Delay(1000, token); continue; }
                 if (status.Quantity is 0)
                 {
-                    if (await ConfirmCardMiningToolsExhaustedAsync(token)) break;
+                    if (await ConfirmCardMiningToolsExhaustedAsync(token) || InferredCardMiningToolsExhausted()) break;
                     State("卡矿任务：镐子数量为 0 的识别未通过三次核对，继续挖矿");
                     continue;
                 }
@@ -134,6 +140,9 @@ public sealed partial class MainForm
         finally
         {
             pendingCardMiningToolRead = null;
+            pendingCardMiningToolReadStartedAt = 0;
+            cardMiningEstimatedTools = null;
+            cardMiningEstimateUsed = false;
             activeCardMiningConfig = null;
             cardMiningEarlyStop = false;
             entryRunMovementScope = false;
@@ -148,17 +157,79 @@ public sealed partial class MainForm
             token.ThrowIfCancellationRequested();
             try
             {
-                pendingCardMiningToolRead ??= adb.ReadMiningToolStatusAsync(token);
+                if (pendingCardMiningToolRead is null)
+                {
+                    pendingCardMiningToolRead = adb.ReadMiningToolStatusAsync(token);
+                    pendingCardMiningToolReadStartedAt = Stopwatch.GetTimestamp();
+                }
                 var status = await pendingCardMiningToolRead.WaitAsync(TimeSpan.FromSeconds(8), token);
                 pendingCardMiningToolRead = null;
+                pendingCardMiningToolReadStartedAt = 0;
                 if (status.Quantity is not null) return status;
                 if (!status.IconPresent) return status;
             }
-            catch (TimeoutException) { Warn("卡矿任务读取镐子数量超时，等待本次读取完成"); }
-            catch { pendingCardMiningToolRead = null; throw; }
+            catch (TimeoutException)
+            {
+                var elapsed = Stopwatch.GetElapsedTime(pendingCardMiningToolReadStartedAt);
+                Warn($"卡矿任务读取镐子数量超时，原读取仍未完成（已等待 {elapsed.TotalSeconds:F0} 秒）");
+                if (elapsed >= TimeSpan.FromSeconds(60)) return null;
+            }
+            catch { pendingCardMiningToolRead = null; pendingCardMiningToolReadStartedAt = 0; throw; }
             await Task.Delay(350, token);
         }
         return null;
+    }
+
+    async Task<MiningToolStatus?> ReadCardMiningToolStatusWithFallbackAsync(CancellationToken token)
+    {
+        // An OCR call can remain in native code after the caller's timeout. Keep
+        // one pending read; a second call would only queue behind the same OCR gate.
+        if (pendingCardMiningToolRead is { IsCompleted: false } &&
+            Stopwatch.GetElapsedTime(pendingCardMiningToolReadStartedAt) >= TimeSpan.FromSeconds(60))
+            return EstimatedCardMiningToolStatus();
+
+        MiningToolStatus? status;
+        try { status = await ReadCardMiningToolStatusAsync(token); }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            Warn($"卡矿任务读取镐子数量失败，使用上次数量继续：{ex.Message}");
+            pendingCardMiningToolRead = null;
+            pendingCardMiningToolReadStartedAt = 0;
+            return EstimatedCardMiningToolStatus();
+        }
+        if (status is { IconPresent: true, Quantity: >= 0 })
+        {
+            if (status.Quantity > 0)
+            {
+                cardMiningEstimatedTools = status.Quantity;
+                cardMiningEstimateUsed = false;
+            }
+            return status;
+        }
+        return EstimatedCardMiningToolStatus() ?? status;
+    }
+
+    MiningToolStatus? EstimatedCardMiningToolStatus()
+    {
+        if (cardMiningEstimatedTools is not { } quantity) return null;
+        cardMiningEstimateUsed = true;
+        State($"卡矿任务：镐子读取失败，按上次数量估算剩余 {quantity}，继续挖矿");
+        return new MiningToolStatus(true, quantity);
+    }
+
+    void RecordConfirmedCardMiningUse()
+    {
+        if (!cardMiningTaskRunning || cardMiningEstimatedTools is not { } quantity) return;
+        cardMiningEstimatedTools = Math.Max(0, quantity - 1);
+        Log($"卡矿任务：确认挖矿成功，估算镐子剩余 {cardMiningEstimatedTools}");
+    }
+
+    bool InferredCardMiningToolsExhausted()
+    {
+        if (!cardMiningEstimateUsed || cardMiningEstimatedTools is not 0) return false;
+        Warn("卡矿任务：数量识别不可用，按上次可信数量和已确认的挖矿次数推定镐子耗尽");
+        return true;
     }
 
     async Task<bool> ConfirmCardMiningToolsExhaustedAsync(CancellationToken token)
@@ -173,6 +244,11 @@ public sealed partial class MainForm
             { Warn($"卡矿任务：第 {check}/3 次镐子耗尽核对超时"); return false; }
             if (status.Quantity is not 0)
             {
+                if (status.Quantity is > 0)
+                {
+                    cardMiningEstimatedTools = status.Quantity;
+                    cardMiningEstimateUsed = false;
+                }
                 Log($"卡矿任务：第 {check}/3 次耗尽核对未通过，数量={(status.Quantity?.ToString() ?? "未识别")}");
                 return false;
             }
@@ -200,6 +276,8 @@ public sealed partial class MainForm
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) { Warn($"卡矿任务读取镐子数量失败：{ex.Message}"); return false; }
         if (!status.IconPresent || status.Quantity is null || status.Quantity < config.CardMiningMinimumTools) return false;
+        cardMiningEstimatedTools = status.Quantity;
+        cardMiningEstimateUsed = false;
         await touch.EmergencyRelease();
         cardMiningEarlyStop = true;
         ClearMiningRoute();

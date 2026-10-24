@@ -19,10 +19,7 @@
     "maxTimes": 11
   },
   "主城标题已识别": {
-    "recognition": "TemplateMatch",
-    "template": ["templates/ui/ui_title_bastan.png"],
-    "roi": [538, 36, 230, 180],
-    "threshold": 0.75,
+    "recognition": "Custom",
     "action": "DoNothing",
     "handler": "DungeonEntryStep",
     "next": ["进入目标地图"],

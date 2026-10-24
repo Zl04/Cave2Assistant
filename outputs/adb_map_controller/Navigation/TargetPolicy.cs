@@ -8,7 +8,7 @@ public enum TargetKind
 {
     None, Unknown, NormalMonster, GroupMonster, Elite, SmallBoss, Boss,
     Pot, StonePile, WoodChest, GoldChest, Gold, Key, Rune,
-    Altar, Enchanting, Merchant, DirectBossNpc, Trap, Exit, Portal, Chamber, Mechanism,
+    Altar, Enchanting, Merchant, DirectBossNpc, Trap, Exit, Portal, Chamber, MechanismChamber, Mechanism,
     GuildTechnology, GuildMerchant, GuildBoard, WishingPool, GuildAuction, GuildDungeon
 }
 
@@ -36,6 +36,7 @@ public static class TargetPolicy
         "出口" => TargetKind.Exit,
         "传送门" or "秘境传送门" => TargetKind.Portal,
         "密室" => TargetKind.Chamber,
+        "机关密室" => TargetKind.MechanismChamber,
         "机关" => TargetKind.Mechanism,
         "公会科技" => TargetKind.GuildTechnology,
         "公会商人" => TargetKind.GuildMerchant,
@@ -61,7 +62,7 @@ public static class TargetPolicy
             TargetKind.Gold => options.Gold,
             TargetKind.Rune => options.Runes,
             TargetKind.Altar => options.Altars,
-            TargetKind.Chamber or TargetKind.Mechanism => options.Chambers,
+            TargetKind.Chamber or TargetKind.MechanismChamber or TargetKind.Mechanism => options.Chambers,
             _ => false
         });
 }

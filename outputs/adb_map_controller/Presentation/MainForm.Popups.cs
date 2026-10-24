@@ -260,7 +260,7 @@ public sealed partial class MainForm
                 return;
             }
             var blockedBefore = dungeon.Blocked.Count;
-            var plan = Planner.PlanForFloorRecoveringTemporaryBlocks(dungeon.Map, Options(), dungeon.Blocked, visitedMechanisms);
+            var plan = Planner.PlanForFloorRecoveringTemporaryBlocks(dungeon.Map, Options(), dungeon.Blocked);
             if (blockedBefore > 0 && dungeon.Blocked.Count == 0)
                 Log($"临时封锁切断全部目标路线，已撤销 {blockedBefore} 个封锁并恢复规划");
             route = plan.Route; plannedInteractions = plan.Interactions; plannedTargetUniverse = plan.TargetUniverse;

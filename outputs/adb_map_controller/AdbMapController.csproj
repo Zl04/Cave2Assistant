@@ -53,6 +53,7 @@
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="Always" />
     <Content Include="Resources\UiTemplates\**\*"
+             Exclude="Resources\UiTemplates\Guild\dungeon-boss-*.png;Resources\UiTemplates\Guild\review-candidates.png"
              Link="templates\ui\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="Always" />

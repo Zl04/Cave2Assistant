@@ -38,12 +38,12 @@ public static class Planner
     /// 但游戏拥有的地图仍有可行路线，则丢弃过期阻塞并使用有效规划。
     /// </summary>
     public static RoutePlan PlanFullRecoveringTemporaryBlocks(MapDump map, PlanOptions options,
-        HashSet<Cell> blocked, IReadOnlySet<Cell>? completedMechanisms = null)
+        HashSet<Cell> blocked)
     {
-        var plan = PlanFull(map, options, blocked, completedMechanisms);
+        var plan = PlanFull(map, options, blocked);
         if (HasExecutablePlan(plan) || blocked.Count == 0) return plan;
 
-        var unblockedPlan = PlanFull(map, options, null, completedMechanisms);
+        var unblockedPlan = PlanFull(map, options, null);
         if (!HasExecutablePlan(unblockedPlan)) return plan;
         blocked.Clear();
         return unblockedPlan;
@@ -54,16 +54,16 @@ public static class Planner
     /// 特殊房间通过此入口接入，避免调用方各自复制楼型分支。
     /// </summary>
     public static RoutePlan PlanForFloorRecoveringTemporaryBlocks(MapDump map, PlanOptions options,
-        HashSet<Cell> blocked, IReadOnlySet<Cell>? completedMechanisms = null)
+        HashSet<Cell> blocked)
     {
         var plan = FloorPlanningPolicy.IsMonsterHuntRoom(map)
             ? PlanMonsterHunt(map, blocked)
-            : PlanFull(map, options, blocked, completedMechanisms);
+            : PlanFull(map, options, blocked);
         if (HasExecutablePlan(plan) || blocked.Count == 0) return plan;
 
         var unblockedPlan = FloorPlanningPolicy.IsMonsterHuntRoom(map)
             ? PlanMonsterHunt(map)
-            : PlanFull(map, options, null, completedMechanisms);
+            : PlanFull(map, options, null);
         if (!HasExecutablePlan(unblockedPlan)) return plan;
         blocked.Clear();
         return unblockedPlan;
@@ -212,7 +212,7 @@ public static class Planner
         };
     }
 
-    public static RoutePlan PlanFull(MapDump map, PlanOptions options, IReadOnlySet<Cell>? blocked = null, IReadOnlySet<Cell>? completedMechanisms = null)
+    public static RoutePlan PlanFull(MapDump map, PlanOptions options, IReadOnlySet<Cell>? blocked = null)
     {
         var tiles = map.ByCell;
         var start = new Cell(map.Player.X, map.Player.Y);
@@ -223,7 +223,8 @@ public static class Planner
 
         var targets = tiles.Values
             .SelectMany(tile => tile.Roles.Where(role => TargetPolicy.IsSelected(role, options) &&
-                (role.Kind != "机关" || (!tile.Reached && !(completedMechanisms?.Contains(new Cell(tile.X, tile.Y)) ?? false))) &&
+                (role.Kind != "机关" || MechanismChamberPolicy.IsPendingTrigger(role)) &&
+                (role.Kind != "机关密室" || MechanismChamberPolicy.IsAvailableEntrance(role)) &&
                 (role.Kind is not ("Boss" or "小Boss") || IsBossAttackable(map, role)))
                 .Select(role => new TargetKey(new Cell(tile.X, tile.Y), role.Kind)))
             .Where(target => !(options.IgnoredTargets?.Contains(target) ?? false))
@@ -254,6 +255,16 @@ public static class Planner
             }
         }
         var universe = targets.ToHashSet();
+        if (targets.Any(target => target.Kind == "机关" && target.Cell == start))
+        {
+            var exit = Dirs.Select(direction => new Cell(start.X + direction.X, start.Y + direction.Y))
+                .Where(cell => tiles.TryGetValue(cell, out var tile) && tile.Walkable &&
+                    !(blocked?.Contains(cell) ?? false) && !tile.Roles.Any(IsNavigationPortal))
+                .Select(cell => (Cell?)cell).FirstOrDefault();
+            if (exit is { } next)
+                return new RoutePlan { Route = [start, next], TargetUniverse = universe,
+                    WalkableCells = walkableCount, UnexploredCells = unexploredCount };
+        }
         var pending = targets.ToList();
         var uncovered = tiles.Values.Where(tile => tile.Walkable && !tile.Explored).Select(tile => new Cell(tile.X, tile.Y)).ToHashSet();
         var route = new List<Cell> { start };
@@ -272,8 +283,6 @@ public static class Planner
 
             foreach (var target in pending)
             {
-                // 机关密室必须先踩够已发现的机关，再到入口；否则入口交互会失败。
-                if (target.Kind == "密室" && pending.Any(other => other.Kind == "机关")) continue;
                 // 某些楼层需要先从普通敌人处获得预警值，才能攻击楼层 Boss。
                 // 将 Boss 保持为敌人列表中的最后一个。
                 if (target.Kind is "Boss" or "小Boss" && pending.Any(other => other.Kind is "小怪" or "群怪" or "精英")) continue;
@@ -316,7 +325,7 @@ public static class Planner
             {
                 pending.Remove(task);
                 if (task.Kind is "小怪" or "群怪" or "精英") clearedMonsters.Add(task.Cell);
-                if (RequiresExplicitInteraction(task.Kind) || task.Kind is "密室") interactions.Add(new(cursor, task));
+                if (RequiresExplicitInteraction(task.Kind) || task.Kind is "密室" or "机关密室") interactions.Add(new(cursor, task));
             }
         }
         if (!options.AttackBoss)
@@ -561,7 +570,7 @@ public static class Planner
 
         // 拾取类目标通过走过其所在格收集。怪物在被击败前会占据其所在格，
         // 因此怪物的停靠点是相邻的可通行格。
-        if (target.Kind is "金币" or "钥匙" or "符文" or "机关" or "密室"
+        if (target.Kind is "金币" or "钥匙" or "符文" or "机关" or "密室" or "机关密室"
             && tiles.TryGetValue(target.Cell, out var passThrough) && passThrough.Walkable)
         { yield return target.Cell; yield break; }
         foreach (var d in Dirs)

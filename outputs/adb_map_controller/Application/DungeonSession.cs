@@ -14,8 +14,11 @@ public sealed class DungeonSession
     public Cell? LastBlockedAttempt { get; set; }
     public int UnchangedCount { get; set; }
     public HashSet<TargetKey> ConfirmedCompletedTargets { get; } = [];
-    public FloorMechanismState Mechanisms { get; } = new();
     public HashSet<Cell> InteractedChambers { get; } = [];
+    public Dictionary<Cell, (int LastCount, int Failures)> MechanismAttempts { get; } = [];
+    public Dictionary<Cell, (int PreviousCount, long PassedAt)> PendingMechanismPasses { get; } = [];
+    public HashSet<Cell> StalledMechanisms { get; } = [];
+    public long LockedChamberWaitSince { get; set; }
     public HashSet<Cell> ExpectedTaskRoadChanges { get; } = [];
     public FloorStateMachine FloorState { get; } = new();
     public PortalJumpGraph PortalJumps { get; } = new();
@@ -45,8 +48,11 @@ public sealed class DungeonSession
         LastBlockedAttempt = null;
         UnchangedCount = 0;
         ConfirmedCompletedTargets.Clear();
-        Mechanisms.Reset();
         InteractedChambers.Clear();
+        MechanismAttempts.Clear();
+        PendingMechanismPasses.Clear();
+        StalledMechanisms.Clear();
+        LockedChamberWaitSince = 0;
         ExpectedTaskRoadChanges.Clear();
         FloorState.Reset();
         PortalJumps.Clear();

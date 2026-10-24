@@ -406,6 +406,23 @@ public sealed class MapPanel : Panel
             DrawTownRole(g, townIcon, role, p, size, index);
             return;
         }
+        if (role.RoleType == 5 && role.ClassName == "TriggerNpcData")
+        {
+            var triggered = !MechanismChamberPolicy.IsPendingTrigger(role);
+            var offset = index == 0 ? 0 : (index % 2 == 0 ? -1 : 1) * size * .28f;
+            var diameter = size * .78f;
+            var center = new PointF(p.X + offset, p.Y);
+            using var fill = new SolidBrush(triggered ? Color.FromArgb(39, 175, 100) : Color.FromArgb(245, 191, 46));
+            using var border = new Pen(Color.White, Math.Max(1f, size * .075f));
+            g.FillEllipse(fill, center.X - diameter / 2, center.Y - diameter / 2, diameter, diameter);
+            g.DrawEllipse(border, center.X - diameter / 2, center.Y - diameter / 2, diameter, diameter);
+            if (triggered)
+            {
+                using var centerFill = new SolidBrush(Color.White);
+                g.FillEllipse(centerFill, center.X - size * .12f, center.Y - size * .12f, size * .24f, size * .24f);
+            }
+            return;
+        }
         if (icons.TryGetValue(kind, out var icon)) { DrawCentered(g, icon, p, size, index); return; }
         if (kind == "未知")
         {
@@ -482,7 +499,7 @@ public sealed class MapPanel : Panel
 
     static Dictionary<string, Image> LoadIcons()
     {
-        var names = new Dictionary<string, string> { ["人物"]="player", ["小怪"]="monster", ["群怪"]="group_monster", ["精英"]="elite", ["小Boss"]="small_boss", ["Boss"]="boss", ["罐子"]="pot", ["石堆"]="bone", ["木箱"]="wood_chest", ["金箱"]="gold_chest", ["金币"]="gold", ["钥匙"]="key", ["符文"]="rune", ["点金台"]="altar", ["附魔台"]="enchanting", ["商人"]="merchant", ["陷阱"]="trap", ["出口"]="exit", ["传送门"]="portal", ["秘境传送门"]="chamber", ["密室"]="chamber", ["公会科技"]="ui_minimap_icon_town_upgrade", ["公会商人"]="ui_minimap_icon_town_guildshop", ["公会布告板"]="ui_minimap_icon_town_pipe", ["许愿池"]="guild_wishingpond", ["公会拍卖师"]="guild_auction", ["公会副本"]="guild_selectfloor" };
+        var names = new Dictionary<string, string> { ["人物"]="player", ["小怪"]="monster", ["群怪"]="group_monster", ["精英"]="elite", ["小Boss"]="small_boss", ["Boss"]="boss", ["罐子"]="pot", ["石堆"]="bone", ["木箱"]="wood_chest", ["金箱"]="gold_chest", ["金币"]="gold", ["钥匙"]="key", ["符文"]="rune", ["点金台"]="altar", ["附魔台"]="enchanting", ["商人"]="merchant", ["陷阱"]="trap", ["出口"]="exit", ["传送门"]="portal", ["秘境传送门"]="chamber", ["密室"]="chamber", ["机关密室"]="chamber", ["公会科技"]="ui_minimap_icon_town_upgrade", ["公会商人"]="ui_minimap_icon_town_guildshop", ["公会布告板"]="ui_minimap_icon_town_pipe", ["许愿池"]="guild_wishingpond", ["公会拍卖师"]="guild_auction", ["公会副本"]="guild_selectfloor" };
         var result = new Dictionary<string, Image>(); var folder = Path.Combine(AppContext.BaseDirectory, "icons");
         if (!Directory.Exists(folder)) return result;
         foreach (var pair in names) { var path = Path.Combine(folder, pair.Value + ".png"); if (File.Exists(path)) result[pair.Key] = Image.FromFile(path); }

@@ -114,18 +114,7 @@ public sealed class DungeonEntryAutomation
             {
                 if (task.Name == "点击小地图按钮")
                 {
-                    using var markerFrame = await adb.CaptureScreenForAutomationAsync();
-                    var marker = BuiltInUiTemplateCatalog.FindMinimapPlayer(markerFrame);
-                    var evidence = PipelineEvidenceStore.Save(markerFrame, context.RunId, context.TaskId, log);
-                    return marker is null
-                        ? MaaPipelineRecognitionResult.Miss(detail: "未在小地图区域识别到玩家标记", evidencePath: evidence)
-                        : MaaPipelineRecognitionResult.Hit(
-                            score: marker.Score,
-                            box: new MaaRect(
-                                (int)Math.Round(marker.Center.X * VisionPipeline.DesignWidth / (double)markerFrame.Width),
-                                (int)Math.Round(marker.Center.Y * VisionPipeline.DesignHeight / (double)markerFrame.Height),
-                                1, 1),
-                            detail: $"多比例模板命中小地图玩家标记，得分 {marker.Score:0.000}", evidencePath: evidence);
+                    return MaaPipelineRecognitionResult.Hit(detail: "通过通用巴萨坦地图入口定位并确认");
                 }
                 if (task.Name == "等待副本地图加载")
                 {
@@ -160,12 +149,11 @@ public sealed class DungeonEntryAutomation
                     return MaaPipelineRecognitionResult.Hit(detail: "Pipeline 节点由领域 handler 执行");
                 }
 
-                var check = await CheckBastanMapOpenAsync(token);
-                using var frame = check.Frame;
+                using var frame = await adb.CaptureScreenForAutomationAsync(token);
                 var titleEvidence = PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log);
-                return check.Matched
-                    ? MaaPipelineRecognitionResult.Hit(detail: check.Detail, evidencePath: titleEvidence)
-                    : MaaPipelineRecognitionResult.Miss(detail: check.Detail, evidencePath: titleEvidence);
+                return BastanMapOpening.IsOpen(frame)
+                    ? MaaPipelineRecognitionResult.Hit(detail: "巴萨坦地图已打开", evidencePath: titleEvidence)
+                    : MaaPipelineRecognitionResult.Miss(detail: "巴萨坦地图未打开", evidencePath: titleEvidence);
             },
             async (task, recognition, context, token) =>
             {
@@ -208,10 +196,7 @@ public sealed class DungeonEntryAutomation
                 }
                 if (task.Name == "点击小地图按钮")
                 {
-                    if (recognition.Box is not { } marker)
-                        return MaaPipelineActionResult.Failure("小地图玩家标记没有可用坐标");
-                    await adb.TapScreen(marker.X / (double)VisionPipeline.DesignWidth,
-                        marker.Y / (double)VisionPipeline.DesignHeight);
+                    await BastanMapOpening.EnsureOpenAsync(adb, log, token);
                     return MaaPipelineActionResult.Success();
                 }
                 try { await ExecutePipelineStepAsync(task.Name, selection, token); }
@@ -244,7 +229,7 @@ public sealed class DungeonEntryAutomation
             case "确认噩梦继续挑战":
                 return;
             case "主城地图打开失败":
-                throw new InvalidOperationException("未能识别主城标题或小地图玩家标记，已停止进图；请确认仍在巴萨坦主城并检查游戏分辨率/缩放");
+                throw new InvalidOperationException("未能确认巴萨坦地图打开，已停止进图；请确认仍在巴萨坦主城并检查游戏分辨率/缩放");
             case "点击噩梦继续绿色勾":
                 await ConfirmNightmareContinue(selection, token);
                 return;
@@ -799,30 +784,8 @@ public sealed class DungeonEntryAutomation
 
     async Task EnsureBastanMapOpen(CancellationToken token)
     {
-        for (var attempt = 1; attempt <= 10; attempt++)
-        {
-            token.ThrowIfCancellationRequested();
-            var check = await CheckBastanMapOpenAsync(token);
-            using var frame = check.Frame;
-            if (check.Matched)
-            {
-                state("已确认巴萨坦地图面板打开");
-                return;
-            }
-
-            var marker = BuiltInUiTemplateCatalog.FindMinimapPlayer(frame);
-            if (marker is null || marker.Score < .55)
-            {
-                state($"等待识别游戏内小地图按钮 ({attempt}/10)");
-                await Delay(token, 300);
-                continue;
-            }
-
-            log($"识图确认小地图按钮：({marker.Center.X},{marker.Center.Y})，相似度 {marker.Score:0.000}");
-            await adb.TapScreen(marker.Center.X / (double)frame.Width, marker.Center.Y / (double)frame.Height);
-            await Delay(token, 700);
-        }
-        throw new InvalidOperationException("未能通过识别小地图按钮打开巴萨坦主城地图面板");
+        await BastanMapOpening.EnsureOpenAsync(adb, log, token);
+        state("已确认巴萨坦地图面板打开");
     }
 
     async Task<LocatedVisualMatch> LocateConfirmedCityEntrance(int templateMapId, string mapName, CancellationToken token)

@@ -11,7 +11,7 @@
   "Gold": false,
   "Runes": false,
   "Altars": false,
-  "Chambers": false,
+  "Chambers": true,
   "AutoEquipmentSale": true,
   "SellBlueWhite": true,
   "SellPurple": false,
@@ -21,7 +21,7 @@
   "MiningTileWidth": 200,
   "MiningTileHeight": 100,
   "MiningInterval": 2000,
-  "Mining": true,
+  "Mining": false,
   "CardMining": false,
   "SingleCellPulseHold": 75,
   "MovementReleaseLead": 70,
@@ -59,6 +59,10 @@
   "EternalWinterSweepCount": 1,
   "GhostAbyssFloor": 1,
   "GhostAbyssDouble": false,
+  "GuildWish": true,
+  "GuildCrystalShop": true,
+  "GuildDungeon": true,
+  "GuildBoss": 1,
   "ExecutionTasks": [],
   "TaskTemplates": [
     {
@@ -561,11 +565,32 @@
           "Altars": false,
           "Chambers": false,
           "TaskKind": "GhostAbyss",
-          "TaskEnabled": true,
+          "TaskEnabled": false,
           "SwitchEquipmentSet": false,
           "EquipmentSet": 1,
           "GhostAbyssFloor": 22,
           "GhostAbyssDouble": true
+        },
+        {
+          "AttackBoss": true,
+          "DirectBossNpc": false,
+          "Monsters": false,
+          "Elites": false,
+          "Chests": false,
+          "Pots": false,
+          "Bones": false,
+          "Gold": false,
+          "Runes": false,
+          "Altars": false,
+          "Chambers": false,
+          "TaskKind": "GuildTasks",
+          "TaskEnabled": true,
+          "SwitchEquipmentSet": true,
+          "EquipmentSet": 1,
+          "GuildWish": true,
+          "GuildCrystalShop": true,
+          "GuildDungeon": true,
+          "GuildBoss": 2
         }
       ]
     }

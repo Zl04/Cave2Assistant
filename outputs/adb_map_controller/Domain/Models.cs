@@ -55,6 +55,8 @@ public sealed class RoleInfo
     public bool NormalMonster { get; set; }
     public bool GroupMonster { get; set; }
     public bool Opened { get; set; }
+    public int TriggeredCount { get; set; }
+    public int TriggerCountMax { get; set; }
     public string ClassName { get; set; } = "";
 
     // 神秘商人地图中的 Boss 直达 NPC；与商人同为功能 NPC，但使用独立的小地图类型。
@@ -93,10 +95,8 @@ public sealed class RoleInfo
                 "TriggerNpcData" when RoleType == 3 => "金币",
                 "TriggerNpcData" when RoleType == 12 => "陷阱",
                 "TriggerNpcData" when RoleType == 18 => "钥匙",
-                // 密室节点由运行时直接下发：普通密室入口使用 type=4，机关密室入口
-                // 使用 type=6；两者 minimap 均为 1001。机关触发点使用 type=5，
-                // 游戏小地图对触发点不绘制图标。
-                "TriggerNpcData" when RoleType is 4 or 6 && MinimapType == 1001 => "密室",
+                "TriggerNpcData" when RoleType == 4 && MinimapType == 1001 => "密室",
+                "TriggerNpcData" when RoleType == 6 && MinimapType == 1001 => "机关密室",
                 "TriggerNpcData" when RoleType == 5 => "机关",
                 "TriggerNpcData" when RoleType == 8 && MinimapType == 5 => "符文",
                 "MonsterData" or "TriggerNpcData" => "未知",

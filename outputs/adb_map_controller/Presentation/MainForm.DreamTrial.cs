@@ -166,25 +166,10 @@ public sealed partial class MainForm
 
     async Task<bool> OpenDreamTrialPanelAsync(CancellationToken token)
     {
-        for (var attempt = 0; attempt < 8; attempt++)
-        {
-            token.ThrowIfCancellationRequested();
-            using var frame = await adb.CaptureScreenForAutomationAsync(token);
-            if (BuiltInUiTemplateCatalog.FindBastanTitle(frame) is not null)
-            {
-                await adb.TapScreen(.495, .247);
-                await Task.Delay(450, token);
-                return await WaitForDreamTrialPanelAsync(token);
-            }
-            var marker = BuiltInUiTemplateCatalog.FindMinimapPlayer(frame);
-            if (marker is not null && marker.Score >= .55)
-            {
-                await adb.TapScreen(marker.Center.X / (double)frame.Width, marker.Center.Y / (double)frame.Height);
-                await Task.Delay(500, token);
-            }
-            else await Task.Delay(300, token);
-        }
-        return false;
+        await BastanMapOpening.EnsureOpenAsync(adb, message => Log(message), token);
+        await adb.TapScreen(.495, .247);
+        await Task.Delay(450, token);
+        return await WaitForDreamTrialPanelAsync(token);
     }
 
     async Task CloseDreamTrialPanelAsync(CancellationToken token)

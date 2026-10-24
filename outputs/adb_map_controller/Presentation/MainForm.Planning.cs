@@ -158,7 +158,8 @@ public sealed partial class MainForm
                     ? escapeReturnAttackBoss.Checked : includeAll || attackBoss.Checked) ||
                 (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
             DirectBossNpc = directBossNpc.Checked,
-            IgnoredTargets = ignoredDirectBossTargets,
+            IgnoredTargets = ignoredDirectBossTargets.Concat(dungeon.StalledMechanisms.Concat(dungeon.PendingMechanismPasses.Keys)
+                .Select(cell => new TargetKey(cell, "机关"))).ToHashSet(),
             Monsters = includeAll || monsters.Checked ||
                 (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
             Elites = includeAll || elites.Checked || (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
@@ -178,8 +179,9 @@ public sealed partial class MainForm
         HashCode.Combine(o.AttackBoss, o.Monsters, o.Elites, o.Chests, o.Pots, o.Bones, o.Gold),
         HashCode.Combine(o.Runes, o.Altars, o.Chambers, o.DirectBossNpc, o.VisionRadius));
     HashSet<TargetKey> SelectedTargets(MapDump map, PlanOptions options, bool includeLockedBoss = false) => map.Tiles.SelectMany(row => row)
-        .SelectMany(tile => tile.Roles.Where(role => TargetPolicy.IsSelected(role, options) && !(role.RoleType == 5 && role.Opened) &&
-            (role.Kind != "机关" || (!tile.Reached && !visitedMechanisms.Contains(new Cell(tile.X, tile.Y)))) &&
+        .SelectMany(tile => tile.Roles.Where(role => TargetPolicy.IsSelected(role, options) &&
+            (role.Kind != "机关" || MechanismChamberPolicy.IsPendingTrigger(role)) &&
+            (role.Kind != "机关密室" || MechanismChamberPolicy.IsAvailableEntrance(role)) &&
             (includeLockedBoss || role.Kind is not ("Boss" or "小Boss") || Planner.IsBossAttackable(map, role)))
             .Select(role => new TargetKey(new Cell(tile.X, tile.Y), role.Kind)))
         .Where(target => !(options.IgnoredTargets?.Contains(target) ?? false)).ToHashSet();
@@ -255,7 +257,10 @@ public sealed partial class MainForm
         return true;
     }
     bool HasTarget(TargetKey target) => dungeon.Map is not null && dungeon.Map.ByCell.TryGetValue(target.Cell, out var tile) &&
-        tile.Roles.Any(role => role.Kind == target.Kind) && (target.Kind != "机关" || (!tile.Reached && !visitedMechanisms.Contains(target.Cell)));
+        !((target.Kind == "机关") && (dungeon.StalledMechanisms.Contains(target.Cell) || dungeon.PendingMechanismPasses.ContainsKey(target.Cell))) &&
+        tile.Roles.Any(role => role.Kind == target.Kind &&
+            (target.Kind != "机关" || MechanismChamberPolicy.IsPendingTrigger(role)) &&
+            (target.Kind != "机关密室" || MechanismChamberPolicy.IsAvailableEntrance(role)));
     bool IsAtPlannedInteractionStop(Cell cell)
         => plannedInteractions.Any(task => task.Stop == cell &&
             (HasTarget(task.Target) || PortalRouting.IsPortalKind(task.Target.Kind)));
@@ -291,6 +296,7 @@ public sealed partial class MainForm
 
     bool PortalPrerequisitesMet(MapDump map)
     {
+        if (Options().Chambers && MechanismChamberPolicy.HasLockedEntrance(map)) return false;
         // 已存在的封印具有权威性：在其分数达到唤醒阈值前，守护 Boss 必须继续作为战斗目标。
         var requireBoss = !IsEscapeReturnFloor(map) || escapeReturnAttackBoss.Checked;
         if (requireBoss && BossSealPolicy.IsActive(map) && !map.BossSeal.Ready) return false;
@@ -322,6 +328,10 @@ public sealed partial class MainForm
             dungeon.LastAcceptedPlayerCell = null;
             dungeon.LastAcceptedPlayerAt = 0;
             dungeon.InteractedChambers.Clear();
+            dungeon.MechanismAttempts.Clear();
+            dungeon.PendingMechanismPasses.Clear();
+            dungeon.StalledMechanisms.Clear();
+            dungeon.LockedChamberWaitSince = 0;
             dungeon.ShortcutDeferredByTargets = false;
             dungeon.TargetFloorStopped = false;
             dungeon.PortalCandidate = null; dungeon.PortalConfirmCount = 0; dungeon.Route.Clear();
@@ -398,7 +408,8 @@ public sealed partial class MainForm
     bool HasPlanningWork(MapDump map)
     {
         var options = Options();
-        return Planner.HasReachableUnexplored(map, dungeon.Blocked) ||
+        return options.Chambers && MechanismChamberPolicy.HasLockedEntrance(map) ||
+            Planner.HasReachableUnexplored(map, dungeon.Blocked) ||
             ReachableActiveTargets(map, options).Count > 0 ||
             (BossSealPolicy.IsActive(map) && !map.BossSeal.Ready && !options.Monsters && map.BossSeal.WakeScore > map.BossSeal.CurScore);
     }
@@ -543,7 +554,8 @@ public sealed partial class MainForm
         // 在游戏移除该 Boss 节点前，必须阻止进入下一层。
         var hasRequiredBoss = options.AttackBoss && map.Tiles.SelectMany(row => row).SelectMany(tile => tile.Roles)
             .Any(role => role.Kind is "Boss" or "小Boss");
-        var pendingCount = pending.Count + (hasRequiredBoss ? 1 : 0);
+        var lockedChamber = options.Chambers && MechanismChamberPolicy.HasLockedEntrance(map);
+        var pendingCount = pending.Count + (hasRequiredBoss ? 1 : 0) + (lockedChamber ? 1 : 0);
         if (pendingCount > 0)
         {
             if (!dungeon.ShortcutDeferredByTargets)
@@ -671,7 +683,7 @@ public sealed partial class MainForm
         {
             var reason = force ? "手动" : plannedWalkability.Count == 0 ? "首次" : roadChanged ? "计划外道路变化" : optionsChanged ? "选项变化" : newTargets.Count > 0 ? $"出现 {newTargets.Count} 个计划外目标" : "人物偏离或剩余路线结束";
             var blockedBefore = dungeon.Blocked.Count;
-            var plan = Planner.PlanForFloorRecoveringTemporaryBlocks(dungeon.Map, options, dungeon.Blocked, visitedMechanisms);
+            var plan = Planner.PlanForFloorRecoveringTemporaryBlocks(dungeon.Map, options, dungeon.Blocked);
             if (blockedBefore > 0 && dungeon.Blocked.Count == 0)
                 Log($"临时封锁切断全部目标路线，已撤销 {blockedBefore} 个封锁并恢复规划");
             route = plan.Route; plannedInteractions = plan.Interactions; plannedTargetUniverse = plan.TargetUniverse;

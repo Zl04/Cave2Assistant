@@ -9,6 +9,7 @@ public sealed partial class MainForm
     readonly CheckBox sellPurple = Box("紫色装备");
     readonly CheckBox sellDarkGold = Box("暗金装备");
     readonly CheckBox sellGold = Box("金色装备");
+    readonly CheckBox sellRed = Box("红色装备");
     string? attemptedMerchantMap;
 
     async Task HandleMerchantEquipmentSale(MapDump map, CancellationToken token)
@@ -35,7 +36,8 @@ public sealed partial class MainForm
 
     async Task<bool> RunEquipmentSaleAsync(CancellationToken token)
     {
-        var options = new EquipmentSaleOptions(sellBlueWhite.Checked, sellPurple.Checked, sellDarkGold.Checked, sellGold.Checked);
+        var options = new EquipmentSaleOptions(sellBlueWhite.Checked, sellPurple.Checked, sellDarkGold.Checked,
+            sellGold.Checked, sellRed.Checked);
         if (!options.BlueWhite && !options.HasSelective)
         {
             Warn("未选择任何出售品质"); return false;

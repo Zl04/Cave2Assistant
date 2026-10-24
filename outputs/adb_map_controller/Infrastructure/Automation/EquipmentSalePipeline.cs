@@ -23,11 +23,12 @@ sealed class AdbEquipmentSaleDevice(AdbClient adb) : IEquipmentSaleDevice
     public Task SwipeAsync(double x, double y, double endX, double endY, int durationMs) => adb.SwipeScreen(x, y, endX, endY, durationMs);
 }
 
-public sealed record EquipmentSaleOptions(bool BlueWhite, bool Purple, bool DarkGold, bool Gold)
+public sealed record EquipmentSaleOptions(bool BlueWhite, bool Purple, bool DarkGold, bool Gold, bool Red = false)
 {
-    public bool HasSelective => Purple || DarkGold || Gold;
+    public bool HasSelective => Purple || DarkGold || Gold || Red;
     public bool Allows(SaleQuality quality) => quality switch
-    { SaleQuality.Purple => Purple, SaleQuality.DarkGold => DarkGold, SaleQuality.Gold => Gold, _ => false };
+    { SaleQuality.Purple => Purple, SaleQuality.DarkGold => DarkGold, SaleQuality.Gold => Gold,
+        SaleQuality.Red => Red, _ => false };
 }
 
 public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePipeline>
@@ -38,6 +39,7 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
     readonly Action<string> log;
     readonly MaaPipelineCatalog catalog;
     int selected;
+    bool hasSelection;
     SaleGrid? grid;
     bool end;
     string? lastPage;
@@ -116,7 +118,7 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
         if (task.Name == "SkipBlueWhite") return options.BlueWhite
             ? await OptionalQuickAbsent(context, token) : MaaPipelineRecognitionResult.Hit(detail: "蓝白出售已关闭");
         if (task.Name == "SkipSelective") return options.HasSelective ? MaaPipelineRecognitionResult.Miss() : MaaPipelineRecognitionResult.Hit();
-        if (task.Name == "SelectedSubmit" && selected == 0 || task.Name == "EmptySelectionExit" && selected != 0)
+        if (task.Name == "SelectedSubmit" && !hasSelection || task.Name == "EmptySelectionExit" && hasSelection)
             return MaaPipelineRecognitionResult.Miss();
         if (task.Name == "Scroll") return !end ? MaaPipelineRecognitionResult.Hit() : MaaPipelineRecognitionResult.Miss();
         if (task.Name == "Scan") return MaaPipelineRecognitionResult.Hit();
@@ -218,7 +220,7 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
     {
         token.ThrowIfCancellationRequested(); log($"出售 Pipeline：{task.Name}，已选 {selected}");
         if (task.Name == "Prepare")
-            log($"出售品质：蓝白={options.BlueWhite}，紫={options.Purple}，暗金={options.DarkGold}，金={options.Gold}");
+            log($"出售品质：蓝白={options.BlueWhite}，紫={options.Purple}，暗金={options.DarkGold}，金={options.Gold}，红={options.Red}");
         if (task.Name == "FailClose") return MaaPipelineActionResult.Failure("背包返回按钮重试达到上限");
         if (task.Name == "Scan") return await Scan(token);
         if (task.Name == "Scroll")
@@ -235,7 +237,7 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
         {
             if (recognition.Box is not { } box) return MaaPipelineActionResult.Failure("点击目标缺失");
             await device.TapAsync((box.X + box.Width / 2d) / 1004, (box.Y + box.Height / 2d) / 565);
-            if (task.Name == "SelectedSubmit") log($"出售成功：已点击确认，累计勾选 {selected}，返回关闭背包");
+            if (task.Name == "SelectedSubmit") log($"出售成功：已点击确认，本次新增勾选 {selected}，返回关闭背包");
         }
         return MaaPipelineActionResult.Success();
     }
@@ -309,19 +311,7 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
         }
         grid = EquipmentSaleVision.Detect(frame, visionSettings);
         if (grid is null) return MaaPipelineActionResult.Failure("网格拟合未通过，未执行装备点击");
-        var toCancel = grid.Cells.Where(c => c.Selected && (!options.Allows(c.Quality) || selected == 0)).ToArray();
-        foreach (var cell in toCancel)
-        {
-            var correction = await CancelSelection(cell, token);
-            if (!correction.Succeeded) return correction;
-        }
-        if (toCancel.Length > 0)
-        {
-            using var corrected = await Capture(token);
-            if (Match(corrected, catalog.Get("SelectionActive")).Matched &&
-                !Match(corrected, catalog.Get("SelectedSubmit")).Matched) selected = 0;
-            return await RefreshScan(token, refreshAttempt, "取消勾选后重新拟合网格");
-        }
+        hasSelection |= selectedSubmit || grid.Cells.Any(c => c.Selected);
         // 空格需要相隔稳定等待的两帧确认，且仍须处理同页的其余格子。
         end = false;
         if (grid.Cells.Any(c => c.Empty))
@@ -335,6 +325,7 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
             frame.GetPixel(c.Bounds.Left + 30, c.Bounds.Top + 30).ToArgb()));
         if (refreshAttempt == 0) { stalled = signature == lastPage ? stalled + 1 : 0; lastPage = signature; }
         if (!end && stalled >= 3) return MaaPipelineActionResult.Failure("慢拖后网格内容连续未变化，未把停滞当作末页");
+        var clickedThisScan = false;
         foreach (var cell in grid.Cells)
         {
             if (cell.Empty || cell.Selected || cell.Checkbox is null || !options.Allows(cell.Quality)) continue;
@@ -344,7 +335,7 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
             var center = new DrawingPoint(cell.Bounds.Left + cell.Bounds.Width / 2, cell.Bounds.Top + cell.Bounds.Height / 2);
             var now = currentGrid?.Cells.FirstOrDefault(c => c.Bounds.Contains(center));
             if (now is null || Math.Abs(now.Bounds.X - cell.Bounds.X) > 2 || Math.Abs(now.Bounds.Y - cell.Bounds.Y) > 2)
-                return await RefreshScan(token, refreshAttempt, $"点击前网格位置变化，原格子={cell.Bounds}");
+                return await RefreshScan(token, clickedThisScan ? 0 : refreshAttempt, $"点击前网格位置变化，原格子={cell.Bounds}");
             if (now.Selected) continue;
             if (now.Quality == SaleQuality.Unknown)
             {
@@ -352,7 +343,7 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
                 continue;
             }
             if (now.Checkbox is not DrawingPoint target || now.Quality != cell.Quality)
-                return await RefreshScan(token, refreshAttempt,
+                return await RefreshScan(token, clickedThisScan ? 0 : refreshAttempt,
                     $"点击前装备状态变化：格子={cell.Bounds}，品质={cell.Quality}→{now.Quality}，未选方框={now.Checkbox is not null}");
             await device.TapAsync(target.X / 1004d, target.Y / 565d);
             var checkArea = new Rectangle(target.X - 18, target.Y - 18, 36, 36);
@@ -369,6 +360,8 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
             if (!confirmed)
                 return MaaPipelineActionResult.Failure("装备勾选未确认，停止以免反复切换");
             selected++;
+            hasSelection = true;
+            clickedThisScan = true;
         }
         return MaaPipelineActionResult.Success();
     }
@@ -380,28 +373,5 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
             return MaaPipelineActionResult.Failure($"装备状态连续不稳定，重新扫描达到上限：{reason}");
         await Task.Delay(settleDelay, token);
         return await Scan(token, attempt + 1);
-    }
-
-    async Task<MaaPipelineActionResult> CancelSelection(SaleCell cell, CancellationToken token)
-    {
-        using var fresh = await Capture(token);
-        var current = EquipmentSaleVision.Inspect(fresh, cell.Bounds, visionSettings);
-        if (!current.Selected) return MaaPipelineActionResult.Success();
-        var target = new DrawingPoint(cell.Bounds.Right - 16, cell.Bounds.Top + 12);
-        log($"取消装备勾选：{cell.Quality}，({target.X},{target.Y})");
-        await device.TapAsync(target.X / 1004d, target.Y / 565d);
-        var timer = System.Diagnostics.Stopwatch.StartNew();
-        while (timer.ElapsedMilliseconds < checkTimeoutMs)
-        {
-            await Task.Delay(checkIntervalMs, token);
-            using var after = await Capture(token);
-            var now = EquipmentSaleVision.Inspect(after, cell.Bounds, visionSettings);
-            if (!now.Selected && now.Checkbox is not null)
-            {
-                log("取消装备勾选：已确认恢复未选方框");
-                return MaaPipelineActionResult.Success();
-            }
-        }
-        return MaaPipelineActionResult.Failure("取消装备勾选未确认，未提交出售");
     }
 }

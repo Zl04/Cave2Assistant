@@ -233,7 +233,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         var bonusOptions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
         bonusOptions.Controls.Add(bonusPriorityToggle);
         var saleOptions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
-        saleOptions.Controls.AddRange([autoEquipmentSale, sellBlueWhite, sellPurple, sellDarkGold, sellGold]);
+        saleOptions.Controls.AddRange([autoEquipmentSale, sellBlueWhite, sellPurple, sellDarkGold, sellGold, sellRed]);
         var floorStop = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
         floorStop.Controls.AddRange([new Label { Text = "指定层停住：", AutoSize = true }, targetStopFloor, new Label { Text = "层（0=关闭，完成所选目标后自动停住）", AutoSize = true }, mining, cardMining, cardLayer]);
         var escapeReturnOptions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
@@ -306,7 +306,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             await RefreshMap();
             if (!closing) refreshTimer.Start();
         });
-        foreach (var control in new Control[] { attackBoss, directBossNpc, monsters, elites, chests, pots, bones, gold, runes, altars, chambers, autoEquipmentSale, sellBlueWhite, sellPurple, sellDarkGold, sellGold, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, interactionSettleDelay, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, escapeReturnFloor, escapeReturnAttackBoss, mining, cardMining, cardLayer, entryMapChoice, entryChoice, entryDifficulty, entryRunCount })
+        foreach (var control in new Control[] { attackBoss, directBossNpc, monsters, elites, chests, pots, bones, gold, runes, altars, chambers, autoEquipmentSale, sellBlueWhite, sellPurple, sellDarkGold, sellGold, sellRed, bonusPriority, singleCellPulseHold, movementReleaseLead, interactionHold, interactionSettleDelay, stallTimeout, newFloorStartDelay, routeRecoveryAttempts, targetStopFloor, escapeReturnFloor, escapeReturnAttackBoss, mining, cardMining, cardLayer, entryMapChoice, entryChoice, entryDifficulty, entryRunCount })
             control.Validated += (_, _) => SaveSettings();
         foreach (var control in new Control[] { attackBoss, directBossNpc, monsters, elites, chests, pots, bones, gold, runes, altars, chambers })
         {
@@ -492,7 +492,8 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         if (applyEquipmentSale)
         {
             autoEquipmentSale.Checked = s.AutoEquipmentSale; sellBlueWhite.Checked = s.SellBlueWhite;
-            sellPurple.Checked = s.SellPurple; sellDarkGold.Checked = s.SellDarkGold; sellGold.Checked = s.SellGold;
+            sellPurple.Checked = s.SellPurple; sellDarkGold.Checked = s.SellDarkGold;
+            sellGold.Checked = s.SellGold; sellRed.Checked = s.SellRed;
         }
         themeChoice.SelectedIndex = Math.Clamp((int)s.Theme, 0, 2);
         alwaysOnTop.Checked = s.AlwaysOnTop;
@@ -546,7 +547,8 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             Altars = altars.Checked,
             Chambers = chambers.Checked,
             AutoEquipmentSale = autoEquipmentSale.Checked, SellBlueWhite = sellBlueWhite.Checked,
-            SellPurple = sellPurple.Checked, SellDarkGold = sellDarkGold.Checked, SellGold = sellGold.Checked,
+            SellPurple = sellPurple.Checked, SellDarkGold = sellDarkGold.Checked,
+            SellGold = sellGold.Checked, SellRed = sellRed.Checked,
             SingleCellPulseHold = singleCellPulseHold.Value,
             MovementReleaseLead = movementReleaseLead.Value,
             MiningTileWidth = miningTileWidth.Value,

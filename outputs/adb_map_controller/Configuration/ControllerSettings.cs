@@ -43,6 +43,7 @@ public sealed class ControllerSettings
     public bool SellPurple { get; set; }
     public bool SellDarkGold { get; set; }
     public bool SellGold { get; set; }
+    public bool SellRed { get; set; }
     public decimal MiningTileWidth { get; set; } = 200;
     public decimal MiningTileHeight { get; set; } = 100;
     public decimal MiningInterval { get; set; } = 3000;

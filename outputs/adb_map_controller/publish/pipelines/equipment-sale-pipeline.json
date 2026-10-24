@@ -8,7 +8,6 @@
       "gapCoverage": 0.7,
       "fitTolerance": 2.1,
       "qualitySaturation": 0.37,
-      "borderCoverage": 0.3,
       "purpleHue": [
         260,
         320
@@ -21,6 +20,10 @@
         34,
         70
       ],
+      "redHue": [
+        350,
+        10
+      ],
       "checkboxColor": [
         183,
         167,
@@ -29,10 +32,7 @@
       "checkboxTolerance": 12,
       "emptyStandardDeviation": 3,
       "selectedCheckTemplate": "templates/ui/EquipmentSale/selected_check.png",
-      "selectedCheckThreshold": 0.97,
-      "borderInset": 4,
-      "borderBandWidth": 2,
-      "borderSideStart": 28
+      "selectedCheckThreshold": 0.97
     },
     "checkTimeoutMs": 2000,
     "checkIntervalMs": 150,

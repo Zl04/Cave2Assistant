@@ -1,0 +1,67 @@
+{
+  "$schema": "https://github.com/MaaAssistantArknights/MaaAssistantArknights/raw/dev-v2/docs/maa_tasks_schema.json",
+  "OpenSignIn": {
+    "algorithm": "MatchTemplate", "handler": "SignInAdb", "action": "ClickSelf",
+    "template": ["templates/ui/sign-in-entry.png"], "templThreshold": 0.72,
+    "roi": [590, 0, 110, 85], "postDelay": 450,
+    "next": ["ConfirmSignInPage"], "timeout": 3000, "rateLimit": 250
+  },
+  "ConfirmSignInPage": {
+    "algorithm": "OcrDetect", "handler": "SignInAdb", "action": "DoNothing",
+    "text": ["签到"], "roi": [430, 0, 420, 100],
+    "next": ["FindClaimableReward"], "timeout": 3800, "rateLimit": 200,
+    "onErrorNext": ["CheckCumulativeReward", "CloseSignIn"]
+  },
+  "FindClaimableReward": {
+    "algorithm": "Custom", "handler": "SignInCustom", "action": "ClickSelf",
+    "postDelay": 300, "next": ["ConfirmRewardDialog"], "timeout": 3000, "rateLimit": 200
+  },
+  "ConfirmRewardDialog": {
+    "algorithm": "MatchTemplate", "handler": "SignInAdb", "action": "DoNothing",
+    "template": ["templates/ui/sign-in-reward-title.png"], "templThreshold": 0.8,
+    "roi": [550, 220, 200, 90],
+    "next": ["ClickRewardConfirm"], "timeout": 2500, "rateLimit": 200
+  },
+  "ClickRewardConfirm": {
+    "algorithm": "MatchTemplate", "handler": "SignInAdb", "action": "ClickSelf",
+    "template": ["templates/ui/sign-in-reward-confirm.png"], "templThreshold": 0.8,
+    "roi": [510, 400, 260, 110],
+    "postDelay": 250, "next": ["VerifyDialogClosed"], "timeout": 3000, "rateLimit": 200
+  },
+  "VerifyDialogClosed": {
+    "algorithm": "Custom", "handler": "SignInCustom", "action": "DoNothing",
+    "next": ["CheckCumulativeReward", "CloseSignIn"], "timeout": 2500, "rateLimit": 200
+  },
+  "CheckCumulativeReward": {
+    "algorithm": "Custom", "handler": "SignInCustom", "action": "DoNothing",
+    "next": ["ConfirmCumulativeDayLabel"], "timeout": 2500, "rateLimit": 200
+  },
+  "ConfirmCumulativeDayLabel": {
+    "algorithm": "Custom", "handler": "SignInCustom", "action": "ClickSelf",
+    "postDelay": 300, "next": ["ConfirmCumulativeDialog"], "timeout": 3000, "rateLimit": 200
+  },
+  "ConfirmCumulativeDialog": {
+    "algorithm": "MatchTemplate", "handler": "SignInAdb", "action": "DoNothing",
+    "template": ["templates/ui/sign-in-reward-title.png"], "templThreshold": 0.8,
+    "roi": [550, 220, 200, 90],
+    "next": ["ClickCumulativeConfirm"], "timeout": 2500, "rateLimit": 200
+  },
+  "ClickCumulativeConfirm": {
+    "algorithm": "MatchTemplate", "handler": "SignInAdb", "action": "ClickSelf",
+    "template": ["templates/ui/sign-in-reward-confirm.png"], "templThreshold": 0.8,
+    "roi": [510, 400, 260, 110],
+    "postDelay": 250, "next": ["VerifyCumulativeDialogClosed"], "timeout": 3000, "rateLimit": 200
+  },
+  "VerifyCumulativeDialogClosed": {
+    "algorithm": "Custom", "handler": "SignInCustom", "action": "DoNothing",
+    "next": ["CheckCumulativeReward", "CloseSignIn"], "timeout": 2500, "rateLimit": 200
+  },
+  "CloseSignIn": {
+    "algorithm": "JustReturn", "handler": "SignInAdb", "action": "ClickRect",
+    "specificRect": [1195, 335, 40, 40], "postDelay": 350,
+    "next": ["VerifySignInClosed"], "timeout": 2500, "rateLimit": 200
+  },
+  "VerifySignInClosed": {
+    "algorithm": "Custom", "handler": "SignInCustom", "action": "DoNothing"
+  }
+}

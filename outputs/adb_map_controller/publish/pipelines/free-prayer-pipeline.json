@@ -1,0 +1,53 @@
+{
+  "OpenPrayer": {
+    "algorithm": "JustReturn", "handler": "PrayerAdb", "action": "ClickRect",
+    "specificRect": [1206, 350, 26, 28], "postDelay": 650,
+    "timeout": 5000, "rateLimit": 250, "next": ["PrayerTitle"]
+  },
+  "PrayerTitle": {
+    "algorithm": "OcrDetect", "handler": "PrayerAdb", "action": "DoNothing",
+    "text": ["神迹许愿"], "roi": [528, 25, 258, 59],
+    "timeout": 2500, "rateLimit": 250, "next": ["FreePrayer", "PaidPrayer"]
+  },
+  "FreePrayer": {
+    "algorithm": "OcrDetect", "handler": "PrayerAdb", "action": "ClickRect",
+    "text": ["免费祈祷"], "roi": [864, 582, 231, 61],
+    "specificRect": [967, 595, 30, 34], "postDelay": 450,
+    "maxTimes": 20, "exceededNext": ["PrayerLimit"],
+    "next": ["ClosePrayer"]
+  },
+  "PaidPrayer": {
+    "algorithm": "JustReturn", "handler": "PrayerAdb", "action": "DoNothing",
+    "next": ["ClosePaidPrayer"]
+  },
+  "ClosePrayer": {
+    "algorithm": "JustReturn", "handler": "PrayerAdb", "action": "ClickRect",
+    "specificRect": [1218, 343, 28, 28], "postDelay": 150,
+    "next": ["SkipPrayerAnimation"]
+  },
+  "SkipPrayerAnimation": {
+    "algorithm": "JustReturn", "handler": "PrayerAdb", "action": "ClickRect",
+    "specificRect": [1218, 343, 28, 28], "postDelay": 300,
+    "timeout": 3500, "rateLimit": 250, "next": ["PrayerClosed"]
+  },
+  "PrayerClosed": {
+    "algorithm": "Custom", "handler": "PrayerCheck", "action": "DoNothing",
+    "roi": [528, 25, 258, 59], "next": ["WaitBeforeReopen"]
+  },
+  "WaitBeforeReopen": {
+    "algorithm": "JustReturn", "handler": "PrayerAdb", "action": "DoNothing",
+    "postDelay": 300, "next": ["OpenPrayer"]
+  },
+  "ClosePaidPrayer": {
+    "algorithm": "JustReturn", "handler": "PrayerAdb", "action": "ClickRect",
+    "specificRect": [1218, 343, 28, 28], "postDelay": 300,
+    "timeout": 3500, "rateLimit": 250, "next": ["PaidPrayerClosed"]
+  },
+  "PaidPrayerClosed": {
+    "algorithm": "Custom", "handler": "PrayerCheck", "action": "DoNothing",
+    "roi": [528, 25, 258, 59]
+  },
+  "PrayerLimit": {
+    "algorithm": "JustReturn", "handler": "PrayerAdb", "action": "Stop"
+  }
+}

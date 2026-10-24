@@ -1,0 +1,40 @@
+{
+  "SoulReady": {
+    "algorithm": "Custom", "handler": "SoulArtifact", "action": "DoNothing",
+    "next": ["Exhausted", "CultivateAvailable"], "timeout": 5000, "rateLimit": 250
+  },
+  "SelectSoulTab": {
+    "algorithm": "OcrDetect", "handler": "SoulAdb", "action": "ClickSelf",
+    "text": ["魂器"], "roi": [640, 0, 230, 82],
+    "timeout": 5000, "rateLimit": 250, "next": ["SoulReady"], "postDelay": 550
+  },
+  "Exhausted": {
+    "algorithm": "Custom", "handler": "SoulArtifact", "action": "DoNothing",
+    "next": ["CloseBag"]
+  },
+  "CultivateAvailable": {
+    "algorithm": "Custom", "handler": "SoulArtifact", "action": "DoNothing",
+    "next": ["Cultivate"]
+  },
+  "Cultivate": {
+    "algorithm": "OcrDetect", "handler": "SoulAdb", "action": "ClickSelf",
+    "text": ["200000"], "roi": [145, 620, 260, 82],
+    "timeout": 3000, "rateLimit": 250, "postDelay": 650,
+    "maxTimes": 20, "exceededNext": ["CultivationLimit"],
+    "next": ["Exhausted", "CultivateAvailable"]
+  },
+  "CultivationLimit": {
+    "algorithm": "JustReturn", "handler": "SoulAdb", "action": "Stop"
+  },
+  "CloseBag": {
+    "algorithm": "Custom", "handler": "SoulArtifact", "action": "ClickSelf",
+    "template": ["templates/ui/EquipmentSale/back.png"],
+    "templThreshold": 0.92, "roi": [1043, 0, 143, 77],
+    "timeout": 3000, "rateLimit": 250, "postDelay": 300,
+    "next": ["BagClosed"]
+  },
+  "BagClosed": {
+    "algorithm": "Custom", "handler": "SoulArtifact", "action": "DoNothing",
+    "timeout": 1500, "rateLimit": 300
+  }
+}

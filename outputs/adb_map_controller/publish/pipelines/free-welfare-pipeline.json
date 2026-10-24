@@ -1,0 +1,85 @@
+{
+  "$schema": "https://github.com/MaaAssistantArknights/MaaAssistantArknights/raw/dev-v2/docs/maa_tasks_schema.json",
+  "OpenWelfare": {
+    "algorithm": "JustReturn", "handler": "WelfareAdb", "action": "ClickRect",
+    "specificRect": [872, 22, 26, 20], "postDelay": 550, "next": ["WelfareTitle"]
+  },
+  "WelfareTitle": {
+    "algorithm": "OcrDetect", "handler": "WelfareAdb", "action": "DoNothing",
+    "text": ["福利活动"], "roi": [159, 38, 261, 70],
+    "timeout": 2500, "rateLimit": 250, "next": ["OpenValueTab"]
+  },
+  "OpenValueTab": {
+    "algorithm": "JustReturn", "handler": "WelfareAdb", "action": "ClickRect",
+    "specificRect": [232, 292, 30, 28], "postDelay": 500,
+    "maxTimes": 4, "exceededNext": ["ValueTabLimit"],
+    "onErrorNext": ["OpenValueTab"], "next": ["ValueTabReady"]
+  },
+  "ValueTabReady": {
+    "algorithm": "OcrDetect", "handler": "WelfareAdb", "action": "DoNothing",
+    "text": ["每日限购"], "roi": [395, 180, 300, 88],
+    "timeout": 1200, "rateLimit": 250,
+    "next": ["ClaimFreeGift", "OpenPrivilegeTab"]
+  },
+  "ValueTabLimit": {
+    "algorithm": "JustReturn", "handler": "WelfareAdb", "action": "Stop"
+  },
+  "ClaimFreeGift": {
+    "algorithm": "OcrDetect", "handler": "WelfareAdb", "action": "ClickSelf",
+    "text": ["免费"], "roi": [389, 535, 752, 83],
+    "postDelay": 500, "maxTimes": 8, "exceededNext": ["FreeGiftLimit"],
+    "next": ["ConfirmFreeReward"]
+  },
+  "FreeGiftLimit": {
+    "algorithm": "JustReturn", "handler": "WelfareAdb", "action": "Stop"
+  },
+  "ConfirmFreeReward": {
+    "algorithm": "OcrDetect", "handler": "WelfareAdb", "action": "ClickSelf",
+    "text": ["确定"], "roi": [510, 408, 261, 89],
+    "timeout": 2500, "rateLimit": 250, "postDelay": 300,
+    "next": ["ClaimFreeGift", "OpenPrivilegeTab"]
+  },
+  "OpenPrivilegeTab": {
+    "algorithm": "JustReturn", "handler": "WelfareAdb", "action": "ClickRect",
+    "specificRect": [232, 409, 30, 28], "postDelay": 500,
+    "maxTimes": 4, "exceededNext": ["PrivilegeTabLimit"],
+    "onErrorNext": ["OpenPrivilegeTab"], "next": ["PrivilegeTabReady"]
+  },
+  "PrivilegeTabReady": {
+    "algorithm": "OcrDetect", "handler": "WelfareAdb", "action": "DoNothing",
+    "text": ["终身卡"], "roi": [725, 165, 280, 52],
+    "timeout": 1200, "rateLimit": 250,
+    "next": ["ClaimMonthlyCard", "CheckLifetimeCard"]
+  },
+  "PrivilegeTabLimit": {
+    "algorithm": "JustReturn", "handler": "WelfareAdb", "action": "Stop"
+  },
+  "ClaimMonthlyCard": {
+    "algorithm": "OcrDetect", "handler": "WelfareAdb", "action": "ClickSelf",
+    "text": ["领取"], "roi": [440, 274, 235, 96], "postDelay": 450,
+    "timeout": 2500, "rateLimit": 250,
+    "next": ["MonthlyClaimGone"]
+  },
+  "MonthlyClaimGone": {
+    "algorithm": "Custom", "handler": "WelfareClaimStatus", "action": "DoNothing",
+    "roi": [440, 274, 235, 96], "next": ["CheckLifetimeCard"]
+  },
+  "CheckLifetimeCard": {
+    "algorithm": "JustReturn", "handler": "WelfareAdb", "action": "DoNothing",
+    "next": ["ClaimLifetimeCard", "CloseWelfare"]
+  },
+  "ClaimLifetimeCard": {
+    "algorithm": "OcrDetect", "handler": "WelfareAdb", "action": "ClickSelf",
+    "text": ["领取"], "roi": [765, 274, 235, 96], "postDelay": 450,
+    "timeout": 2500, "rateLimit": 250,
+    "next": ["LifetimeClaimGone"]
+  },
+  "LifetimeClaimGone": {
+    "algorithm": "Custom", "handler": "WelfareClaimStatus", "action": "DoNothing",
+    "roi": [765, 274, 235, 96], "next": ["CloseWelfare"]
+  },
+  "CloseWelfare": {
+    "algorithm": "JustReturn", "handler": "WelfareAdb", "action": "ClickRect",
+    "specificRect": [1224, 342, 30, 30]
+  }
+}

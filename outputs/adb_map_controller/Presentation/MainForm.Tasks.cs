@@ -42,7 +42,7 @@ public sealed partial class MainForm
         var taskBar = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, Margin = Padding.Empty, Tag = ThemeRole.Surface };
         var itemBar = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, Margin = Padding.Empty, Tag = ThemeRole.Surface };
         var taskType = new ThemedComboBox { Width = 135, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "添加任务类型" };
-        taskType.Items.AddRange(["进图并跑图", "当前地图跑图", "卡矿任务", "梦境试炼", "培养魂器", "免费祈祷", "福利活动", "领取深渊钥匙", "扫荡永冬裂缝", "扫荡深渊秘境", "每日签到", "幽灵深渊"]); taskType.SelectedIndex = 0;
+        taskType.Items.AddRange(["进图并跑图", "当前地图跑图", "卡矿任务", "梦境试炼", "培养魂器", "免费祈祷", "福利活动", "领取深渊钥匙", "扫荡永冬裂缝", "扫荡深渊秘境", "每日签到", "幽灵深渊", "冒险家公会"]); taskType.SelectedIndex = 0;
         var templateChoice = new ThemedComboBox { Width = 160, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "任务模板" };
         taskTemplateChoice = templateChoice;
         var newTemplate = Btn("新建模板", ThemeRole.SecondaryButton);
@@ -235,6 +235,7 @@ public sealed partial class MainForm
                         else if (config.TaskKind == ExecutionTaskKind.EternalWinterSweep) await RunEternalWinterSweepAsync(config, token);
                         else if (config.TaskKind == ExecutionTaskKind.AbyssSweep) await RunAbyssSweepAsync(token);
                         else if (config.TaskKind == ExecutionTaskKind.GhostAbyss) await RunGhostAbyssAsync(config, token);
+                        else if (config.TaskKind == ExecutionTaskKind.GuildTasks) await RunGuildTasksAsync(config, token);
                         else if (config.TaskKind == ExecutionTaskKind.CardMining) await RunCardMiningTaskAsync(config, token);
                         else if (config.TaskKind == ExecutionTaskKind.DreamTrial) await RunDreamTrialTaskAsync(config, token);
                         else if (config.TaskKind == ExecutionTaskKind.EntryAndRun) await RunEntryRunPipelineAsync(token);
@@ -363,6 +364,10 @@ public sealed partial class MainForm
         result.EternalWinterSweepCount = task.EternalWinterSweepCount;
         result.GhostAbyssFloor = task.GhostAbyssFloor;
         result.GhostAbyssDouble = task.GhostAbyssDouble;
+        result.GuildWish = task.GuildWish;
+        result.GuildCrystalShop = task.GuildCrystalShop;
+        result.GuildDungeon = task.GuildDungeon;
+        result.GuildBoss = task.GuildBoss;
         if (task.TaskKind is ExecutionTaskKind.EntryAndRun or ExecutionTaskKind.CardMining)
         {
             result.EntryMapId = task.EntryMapId;
@@ -544,6 +549,24 @@ public sealed partial class MainForm
             doubleChallenge.CheckedChanged += (_, _) => config.GhostAbyssDouble = doubleChallenge.Checked;
             Row("挑战方式", doubleChallenge);
             Row("流程", new Label { Text = "选择目标层并挑战；双倍可用时仅跑一轮，否则按剩余次数重复普通挑战", AutoSize = true });
+            ThemeManager.Apply(dialog, currentPalette);
+            return dialog.ShowDialog(this) == DialogResult.OK;
+        }
+        if (config.TaskKind == ExecutionTaskKind.GuildTasks)
+        {
+            var equipment = Box("挑战前检测装备方案"); equipment.Checked = config.SwitchEquipmentSet;
+            equipment.CheckedChanged += (_, _) => config.SwitchEquipmentSet = equipment.Checked;
+            Row("装备", equipment);
+            Number(nameof(config.EquipmentSet), "装备方案（1 至 3）", 1, 3);
+            var wish = Box("金币许愿"); wish.Checked = config.GuildWish;
+            wish.CheckedChanged += (_, _) => config.GuildWish = wish.Checked;
+            var shop = Box("水晶商店免费"); shop.Checked = config.GuildCrystalShop;
+            shop.CheckedChanged += (_, _) => config.GuildCrystalShop = shop.Checked;
+            var dungeon = Box("公会副本"); dungeon.Checked = config.GuildDungeon;
+            dungeon.CheckedChanged += (_, _) => config.GuildDungeon = dungeon.Checked;
+            Row("可选任务", wish, shop, dungeon);
+            Number(nameof(config.GuildBoss), "副本 Boss（1 至 5）", 1, 5);
+            Row("流程", new Label { Text = "读取剩余次数；所选任务完成后传送回巴萨坦", AutoSize = true });
             ThemeManager.Apply(dialog, currentPalette);
             return dialog.ShowDialog(this) == DialogResult.OK;
         }
@@ -736,6 +759,14 @@ public sealed partial class MainForm
                 abyss.Checked = s.TaskEnabled;
                 AddTaskRow(abyss);
                 if (i == selected) { abyss.Selected = true; abyss.EnsureVisible(); }
+                continue;
+            }
+            if (s.TaskKind == ExecutionTaskKind.GuildTasks)
+            {
+                var selectedActions = string.Join("、", new[] { (s.GuildWish, "许愿"), (s.GuildCrystalShop, "水晶商店"), (s.GuildDungeon, $"副本 Boss {s.GuildBoss}") }.Where(x => x.Item1).Select(x => x.Item2));
+                var guild = new ListViewItem(new[] { (i + 1).ToString(), "冒险家公会", "—", "按界面次数", "公会地图", selectedActions });
+                guild.Checked = s.TaskEnabled; AddTaskRow(guild);
+                if (i == selected) { guild.Selected = true; guild.EnsureVisible(); }
                 continue;
             }
             var taskName = s.TaskKind switch

@@ -22,8 +22,6 @@ public sealed partial class MainForm
         public bool ScrollTowardHigher = true;
         public double FloorX;
         public double FloorY;
-        public double MapX;
-        public double MapY;
         public double MapCloseX;
         public double MapCloseY;
     }
@@ -94,12 +92,9 @@ public sealed partial class MainForm
         using var frame = await adb.CaptureScreenForAutomationAsync(token);
         if (name == "OpenMap")
         {
-            var marker = BuiltInUiTemplateCatalog.FindMinimapPlayer(frame);
-            if (marker is null || marker.Score < .55) return MaaPipelineRecognitionResult.Miss("未找到地图按钮");
-            s.MapX = marker.Center.X / (double)frame.Width; s.MapY = marker.Center.Y / (double)frame.Height;
-            return MaaPipelineRecognitionResult.Hit(detail: "地图按钮已定位");
+            return MaaPipelineRecognitionResult.Hit(detail: "通过通用巴萨坦地图入口定位并确认");
         }
-        if (name == "MapReady") return BuiltInUiTemplateCatalog.IsBastanMapOpen(frame)
+        if (name == "MapReady") return BastanMapOpening.IsOpen(frame)
             ? MaaPipelineRecognitionResult.Hit() : MaaPipelineRecognitionResult.Miss("巴萨坦地图未打开");
         if (name is "MapAfterAbyssClosed" or "CloseMap")
         {
@@ -171,7 +166,7 @@ public sealed partial class MainForm
         token.ThrowIfCancellationRequested();
         switch (name)
         {
-            case "OpenMap": await adb.TapScreen(s.MapX, s.MapY); s.MapOpen = true; break;
+            case "OpenMap": await BastanMapOpening.EnsureOpenAsync(adb, message => Log(message), token); s.MapOpen = true; break;
             case "OpenFloorList": s.ListOpen = true; break;
             case "ScrollFloor":
                 if (s.Locked) return MaaPipelineActionResult.Stop();

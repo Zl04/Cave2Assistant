@@ -11,7 +11,7 @@ public enum ThemeMode
     System,
 }
 
-public enum ExecutionTaskKind { EntryAndRun, CurrentMapRun, CardMining, DreamTrial, SoulArtifactCultivation, FreePrayer, FreeWelfare, AbyssKey, EternalWinterSweep, AbyssSweep, DailySignIn, GhostAbyss }
+public enum ExecutionTaskKind { EntryAndRun, CurrentMapRun, CardMining, DreamTrial, SoulArtifactCultivation, FreePrayer, FreeWelfare, AbyssKey, EternalWinterSweep, AbyssSweep, DailySignIn, GhostAbyss, GuildTasks }
 
 public sealed class TaskTemplate
 {
@@ -86,6 +86,10 @@ public sealed class ControllerSettings
     public int EternalWinterSweepCount { get; set; } = 1;
     public int GhostAbyssFloor { get; set; } = 1;
     public bool GhostAbyssDouble { get; set; }
+    public bool GuildWish { get; set; } = true;
+    public bool GuildCrystalShop { get; set; } = true;
+    public bool GuildDungeon { get; set; } = true;
+    public int GuildBoss { get; set; } = 1;
     public List<ControllerSettings> ExecutionTasks { get; set; } = [];
     public List<TaskTemplate> TaskTemplates { get; set; } = [];
     public string SelectedTaskTemplateName { get; set; } = "";

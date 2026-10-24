@@ -140,6 +140,13 @@ public sealed class JsonSettingsStore : ISettingsStore
                         allowed.Add(nameof(ControllerSettings.GhostAbyssFloor));
                         allowed.Add(nameof(ControllerSettings.GhostAbyssDouble));
                     }
+                    if (kind == ExecutionTaskKind.GuildTasks)
+                    {
+                        allowed.Add(nameof(ControllerSettings.GuildWish));
+                        allowed.Add(nameof(ControllerSettings.GuildCrystalShop));
+                        allowed.Add(nameof(ControllerSettings.GuildDungeon));
+                        allowed.Add(nameof(ControllerSettings.GuildBoss));
+                    }
                     foreach (var field in task.Select(x => x.Key).Where(x => !allowed.Contains(x)).ToArray())
                         task.Remove(field);
     }

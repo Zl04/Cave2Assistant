@@ -79,8 +79,6 @@ public sealed partial class MainForm
         public bool RiftOpen;
         public bool SelectionOpen;
         public bool TargetLocked;
-        public double MapButtonX;
-        public double MapButtonY;
         public double TargetFloorX;
         public double TargetFloorY;
         public bool SwipeDown = true;
@@ -101,16 +99,12 @@ public sealed partial class MainForm
         using var frame = await adb.CaptureScreenForAutomationAsync(token);
         if (name == "OpenMap")
         {
-            var marker = BuiltInUiTemplateCatalog.FindMinimapPlayer(frame);
-            if (marker is null || marker.Score < .55) return MaaPipelineRecognitionResult.Miss("未找到地图按钮");
-            state.MapButtonX = marker.Center.X / (double)frame.Width;
-            state.MapButtonY = marker.Center.Y / (double)frame.Height;
-            return MaaPipelineRecognitionResult.Hit(marker.Score, detail: $"地图按钮=({marker.Center.X},{marker.Center.Y})");
+            return MaaPipelineRecognitionResult.Hit(detail: "通过通用巴萨坦地图入口定位并确认");
         }
         if (name == "MapReady")
-            return BuiltInUiTemplateCatalog.IsBastanMapOpen(frame)
-                ? MaaPipelineRecognitionResult.Hit(detail: "现有巴萨坦地图识别命中")
-                : MaaPipelineRecognitionResult.Miss("巴萨坦标题和地图主体均未命中");
+            return BastanMapOpening.IsOpen(frame)
+                ? MaaPipelineRecognitionResult.Hit(detail: "巴萨坦地图已打开")
+                : MaaPipelineRecognitionResult.Miss("巴萨坦地图未打开");
         if (name == "MapClosed")
             return !BuiltInUiTemplateCatalog.IsBastanMapOpen(frame)
                 ? MaaPipelineRecognitionResult.Hit(detail: "巴萨坦地图已消失")
@@ -181,7 +175,7 @@ public sealed partial class MainForm
         token.ThrowIfCancellationRequested();
         switch (name)
         {
-            case "OpenMap": await adb.TapScreen(state.MapButtonX, state.MapButtonY); break;
+            case "OpenMap": await BastanMapOpening.EnsureOpenAsync(adb, message => Log(message), token); break;
             case "SelectTargetFloor": await adb.TapScreen(state.TargetFloorX, state.TargetFloorY); break;
             case "ScrollFloorList":
                 await adb.SwipeScreen(.5, state.SwipeDown ? .72 : .35, .5, state.SwipeDown ? .35 : .72, 350);

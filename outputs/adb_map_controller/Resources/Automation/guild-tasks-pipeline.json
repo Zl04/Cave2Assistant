@@ -1,0 +1,13 @@
+{
+  "EnterGuild": { "algorithm": "JustReturn", "handler": "GuildTasks", "action": "DoNothing", "next": ["OpenGuildMap"] },
+  "OpenGuildMap": { "algorithm": "JustReturn", "handler": "GuildTasks", "action": "DoNothing", "next": ["GuildMapReady"] },
+  "GuildMapReady": { "algorithm": "Custom", "handler": "GuildTasks", "action": "DoNothing", "timeout": 8000, "rateLimit": 300, "next": ["Wish", "SkipWish"] },
+  "Wish": { "algorithm": "Custom", "handler": "GuildTasks", "action": "DoNothing", "next": ["Shop", "SkipShop"] },
+  "SkipWish": { "algorithm": "Custom", "handler": "GuildTasks", "action": "DoNothing", "next": ["Shop", "SkipShop"] },
+  "Shop": { "algorithm": "Custom", "handler": "GuildTasks", "action": "DoNothing", "next": ["Dungeon", "SkipDungeon"] },
+  "SkipShop": { "algorithm": "Custom", "handler": "GuildTasks", "action": "DoNothing", "next": ["Dungeon", "SkipDungeon"] },
+  "Dungeon": { "algorithm": "Custom", "handler": "GuildTasks", "action": "DoNothing", "next": ["GuildMapAfterDungeon"] },
+  "SkipDungeon": { "algorithm": "Custom", "handler": "GuildTasks", "action": "DoNothing", "next": ["GuildMapAfterDungeon"] },
+  "GuildMapAfterDungeon": { "algorithm": "JustReturn", "handler": "GuildTasks", "action": "DoNothing", "next": ["ReturnTown"] },
+  "ReturnTown": { "algorithm": "JustReturn", "handler": "GuildTasks", "action": "DoNothing" }
+}

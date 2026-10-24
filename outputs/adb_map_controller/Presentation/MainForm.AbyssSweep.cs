@@ -97,8 +97,6 @@ public sealed partial class MainForm
         public bool AbyssOpen;
         public bool QuantityOpen;
         public bool ConfirmationOpen;
-        public double MapButtonX;
-        public double MapButtonY;
         public int Keys = -1;
         public int Maximum;
         public int Desired;
@@ -119,17 +117,13 @@ public sealed partial class MainForm
         using var frame = await adb.CaptureScreenForAutomationAsync(token);
         if (name == "OpenMap")
         {
-            var marker = BuiltInUiTemplateCatalog.FindMinimapPlayer(frame);
-            if (marker is null || marker.Score < .55) return MaaPipelineRecognitionResult.Miss("未找到地图按钮");
-            state.MapButtonX = marker.Center.X / (double)frame.Width;
-            state.MapButtonY = marker.Center.Y / (double)frame.Height;
-            return MaaPipelineRecognitionResult.Hit(marker.Score, detail: "小地图人物标记");
+            return MaaPipelineRecognitionResult.Hit(detail: "通过通用巴萨坦地图入口定位并确认");
         }
         if (name == "MapReady")
         {
-            var title = BuiltInUiTemplateCatalog.FindBastanTitle(frame);
-            return title is null ? MaaPipelineRecognitionResult.Miss("巴萨坦标题未出现")
-                : MaaPipelineRecognitionResult.Hit(title.Score, detail: "巴萨坦标题");
+            return BastanMapOpening.IsOpen(frame)
+                ? MaaPipelineRecognitionResult.Hit(detail: "巴萨坦地图已打开")
+                : MaaPipelineRecognitionResult.Miss("巴萨坦地图未打开");
         }
         if (name == "RewardClosed")
         {
@@ -179,7 +173,7 @@ public sealed partial class MainForm
         switch (name)
         {
             case "OpenMap":
-                await adb.TapScreen(state.MapButtonX, state.MapButtonY);
+                await BastanMapOpening.EnsureOpenAsync(adb, message => Log(message), token);
                 state.MapOpen = true;
                 break;
             case "SetQuantity":

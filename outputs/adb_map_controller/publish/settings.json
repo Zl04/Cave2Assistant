@@ -17,12 +17,13 @@
   "SellPurple": false,
   "SellDarkGold": true,
   "SellGold": true,
+  "SellRed": false,
   "MiningTileWidth": 200,
   "MiningTileHeight": 100,
   "MiningInterval": 2000,
   "Mining": true,
   "CardMining": false,
-  "SingleCellPulseHold": 65,
+  "SingleCellPulseHold": 75,
   "MovementReleaseLead": 70,
   "InteractionHold": 300,
   "InteractionSettleDelay": 100,
@@ -56,6 +57,8 @@
   "DreamTrialBossMask": 63,
   "EternalWinterFloor": 1,
   "EternalWinterSweepCount": 1,
+  "GhostAbyssFloor": 1,
+  "GhostAbyssDouble": false,
   "ExecutionTasks": [],
   "TaskTemplates": [
     {
@@ -187,7 +190,7 @@
           "EntryDifficulty": "Elite",
           "EntryRunCount": 0,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": true,
+          "TaskEnabled": false,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 2
         },
@@ -241,13 +244,13 @@
           "EntryDifficulty": "Elite",
           "EntryRunCount": 0,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": true,
+          "TaskEnabled": false,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 2
         },
         {
           "TaskKind": "DreamTrial",
-          "TaskEnabled": true,
+          "TaskEnabled": false,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 1,
           "DreamTrialBossMask": 31
@@ -275,7 +278,7 @@
           "EntryDifficulty": "Normal",
           "EntryRunCount": 1,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": true,
+          "TaskEnabled": false,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 1
         },
@@ -329,7 +332,7 @@
           "EntryDifficulty": "Normal",
           "EntryRunCount": 1,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": true,
+          "TaskEnabled": false,
           "SwitchEquipmentSet": false,
           "EquipmentSet": 1
         },
@@ -356,7 +359,7 @@
           "EntryDifficulty": "Normal",
           "EntryRunCount": 1,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": true,
+          "TaskEnabled": false,
           "SwitchEquipmentSet": false,
           "EquipmentSet": 1
         }
@@ -544,9 +547,28 @@
           "TaskEnabled": false,
           "SwitchEquipmentSet": false,
           "EquipmentSet": 1
+        },
+        {
+          "AttackBoss": true,
+          "DirectBossNpc": false,
+          "Monsters": false,
+          "Elites": false,
+          "Chests": false,
+          "Pots": false,
+          "Bones": false,
+          "Gold": false,
+          "Runes": false,
+          "Altars": false,
+          "Chambers": false,
+          "TaskKind": "GhostAbyss",
+          "TaskEnabled": true,
+          "SwitchEquipmentSet": false,
+          "EquipmentSet": 1,
+          "GhostAbyssFloor": 22,
+          "GhostAbyssDouble": true
         }
       ]
     }
   ],
-  "SelectedTaskTemplateName": "\u8DD1\u56FE\u4EFB\u52A1"
+  "SelectedTaskTemplateName": "\u65E5\u5E38\u5956\u52B1"
 }

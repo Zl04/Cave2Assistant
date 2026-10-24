@@ -175,7 +175,7 @@ public sealed partial class MainForm
             case "OpenFloorList": s.ListOpen = true; break;
             case "ScrollFloor":
                 if (s.Locked) return MaaPipelineActionResult.Stop();
-                await adb.SwipeScreen(.5, s.ScrollTowardHigher ? .72 : .34, .5, s.ScrollTowardHigher ? .34 : .72, 350);
+                await adb.SwipeScreen(.5, s.ScrollTowardHigher ? .66 : .42, .5, s.ScrollTowardHigher ? .42 : .66, 750);
                 break;
             case "ChooseFloor": await adb.TapScreen(s.FloorX, s.FloorY); s.ListOpen = false; break;
             case "QuotaGate":

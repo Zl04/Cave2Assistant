@@ -13,17 +13,19 @@ namespace AdbMapController;
 /// </summary>
 public sealed class MaaAdbPipelineState
 {
-    public MaaAdbPipelineState(AdbClient adb, string? resourceRoot = null, Action<string>? log = null)
+    public MaaAdbPipelineState(AdbClient adb, string? resourceRoot = null, Action<string>? log = null, bool saveEvidence = true)
     {
         Adb = adb ?? throw new ArgumentNullException(nameof(adb));
         ResourceRoot = Path.GetFullPath(resourceRoot ?? AppContext.BaseDirectory);
         Log = log;
+        SaveEvidence = saveEvidence;
         Vision = new VisionPipeline(adb.ReadOcrWordsAsync);
     }
 
     public AdbClient Adb { get; }
     public string ResourceRoot { get; }
     public Action<string>? Log { get; }
+    public bool SaveEvidence { get; }
     public VisionPipeline Vision { get; }
     public Size LastScreenSize { get; internal set; }
 }
@@ -56,7 +58,9 @@ public sealed class MaaAdbPipelineHandler<TState> : IMaaPipelineHandler<TState>
         state.LastScreenSize = frame.Size;
         var visionTask = CreateVisionTask(task, state.ResourceRoot);
         var result = await state.Vision.RecognizeAsync(visionTask, frame, token: token);
-        var evidencePath = PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, state.Log);
+        var evidencePath = state.SaveEvidence
+            ? PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, state.Log)
+            : null;
         MaaRect? box = result.Box.IsEmpty
             ? null
             : new MaaRect(

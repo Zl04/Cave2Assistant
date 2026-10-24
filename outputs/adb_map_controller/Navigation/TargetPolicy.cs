@@ -48,7 +48,7 @@ public static class TargetPolicy
     };
 
     public static bool IsSelected(RoleInfo role, PlanOptions options)
-        => Classify(role) switch
+        => role.IsTouchTriggerMonster || (Classify(role) switch
         {
             TargetKind.Boss or TargetKind.SmallBoss => options.AttackBoss,
             TargetKind.DirectBossNpc => options.DirectBossNpc,
@@ -63,5 +63,5 @@ public static class TargetPolicy
             TargetKind.Altar => options.Altars,
             TargetKind.Chamber or TargetKind.Mechanism => options.Chambers,
             _ => false
-        };
+        });
 }

@@ -21,6 +21,10 @@ public static class TimeGateVariantClassifier
     static readonly Regex NormalFloorTitle = new(
         @"(?:第)?\d{1,3}层",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    static readonly string[] HeroMapTitles =
+    [
+        "遗忘之穴", "巨石旷野", "淤泥回廊", "大裂缝", "旧神庇护所", "幽魂废都"
+    ];
 
     public static TimeGateVariant Classify(string? title)
     {
@@ -28,9 +32,10 @@ public static class TimeGateVariantClassifier
 
         var compact = Compact(title);
         if (compact.Length == 0) return TimeGateVariant.Unknown;
-        return NormalFloorTitle.IsMatch(compact)
-            ? TimeGateVariant.Normal
-            : TimeGateVariant.Hero;
+        if (NormalFloorTitle.IsMatch(compact)) return TimeGateVariant.Normal;
+        return HeroMapTitles.Any(compact.Contains)
+            ? TimeGateVariant.Hero
+            : TimeGateVariant.Unknown;
     }
 
     public static bool IsHeroEntry(string? entryName)

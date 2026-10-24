@@ -161,6 +161,11 @@ public sealed partial class MainForm
                 if (task != default)
                 {
                     if (requestVersion != Volatile.Read(ref clickNavigationVersion)) return;
+                    if (!await ConfirmInteractionStop(player, owner))
+                    {
+                        await RefreshMap(false, waitForLock: true);
+                        continue;
+                    }
                     var delta = new Cell(task.Target.Cell.X - player.X, task.Target.Cell.Y - player.Y);
                     State($"点击导航交互 {task.Target.Kind}，方向 {delta.X},{delta.Y}");
                     var popupInterrupted = IsCombatInteraction(task.Target.Kind)

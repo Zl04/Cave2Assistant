@@ -139,6 +139,7 @@ public sealed partial class MainForm
                 var fight = plannedInteractions.FirstOrDefault(task => task.Stop == player);
                 if (fight != default)
                 {
+                    if (!await ConfirmInteractionStop(player, token)) continue;
                     if (await FightWhileHolding(fight, token))
                     { State("挖矿：战斗交互被弹窗中断，已停止"); return MiningPassResult.Failed; }
                     continue;

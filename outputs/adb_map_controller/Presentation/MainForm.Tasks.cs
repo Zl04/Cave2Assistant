@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 
@@ -14,6 +14,15 @@ public sealed partial class MainForm
         AccessibleName = "执行任务列表" };
     bool lastEntryRunSucceeded;
     bool taskQueueRunning;
+    int activeTaskNumber;
+    readonly Label taskExecutionProgress = new()
+    {
+        AutoSize = false,
+        Dock = DockStyle.Fill,
+        TextAlign = ContentAlignment.MiddleRight,
+        Padding = new(8, 0, 8, 0),
+        Tag = ThemeRole.AccentText
+    };
     bool synchronizingTaskChecks;
     bool cardMiningTaskRunning;
     bool cardMiningEarlyStop;
@@ -24,15 +33,21 @@ public sealed partial class MainForm
     TabPage CreateTaskListPage()
     {
         var page = new ThemedTabPage { Text = "任务列表", Tag = ThemeRole.Default };
-        foreach (var column in new[] { ("启用 / 顺序", 90), ("任务 / 地图 / 入口", 240), ("难度", 65), ("次数", 120), ("停层 / 挖矿", 145), ("目标", 340) })
-            taskList.Columns.Add(column.Item1, column.Item2);
-        var bar = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new(10, 8, 10, 8), Tag = ThemeRole.Surface };
+        foreach (var column in new[] { ("序号", 42), ("", 22), ("", 32), ("任务名称", 190), ("难度", 48), ("次数", 117), ("停层 / 挖矿", 144), ("目标", 220) })
+            taskList.Columns.Add(new ColumnHeader { Text = column.Item1, Width = column.Item2, TextAlign = column.Item1 == "任务名称" ? HorizontalAlignment.Center : HorizontalAlignment.Left });
+        var toolbar = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, RowCount = 3, Padding = new(10, 8, 10, 8), Tag = ThemeRole.Surface };
+        toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        for (var row = 0; row < 3; row++) toolbar.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        var templateBar = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, Margin = Padding.Empty, Tag = ThemeRole.Surface };
+        var taskBar = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, Margin = Padding.Empty, Tag = ThemeRole.Surface };
+        var itemBar = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, Margin = Padding.Empty, Tag = ThemeRole.Surface };
         var taskType = new ThemedComboBox { Width = 135, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "添加任务类型" };
-        taskType.Items.AddRange(["进图并跑图", "当前地图跑图", "卡矿任务", "梦境试炼", "培养魂器"]); taskType.SelectedIndex = 0;
+        taskType.Items.AddRange(["进图并跑图", "当前地图跑图", "卡矿任务", "梦境试炼", "培养魂器", "免费祈祷", "福利活动", "领取深渊钥匙", "扫荡永冬裂缝", "扫荡深渊秘境", "每日签到"]); taskType.SelectedIndex = 0;
         var templateChoice = new ThemedComboBox { Width = 160, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "任务模板" };
         taskTemplateChoice = templateChoice;
         var newTemplate = Btn("新建模板", ThemeRole.SecondaryButton);
         var editTemplate = Btn("修改模板", ThemeRole.SecondaryButton);
+        var deleteTemplate = Btn("删除模板", ThemeRole.DangerButton);
         var add = Btn("添加任务", ThemeRole.SecondaryButton);
         var update = Btn("编辑任务", ThemeRole.SecondaryButton);
 
@@ -42,11 +57,13 @@ public sealed partial class MainForm
         var selectAll = Btn("全选", ThemeRole.SecondaryButton);
         var invertSelection = Btn("反选", ThemeRole.SecondaryButton);
         var run = Btn("执行列表", ThemeRole.SuccessButton);
-        var stop = Btn("停止列表", ThemeRole.WarningButton);
-        bar.Controls.AddRange([templateChoice, newTemplate, editTemplate, taskType, add, update, remove, up, down, selectAll, invertSelection, run, stop]);
-        var hint = new Label { Dock = DockStyle.Top, Height = 72, Padding = new(12, 6, 12, 6),
-            Text = "选择模板后管理其中的任务；新建模板会创建空列表，修改模板可重命名。双击任务修改设置；拖拽调整顺序。\n全选启用全部任务，反选切换全部任务的启用状态；Shift/Ctrl 多选后可统一勾选；仅执行启用项。\n按列表顺序执行所选类型；失败或停层时停止列表。普通自动次数会无限运行，阻塞后续任务。", Tag = ThemeRole.MutedText };
-        page.Controls.Add(taskList); page.Controls.Add(hint); page.Controls.Add(bar);
+        templateBar.Controls.AddRange([templateChoice, newTemplate, editTemplate, deleteTemplate]);
+        taskBar.Controls.AddRange([taskType, add, update, remove]);
+        itemBar.Controls.AddRange([run, selectAll, invertSelection, up, down]);
+        toolbar.Controls.Add(templateBar, 0, 0);
+        toolbar.Controls.Add(taskBar, 0, 1);
+        toolbar.Controls.Add(itemBar, 0, 2);
+        page.Controls.Add(taskList); page.Controls.Add(toolbar);
         bool Editable() => !closing && !stopping && !taskQueueRunning && activeEntry is not { IsCompleted: false } && activeMovement is not { IsCompleted: false };
         void RefreshTemplates(int selected = -1)
         {
@@ -72,6 +89,19 @@ public sealed partial class MainForm
             if (!ShowTemplateNameEditor(template.Name, index, out var name)) return;
             template.Name = name;
             RefreshTemplates(index); SaveSettings();
+        };
+        deleteTemplate.Click += (_, _) =>
+        {
+            var index = templateChoice.SelectedIndex;
+            if (!Editable() || index < 0 || index >= taskTemplates.Count) return;
+            var template = taskTemplates[index];
+            if (MessageBox.Show(this, $"确定删除模板“{template.Name}”及其中的 {template.Tasks.Count} 个任务吗？此操作无法撤销。",
+                    "删除模板", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+
+            taskTemplates.RemoveAt(index);
+            var nextIndex = Math.Min(index, taskTemplates.Count - 1);
+            RefreshTemplates(nextIndex);
+            SaveSettings();
         };
         int Selected() => taskList.SelectedIndices.Count == 0 ? -1 : taskList.SelectedIndices[0];
         void SetAllEnabled(bool invert)
@@ -114,7 +144,9 @@ public sealed partial class MainForm
             finally { synchronizingTaskChecks = false; }
             SaveSettings();
         }
-        taskList.StateImageClicked += index => SetEnabled(index, !scheduledTasks[index].TaskEnabled);
+        taskList.CheckClicked += index => SetEnabled(index, !scheduledTasks[index].TaskEnabled);
+        taskList.RunClicked += index => StartTaskQueue(index);
+        taskList.StopClicked += () => _ = RunUi(EmergencyStopAndClear);
         taskList.ItemCheck += (_, e) =>
         {
             if (synchronizingTaskChecks || taskList.RestoringChecks) return;
@@ -159,17 +191,26 @@ public sealed partial class MainForm
             var target = taskList.GetItemAt(taskList.PointToClient(new Point(e.X, e.Y)).X, taskList.PointToClient(new Point(e.X, e.Y)).Y);
             MoveScheduledTask(item.Index, target?.Index ?? scheduledTasks.Count - 1);
         };
-        run.Click += async (_, _) => await RunUi(async () =>
+        run.Click += (_, _) =>
+        {
+            if (taskQueueRunning) _ = RunUi(EmergencyStopAndClear);
+            else StartTaskQueue();
+        };
+        void StartTaskQueue(int? singleTaskIndex = null) => _ = RunUi(async () =>
         {
             if (!Editable()) throw new InvalidOperationException("请先停止当前任务");
-            if (!scheduledTasks.Any(x => x.TaskEnabled)) throw new InvalidOperationException("请先添加并启用至少一个任务");
+            if (singleTaskIndex is null && !scheduledTasks.Any(x => x.TaskEnabled)) throw new InvalidOperationException("请先添加并启用至少一个任务");
             if (string.IsNullOrWhiteSpace(devices.Text)) throw new InvalidOperationException("请先连接设备");
             var original = CaptureSettings();
             taskQueueRunning = true;
-            bar.Enabled = false; stop.Enabled = true;
+            run.Text = "停止执行";
+            run.Tag = ThemeRole.WarningButton;
+            ThemeManager.Apply(run, currentPalette);
+            foreach (var container in new Control[] { templateBar, taskBar, itemBar })
+                foreach (Control control in container.Controls)
+                    if (control != run) control.Enabled = false;
             var settingsPage = (page.Parent as TabControl)?.TabPages.Cast<TabPage>().FirstOrDefault(x => x.Text == "设置");
             if (settingsPage is not null) settingsPage.Enabled = false;
-            // 停止按钮留在独立容器，确保运行时仍能取消。
             try
             {
                 await operations.RunAsync(ControllerOperationKind.Entry, async token =>
@@ -178,12 +219,21 @@ public sealed partial class MainForm
                     {
                         token.ThrowIfCancellationRequested();
                         var task = scheduledTasks[i];
-                        if (!task.TaskEnabled) continue;
+                        if (singleTaskIndex is int target ? i != target : !task.TaskEnabled) continue;
                         var config = ResolveTaskSettings(original, task);
+                        activeTaskNumber = i + 1;
+                        taskList.ActiveRunIndex = i;
+                        UpdateTaskExecutionProgress(1, GetInitialTaskExecutionCount(config));
                         ApplySettings(config, applyEquipmentSale: false); RefreshTaskList(i);
                         Log($"执行任务列表：第 {i + 1}/{scheduledTasks.Count} 项");
-                        if (config.SwitchEquipmentSet && config.TaskKind != ExecutionTaskKind.SoulArtifactCultivation) await TrySwitchTaskEquipmentAsync(config.EquipmentSet, token);
+                        if (config.SwitchEquipmentSet && config.TaskKind is not (ExecutionTaskKind.SoulArtifactCultivation or ExecutionTaskKind.FreePrayer or ExecutionTaskKind.FreeWelfare or ExecutionTaskKind.AbyssKey or ExecutionTaskKind.AbyssSweep or ExecutionTaskKind.DailySignIn)) await TrySwitchTaskEquipmentAsync(config.EquipmentSet, token);
                         if (config.TaskKind == ExecutionTaskKind.SoulArtifactCultivation) await RunSoulArtifactCultivationAsync(token);
+                        else if (config.TaskKind == ExecutionTaskKind.FreePrayer) await RunFreePrayerAsync(token);
+                        else if (config.TaskKind == ExecutionTaskKind.FreeWelfare) await RunFreeWelfareAsync(token);
+                        else if (config.TaskKind == ExecutionTaskKind.AbyssKey) await RunAbyssKeyAsync(token);
+                        else if (config.TaskKind == ExecutionTaskKind.DailySignIn) await RunDailySignInAsync(token);
+                        else if (config.TaskKind == ExecutionTaskKind.EternalWinterSweep) await RunEternalWinterSweepAsync(config, token);
+                        else if (config.TaskKind == ExecutionTaskKind.AbyssSweep) await RunAbyssSweepAsync(token);
                         else if (config.TaskKind == ExecutionTaskKind.CardMining) await RunCardMiningTaskAsync(config, token);
                         else if (config.TaskKind == ExecutionTaskKind.DreamTrial) await RunDreamTrialTaskAsync(config, token);
                         else if (config.TaskKind == ExecutionTaskKind.EntryAndRun) await RunEntryRunPipelineAsync(token);
@@ -204,14 +254,44 @@ public sealed partial class MainForm
                 Log("任务列表已停止，不再执行后续任务");
                 if (!stopping) State("列表已停止");
             }
-            finally { ApplySettings(original); UpdateBonusPriorityCaption(); taskQueueRunning = false; bar.Enabled = true; if (settingsPage is not null) settingsPage.Enabled = true; SaveSettings(); }
+            finally
+            {
+                ApplySettings(original); UpdateBonusPriorityCaption(); taskQueueRunning = false; activeTaskNumber = 0; taskList.ActiveRunIndex = -1;
+                foreach (var container in new Control[] { templateBar, taskBar, itemBar })
+                    foreach (Control control in container.Controls) control.Enabled = true;
+                run.Text = "执行列表";
+                run.Tag = ThemeRole.SuccessButton;
+                ThemeManager.Apply(run, currentPalette);
+                if (settingsPage is not null) settingsPage.Enabled = true;
+                SaveSettings();
+            }
         });
-        stop.Click += async (_, _) => await RunUi(EmergencyStopAndClear);
-        bar.Controls.Remove(stop);
-        var stopBar = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, Padding = new(10, 6, 10, 6), Tag = ThemeRole.Surface };
-        stopBar.Controls.Add(stop); page.Controls.Add(stopBar);
+        var stopBar = new TableLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, Padding = new(10, 6, 10, 6), Tag = ThemeRole.Surface, ColumnCount = 1, RowCount = 1 };
+        stopBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        stopBar.Controls.Add(taskExecutionProgress, 0, 0);
+        page.Controls.Add(stopBar);
         RefreshTaskList();
         return page;
+    }
+
+    string GetInitialTaskExecutionCount(ControllerSettings config) => config.TaskKind switch
+    {
+        ExecutionTaskKind.EntryAndRun when config.EntryRunCount > 0 => config.EntryRunCount.ToString(),
+        ExecutionTaskKind.EntryAndRun when config.EntryDifficulty == DungeonDifficulty.Normal => "∞",
+        ExecutionTaskKind.EntryAndRun => "读取中",
+        ExecutionTaskKind.EternalWinterSweep => config.EternalWinterSweepCount.ToString(),
+        _ => "1"
+    };
+
+    void UpdateTaskExecutionProgress(int currentCount, string totalCount)
+    {
+        if (!taskQueueRunning || activeTaskNumber <= 0 || IsDisposed || Disposing) return;
+        if (InvokeRequired)
+        {
+            BeginInvoke(() => UpdateTaskExecutionProgress(currentCount, totalCount));
+            return;
+        }
+        taskExecutionProgress.Text = $"当前任务：{activeTaskNumber}　当前次数：{currentCount}/{totalCount}";
     }
 
     static ControllerSettings CloneTask(ControllerSettings source) =>
@@ -278,6 +358,8 @@ public sealed partial class MainForm
         result.TaskEnabled = task.TaskEnabled;
         result.SwitchEquipmentSet = task.SwitchEquipmentSet;
         result.EquipmentSet = task.EquipmentSet;
+        result.EternalWinterFloor = task.EternalWinterFloor;
+        result.EternalWinterSweepCount = task.EternalWinterSweepCount;
         if (task.TaskKind is ExecutionTaskKind.EntryAndRun or ExecutionTaskKind.CardMining)
         {
             result.EntryMapId = task.EntryMapId;
@@ -407,6 +489,50 @@ public sealed partial class MainForm
             ThemeManager.Apply(dialog, currentPalette);
             return dialog.ShowDialog(this) == DialogResult.OK;
         }
+        if (config.TaskKind == ExecutionTaskKind.FreePrayer)
+        {
+            config.SwitchEquipmentSet = false;
+            Row("流程", new Label { Text = "打开神迹许愿 → 免费祈祷 → 点击右侧空白处关闭并跳过动画 → 重复至不免费", AutoSize = true });
+            ThemeManager.Apply(dialog, currentPalette);
+            return dialog.ShowDialog(this) == DialogResult.OK;
+        }
+        if (config.TaskKind == ExecutionTaskKind.FreeWelfare)
+        {
+            config.SwitchEquipmentSet = false;
+            Row("流程", new Label { Text = "福利活动 → 超值礼包领取所有免费礼包 → 特权礼包领取月卡和终身卡 → 点击右侧空白处关闭", AutoSize = true });
+            ThemeManager.Apply(dialog, currentPalette);
+            return dialog.ShowDialog(this) == DialogResult.OK;
+        }
+        if (config.TaskKind == ExecutionTaskKind.AbyssKey)
+        {
+            config.SwitchEquipmentSet = false;
+            Row("流程", new Label { Text = "打开商店 → 宝箱 → 查找深渊钥匙 → 未售罄时领取 → 确认奖励并关闭", AutoSize = true });
+            ThemeManager.Apply(dialog, currentPalette);
+            return dialog.ShowDialog(this) == DialogResult.OK;
+        }
+        if (config.TaskKind == ExecutionTaskKind.DailySignIn)
+        {
+            config.SwitchEquipmentSet = false;
+            Row("流程", new Label { Text = "识别入口 → 每日签到 → 核对累计天数及已领取勾选 → 领取阶段奖励 → 关闭", AutoSize = true });
+            ThemeManager.Apply(dialog, currentPalette);
+            return dialog.ShowDialog(this) == DialogResult.OK;
+        }
+        if (config.TaskKind == ExecutionTaskKind.EternalWinterSweep)
+        {
+            config.SwitchEquipmentSet = false;
+            Number(nameof(config.EternalWinterFloor), "永冬裂缝层数", 1, 99);
+            Number(nameof(config.EternalWinterSweepCount), "扫荡次数", 1, 999);
+            Row("流程", new Label { Text = "打开巴萨坦地图和永冬裂缝，选择层数后按次数扫荡；次数不足或未解锁时关闭界面", AutoSize = true });
+            ThemeManager.Apply(dialog, currentPalette);
+            return dialog.ShowDialog(this) == DialogResult.OK;
+        }
+        if (config.TaskKind == ExecutionTaskKind.AbyssSweep)
+        {
+            config.SwitchEquipmentSet = false;
+            Row("流程", new Label { Text = "打开地图 → 深渊秘境 → 确认深渊模式 → 按钥匙数量选择扫荡次数 → 二次确认 → 领取战利品", AutoSize = true });
+            ThemeManager.Apply(dialog, currentPalette);
+            return dialog.ShowDialog(this) == DialogResult.OK;
+        }
         var switchEquipment = Box("装备检测"); switchEquipment.Checked = config.SwitchEquipmentSet;
         var equipmentSets = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new(0), Enabled = switchEquipment.Checked };
         var setOptions = new List<RadioButton>();
@@ -503,6 +629,16 @@ public sealed partial class MainForm
         RefreshTaskList(to); SaveSettings();
     }
 
+    void AddTaskRow(ListViewItem item)
+    {
+        var sequence = item.Text;
+        item.Text = "";
+        item.Tag = sequence;
+        item.SubItems.Insert(1, new ListViewItem.ListViewSubItem(item, ""));
+        item.SubItems.Insert(2, new ListViewItem.ListViewSubItem(item, ""));
+        taskList.Items.Add(item);
+    }
+
     void RefreshTaskList(int selected = -1)
     {
         synchronizingTaskChecks = true;
@@ -513,15 +649,14 @@ public sealed partial class MainForm
             var map = DungeonEntryCatalog.Maps.FirstOrDefault(x => x.Id == s.EntryMapId);
             var entry = DungeonEntryCatalog.EntriesForMap(s.EntryMapId).FirstOrDefault(x => x.Id == s.EntryId);
             var targets = new[] { (s.AttackBoss, "Boss"), (s.Monsters, "小怪"), (s.Elites, "精英"), (s.Chests, "箱子"), (s.Pots, "罐子"), (s.Bones, "石堆"), (s.Gold, "金币"), (s.Runes, "符文"), (s.Altars, "点金台"), (s.Chambers, "密室") };
-            var count = s.EntryRunCount > 0 ? $"{s.EntryRunCount} 次" : s.EntryDifficulty == DungeonDifficulty.Normal ? "自动（无限）" : "自动（剩余次数）";
-            var equipment = s.SwitchEquipmentSet ? $" · 装备检测/方案{Math.Clamp(s.EquipmentSet, 1, 3)}" : "";
+            var count = s.EntryRunCount > 0 ? $"{s.EntryRunCount} 次" : s.EntryDifficulty == DungeonDifficulty.Normal ? "自动（无限）" : "剩余次数";
             if (s.TaskKind == ExecutionTaskKind.DreamTrial)
             {
                 var names = new[] { "Troll", "DastardBot", "EldestOne", "Shoggoth", "GodsSpirit", "Mad King" };
                 var selectedBosses = string.Join("、", Enumerable.Range(0, 6).Where(index => (s.DreamTrialBossMask & (1 << index)) != 0).Select(index => names[index]));
-                var dream = new ListViewItem(new[] { (i + 1).ToString(), "梦境试炼" + equipment, "—", "依次挑战", "胜利回城后继续", selectedBosses });
+                var dream = new ListViewItem(new[] { (i + 1).ToString(), "梦境试炼", "—", "依次挑战", "胜利回城后继续", selectedBosses });
                 dream.Checked = s.TaskEnabled;
-                taskList.Items.Add(dream);
+                AddTaskRow(dream);
                 if (i == selected) { dream.Selected = true; dream.EnsureVisible(); }
                 continue;
             }
@@ -529,16 +664,72 @@ public sealed partial class MainForm
             {
                 var soul = new ListViewItem(new[] { (i + 1).ToString(), "培养魂器", "—", "剩余次数", "普通培养", "完成后关闭背包" });
                 soul.Checked = s.TaskEnabled;
-                taskList.Items.Add(soul);
+                AddTaskRow(soul);
                 if (i == selected) { soul.Selected = true; soul.EnsureVisible(); }
                 continue;
             }
-            var item = new ListViewItem(new[] { (i + 1).ToString(), (s.TaskKind == ExecutionTaskKind.CurrentMapRun ? "当前地图跑图" : $"{(s.TaskKind == ExecutionTaskKind.CardMining ? "卡矿任务" : "进图并跑图")} · {map?.Name ?? s.EntryMapId.ToString()} / {entry?.Name ?? s.EntryId.ToString()}") + equipment,
+            if (s.TaskKind == ExecutionTaskKind.FreePrayer)
+            {
+                var prayer = new ListViewItem(new[] { (i + 1).ToString(), "免费祈祷", "—", "直到不免费", "神迹许愿", "每次关闭并跳过动画" });
+                prayer.Checked = s.TaskEnabled;
+                AddTaskRow(prayer);
+                if (i == selected) { prayer.Selected = true; prayer.EnsureVisible(); }
+                continue;
+            }
+            if (s.TaskKind == ExecutionTaskKind.FreeWelfare)
+            {
+                var welfare = new ListViewItem(new[] { (i + 1).ToString(), "福利活动", "—", "1 次", "福利活动", "超值礼包与特权礼包" });
+                welfare.Checked = s.TaskEnabled;
+                AddTaskRow(welfare);
+                if (i == selected) { welfare.Selected = true; welfare.EnsureVisible(); }
+                continue;
+            }
+            if (s.TaskKind == ExecutionTaskKind.AbyssKey)
+            {
+                var key = new ListViewItem(new[] { (i + 1).ToString(), "领取深渊钥匙", "—", "每日限购 1", "宝箱", "已售罄则跳过" });
+                key.Checked = s.TaskEnabled;
+                AddTaskRow(key);
+                if (i == selected) { key.Selected = true; key.EnsureVisible(); }
+                continue;
+            }
+            if (s.TaskKind == ExecutionTaskKind.DailySignIn)
+            {
+                var signIn = new ListViewItem(new[] { (i + 1).ToString(), "每日签到", "—", "1 次", "签到", "含累计天数奖励" });
+                signIn.Checked = s.TaskEnabled;
+                AddTaskRow(signIn);
+                if (i == selected) { signIn.Selected = true; signIn.EnsureVisible(); }
+                continue;
+            }
+            if (s.TaskKind == ExecutionTaskKind.EternalWinterSweep)
+            {
+                var sweep = new ListViewItem(new[] { (i + 1).ToString(), "扫荡永冬裂缝", "—", $"{s.EternalWinterSweepCount} 次", $"{s.EternalWinterFloor} 层", "次数不足或未解锁时结束" });
+                sweep.Checked = s.TaskEnabled;
+                AddTaskRow(sweep);
+                if (i == selected) { sweep.Selected = true; sweep.EnsureVisible(); }
+                continue;
+            }
+            if (s.TaskKind == ExecutionTaskKind.AbyssSweep)
+            {
+                var sweep = new ListViewItem(new[] { (i + 1).ToString(), "扫荡深渊秘境", "—", "按钥匙数量", "深渊模式", "按界面上限选择，完成后领取战利品" });
+                sweep.Checked = s.TaskEnabled;
+                AddTaskRow(sweep);
+                if (i == selected) { sweep.Selected = true; sweep.EnsureVisible(); }
+                continue;
+            }
+            var taskName = s.TaskKind switch
+            {
+                ExecutionTaskKind.CurrentMapRun => "当前地图跑图",
+                ExecutionTaskKind.EntryAndRun => map?.IsHeroVariant == true
+                    ? entry?.Name ?? s.EntryId.ToString()
+                    : $"{map?.Name ?? s.EntryMapId.ToString()} {entry?.Name ?? s.EntryId.ToString()}",
+                _ => "卡矿任务"
+            };
+            var item = new ListViewItem(new[] { (i + 1).ToString(), taskName,
                 s.TaskKind == ExecutionTaskKind.CurrentMapRun ? "—" : new[] { "普通", "精英", "噩梦" }[Math.Clamp((int)s.EntryDifficulty, 0, 2)], s.TaskKind == ExecutionTaskKind.CurrentMapRun ? "1 次" : s.TaskKind == ExecutionTaskKind.CardMining ? $"{s.CardMiningStartAt:MM-dd HH:mm} / ≥{s.CardMiningMinimumTools}镐" : count,
                 s.TaskKind == ExecutionTaskKind.CardMining ? "条件满足即挖 · 最迟目标层" : $"{(s.TargetStopFloor > 0 ? s.TargetStopFloor + "层停" : "不停层")}{(s.EscapeReturnFloor > 0 ? $" · {s.EscapeReturnFloor}层卷轴回城" : "")}{(s.Mining ? " · 挖矿" : "")}{(s.CardMining ? " · 卡矿" : "")}{(s.CardLayer ? " · 卡层" : "")}",
                 "钥匙、" + string.Join("、", targets.Where(x => x.Item1).Select(x => x.Item2)) });
             item.Checked = s.TaskEnabled;
-            taskList.Items.Add(item);
+            AddTaskRow(item);
             if (i == selected) { item.Selected = true; item.EnsureVisible(); }
         }
         taskList.EndUpdate();
@@ -550,8 +741,15 @@ public sealed partial class MainForm
 // 在原生 ListView 更改选择前处理勾选框点击，保留 Shift/Ctrl 已建立的多选集合。
 sealed class TaskSelectionListView : ListView
 {
-    public event Action<int>? StateImageClicked;
+    public event Action<int>? CheckClicked;
+    public event Action<int>? RunClicked;
+    public event Action? StopClicked;
     public bool RestoringChecks { get; private set; }
+    int activeRunIndex = -1;
+    public int ActiveRunIndex { get => activeRunIndex; set { activeRunIndex = value; Invalidate(); } }
+
+    Rectangle CheckButtonBounds(ListViewItem item) => new(item.Bounds.Left + Columns[0].Width + (Columns[1].Width - 18) / 2, item.Bounds.Top + (item.Bounds.Height - 18) / 2, 18, 18);
+    Rectangle RunButtonBounds(ListViewItem item) => new(item.Bounds.Left + Columns[0].Width + Columns[1].Width + (Columns[2].Width - 24) / 2, item.Bounds.Top + 1, 24, Math.Max(20, item.Bounds.Height - 2));
 
     protected override void OnHandleCreated(EventArgs e)
     {
@@ -566,21 +764,70 @@ sealed class TaskSelectionListView : ListView
     {
         const int LeftButtonDown = 0x0201;
         const int LeftButtonDoubleClick = 0x0203;
+        const int Paint = 0x000F;
         if (message.Msg is LeftButtonDown or LeftButtonDoubleClick)
         {
             var packed = message.LParam.ToInt64();
             var point = new Point((short)(packed & 0xffff), (short)((packed >> 16) & 0xffff));
             var hit = HitTest(point);
-            if (hit.Item is not null && (hit.Location & ListViewHitTestLocations.StateImage) != 0)
+            if (hit.Item is not null && CheckButtonBounds(hit.Item).Contains(point))
+            {
+                if (message.Msg == LeftButtonDown) { Focus(); CheckClicked?.Invoke(hit.Item.Index); }
+                return;
+            }
+            if (hit.Item is not null && RunButtonBounds(hit.Item).Contains(point))
             {
                 if (message.Msg == LeftButtonDown)
                 {
                     Focus();
-                    StateImageClicked?.Invoke(hit.Item.Index);
+                    if (hit.Item.Index == ActiveRunIndex) StopClicked?.Invoke();
+                    else RunClicked?.Invoke(hit.Item.Index);
                 }
+                return;
+            }
+            if (hit.Item is not null && (hit.Location & ListViewHitTestLocations.StateImage) != 0)
+            {
+                // 原生状态图仍在第一列，但序号列由下方自绘覆盖。
                 return;
             }
         }
         base.WndProc(ref message);
+        if (message.Msg == Paint && IsHandleCreated && Items.Count > 0)
+        {
+            using var graphics = CreateGraphics();
+            foreach (ListViewItem item in Items)
+            {
+                var firstCell = new Rectangle(item.Bounds.Left, item.Bounds.Top, Columns[0].Width, item.Bounds.Height);
+                using (var background = new SolidBrush(item.Selected ? SystemColors.Highlight : BackColor)) graphics.FillRectangle(background, firstCell);
+                TextRenderer.DrawText(graphics, item.Tag?.ToString() ?? "", Font, firstCell,
+                    item.Selected ? SystemColors.HighlightText : ForeColor,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+                var nameCell = new Rectangle(item.Bounds.Left + Columns[0].Width + Columns[1].Width + Columns[2].Width,
+                    item.Bounds.Top, Columns[3].Width, item.Bounds.Height);
+                using (var background = new SolidBrush(item.Selected ? SystemColors.Highlight : BackColor)) graphics.FillRectangle(background, nameCell);
+                TextRenderer.DrawText(graphics, item.SubItems.Count > 3 ? item.SubItems[3].Text : "", Font, nameCell,
+                    item.Selected ? SystemColors.HighlightText : ForeColor,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis);
+                var check = CheckButtonBounds(item);
+                ControlPaint.DrawCheckBox(graphics, check, item.Checked ? ButtonState.Checked : ButtonState.Normal);
+                var bounds = RunButtonBounds(item);
+                if (bounds.Bottom < 0 || bounds.Top > ClientSize.Height) continue;
+                var active = item.Index == ActiveRunIndex;
+                var color = active ? Color.FromArgb(220, 155, 62) : Color.FromArgb(66, 172, 110);
+                using var brush = new SolidBrush(color);
+                using var pen = new Pen(color, 2.5f) { StartCap = System.Drawing.Drawing2D.LineCap.Round, EndCap = System.Drawing.Drawing2D.LineCap.Round };
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                if (active)
+                {
+                    graphics.DrawLine(pen, bounds.Left + 8, bounds.Top + 5, bounds.Left + 8, bounds.Bottom - 5);
+                    graphics.DrawLine(pen, bounds.Right - 8, bounds.Top + 5, bounds.Right - 8, bounds.Bottom - 5);
+                }
+                else
+                {
+                    var centerY = bounds.Top + bounds.Height / 2;
+                    graphics.FillPolygon(brush, new Point[] { new(bounds.Left + 8, centerY - 7), new(bounds.Left + 8, centerY + 7), new(bounds.Right - 5, centerY) });
+                }
+            }
+        }
     }
 }

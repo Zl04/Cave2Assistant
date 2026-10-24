@@ -61,12 +61,17 @@ public sealed class RoleInfo
     [JsonIgnore] public bool IsDirectBossNpc => ClassName == "TriggerNpcData" &&
         RoleType == 7 && MinimapType == 42 && TreasureType == 39;
 
+    // 幽灵深渊未激活图腾；触发后会由服务器下发同坐标怪物。
+    [JsonIgnore] public bool IsTouchTriggerMonster => ClassName == "TriggerNpcData" &&
+        RoleType == 7 && MinimapType == 0 && TemplateID is 10425017 or 10425019 or 10425021;
+
     public string Kind
     {
         get
         {
             if (Opened && ClassName == "TriggerNpcData" && RoleType is 2 or 3 or 8) return "";
             if (IsDirectBossNpc) return "直接挑战Boss NPC";
+            if (IsTouchTriggerMonster) return "小怪";
             if (MapIconCatalog.TryGetKind(this, out var mapKind)) return mapKind;
             return ClassName switch
             {

@@ -27,8 +27,21 @@ public static class VisualNodeLocator
         => OpenCvVisualNodeLocator.IsMapStill(previous, current, out displacement, out response);
 
     public static VisualIconCandidate? FindMapSwitchIcon(Bitmap source)
-        => OpenCvVisualNodeLocator.FindMapSwitchIcon(source);
+    {
+        var match = BuiltInUiTemplateCatalog.FindMapSwitchIcon(source);
+        return match is null
+            ? null
+            : new VisualIconCandidate(match.Center, new Rectangle(match.Center, Size.Empty), match.Score);
+    }
+
+    public static VisualIconCandidate? FindTimeGateSwitchIcon(Bitmap source)
+    {
+        var match = BuiltInUiTemplateCatalog.FindTimeGateSwitchIcon(source);
+        return match is null
+            ? null
+            : new VisualIconCandidate(match.Center, new Rectangle(match.Center, Size.Empty), match.Score);
+    }
 }
 
 public sealed record VisualNodeCandidate(Point Center, Rectangle Bounds, int Area);
-public sealed record VisualIconCandidate(Point Center, Rectangle Bounds, int PixelCount);
+public sealed record VisualIconCandidate(Point Center, Rectangle Bounds, double Score);

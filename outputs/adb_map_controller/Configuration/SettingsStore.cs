@@ -130,6 +130,11 @@ public sealed class JsonSettingsStore : ISettingsStore
                     }
                     if (kind == ExecutionTaskKind.DreamTrial)
                         allowed.Add(nameof(ControllerSettings.DreamTrialBossMask));
+                    if (kind == ExecutionTaskKind.EternalWinterSweep)
+                    {
+                        allowed.Add(nameof(ControllerSettings.EternalWinterFloor));
+                        allowed.Add(nameof(ControllerSettings.EternalWinterSweepCount));
+                    }
                     foreach (var field in task.Select(x => x.Key).Where(x => !allowed.Contains(x)).ToArray())
                         task.Remove(field);
     }

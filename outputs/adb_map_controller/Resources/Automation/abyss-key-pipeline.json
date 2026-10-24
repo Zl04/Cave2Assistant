@@ -1,0 +1,75 @@
+{
+  "$schema": "https://github.com/MaaAssistantArknights/MaaAssistantArknights/raw/dev-v2/docs/maa_tasks_schema.json",
+  "打开商店": {
+    "recognition": "TemplateMatch", "handler": "MaaAdb", "action": "ClickSelf",
+    "template": ["templates/ui/abyss-key-shop-entry.png"], "templThreshold": 0.68,
+    "roi": [1190, 170, 90, 100], "post_delay": 550,
+    "next": ["确认商店已打开"], "timeout": 5000, "rate_limit": 250
+  },
+  "确认商店已打开": {
+    "recognition": "Custom", "handler": "AbyssKey", "action": "DoNothing",
+    "next": ["等待打开动画"], "timeout": 5000, "rate_limit": 250
+  },
+  "等待打开动画": {
+    "recognition": "DirectHit", "handler": "MaaAdb", "action": "DoNothing",
+    "post_delay": 500, "next": ["确认宝箱页签", "点击宝箱页签"], "timeout": 1000
+  },
+  "确认宝箱页签": {
+    "recognition": "Custom", "handler": "AbyssKey", "action": "DoNothing",
+    "next": ["礼包已售罄", "礼包可领取", "向下查找礼包"], "timeout": 1000
+  },
+  "点击宝箱页签": {
+    "recognition": "DirectHit", "handler": "MaaAdb", "action": "ClickRect",
+    "specificRect": [566, 31, 2, 2], "post_delay": 450,
+    "next": ["确认宝箱页签", "点击宝箱页签"], "timeout": 1000,
+    "maxTimes": 4, "exceeded_next": ["宝箱页签切换失败"]
+  },
+  "宝箱页签切换失败": {
+    "recognition": "Custom", "handler": "AbyssKey", "action": "DoNothing"
+  },
+  "礼包已售罄": {
+    "recognition": "Custom", "handler": "AbyssKey", "action": "DoNothing",
+    "next": ["关闭商店"]
+  },
+  "礼包可领取": {
+    "recognition": "Custom", "handler": "AbyssKey", "action": "DoNothing",
+    "next": ["打开礼包弹窗"]
+  },
+  "向下查找礼包": {
+    "recognition": "DirectHit", "handler": "MaaAdb", "action": "Swipe",
+    "specificRect": [776, 546, 2, 2], "rectMove": [0, -344, 450, 1],
+    "post_delay": 400,
+    "next": ["礼包已售罄", "礼包可领取", "向下查找礼包"], "timeout": 1000,
+    "maxTimes": 5, "exceeded_next": ["深渊钥匙礼包未找到"]
+  },
+  "深渊钥匙礼包未找到": {
+    "recognition": "Custom", "handler": "AbyssKey", "action": "DoNothing"
+  },
+  "打开礼包弹窗": {
+    "recognition": "DirectHit", "handler": "MaaAdb", "action": "ClickRect",
+    "specificRect": [767, 629, 2, 2], "post_delay": 350,
+    "next": ["确认礼包弹窗"], "timeout": 4000, "rate_limit": 250
+  },
+  "确认礼包弹窗": {
+    "recognition": "Custom", "handler": "AbyssKey", "action": "DoNothing",
+    "next": ["领取礼包"], "timeout": 4000, "rate_limit": 250
+  },
+  "领取礼包": {
+    "recognition": "DirectHit", "handler": "MaaAdb", "action": "ClickRect",
+    "specificRect": [801, 596, 2, 2], "post_delay": 500,
+    "next": ["确认宝物获得"], "timeout": 5000, "rate_limit": 250
+  },
+  "确认宝物获得": {
+    "recognition": "Custom", "handler": "AbyssKey", "action": "DoNothing",
+    "next": ["确定宝物获得"], "timeout": 5000, "rate_limit": 250
+  },
+  "确定宝物获得": {
+    "recognition": "DirectHit", "handler": "MaaAdb", "action": "ClickRect",
+    "specificRect": [638, 451, 2, 2], "post_delay": 350,
+    "next": ["关闭商店"]
+  },
+  "关闭商店": {
+    "recognition": "DirectHit", "handler": "MaaAdb", "action": "ClickRect",
+    "specificRect": [1101, 22, 2, 2], "post_delay": 300
+  }
+}

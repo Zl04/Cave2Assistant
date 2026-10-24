@@ -140,10 +140,10 @@
 
     <MakeDir Directories="$(_PaddleOCRPublishRoot)" />
     <Copy SourceFiles="@(_ExistingPaddleOCRRootAsset)" DestinationFolder="$(_PaddleOCRPublishRoot)" SkipUnchangedFiles="true" Condition="'@(_ExistingPaddleOCRRootAsset)' != ''" />
-    <Exec Command="robocopy &quot;$(PublishDir)models&quot; &quot;$(_PaddleOCRPublishRoot)models&quot; /E /NFL /NDL /NJH /NJS /NP" IgnoreExitCode="true" />
-    <Exec Command="robocopy &quot;$(PublishDir)configs&quot; &quot;$(_PaddleOCRPublishRoot)configs&quot; /E /NFL /NDL /NJH /NJS /NP" IgnoreExitCode="true" />
-    <Exec Command="robocopy &quot;$(PublishDir)images&quot; &quot;$(_PaddleOCRPublishRoot)images&quot; /E /NFL /NDL /NJH /NJS /NP" IgnoreExitCode="true" />
-    <Exec Command="robocopy &quot;$(PublishDir)runtimes\win-x64\native&quot; &quot;$(_PaddleOCRPublishRoot)native&quot; /E /NFL /NDL /NJH /NJS /NP" IgnoreExitCode="true" />
+    <Exec Command="robocopy &quot;$(PublishDir)models&quot; &quot;$(_PaddleOCRPublishRoot)models&quot; /E /NFL /NDL /NJH /NJS /NP" IgnoreExitCode="true" Condition="Exists('$(PublishDir)models')" />
+    <Exec Command="robocopy &quot;$(PublishDir)configs&quot; &quot;$(_PaddleOCRPublishRoot)configs&quot; /E /NFL /NDL /NJH /NJS /NP" IgnoreExitCode="true" Condition="Exists('$(PublishDir)configs')" />
+    <Exec Command="robocopy &quot;$(PublishDir)images&quot; &quot;$(_PaddleOCRPublishRoot)images&quot; /E /NFL /NDL /NJH /NJS /NP" IgnoreExitCode="true" Condition="Exists('$(PublishDir)images')" />
+    <Exec Command="robocopy &quot;$(PublishDir)runtimes\win-x64\native&quot; &quot;$(_PaddleOCRPublishRoot)native&quot; /E /NFL /NDL /NJH /NJS /NP" IgnoreExitCode="true" Condition="Exists('$(PublishDir)runtimes\win-x64\native')" />
     <Delete Files="@(_PaddleOCRRootAsset);@(_PaddleOCRModelAsset);@(_PaddleOCRConfigAsset);@(_PaddleOCRImageAsset);@(_PaddleOCRNativeAsset);@(_PaddleOCRFlattenedNativeAsset)" />
     <RemoveDir Directories="$(PublishDir)models;$(PublishDir)configs;$(PublishDir)images;$(PublishDir)runtimes\win-x64\native;$(PublishDir)runtimes\win-x64;$(PublishDir)runtimes" />
   </Target>
@@ -157,8 +157,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <_OpenCVManagedAsset Include="$(PublishDir)OpenCvSharp.dll" />
-      <_OpenCVNativeAsset Include="$(PublishDir)OpenCvSharpExtern.dll;$(PublishDir)opencv_videoio_ffmpeg*.dll" />
+      <_OpenCVManagedAsset Include="$(PublishDir)OpenCvSharp.dll" Condition="Exists('$(PublishDir)OpenCvSharp.dll')" />
+      <_OpenCVNativeAsset Include="$(PublishDir)OpenCvSharpExtern.dll" Condition="Exists('$(PublishDir)OpenCvSharpExtern.dll')" />
+      <_OpenCVNativeAsset Include="$(PublishDir)opencv_videoio_ffmpeg*.dll" />
     </ItemGroup>
 
     <MakeDir Directories="$(_OpenCVPublishRoot);$(_OpenCVPublishRoot)native" />

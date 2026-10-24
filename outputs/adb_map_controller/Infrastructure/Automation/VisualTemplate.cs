@@ -394,6 +394,10 @@ public static class BuiltInUiTemplateCatalog
     static bool bastanTitleLoaded;
     static VisualTemplate? bastanMapClose;
     static bool bastanMapCloseLoaded;
+    static IReadOnlyList<VisualTemplate> mapSwitchIcons = [];
+    static bool mapSwitchIconLoaded;
+    static IReadOnlyList<VisualTemplate> timeGateSwitchIcons = [];
+    static bool timeGateSwitchIconLoaded;
     static Mat? bastanMapBody;
     static bool bastanMapBodyLoaded;
 
@@ -423,6 +427,34 @@ public static class BuiltInUiTemplateCatalog
             .FirstOrDefault();
         return match;
     }
+
+    public static VisualMatch? FindMapSwitchIcon(Bitmap screen)
+        => FindMapSwitchIcon(screen, GetMapSwitchIcons());
+
+    public static VisualMatch? FindTimeGateSwitchIcon(Bitmap screen)
+        => FindMapSwitchIcon(screen, GetTimeGateSwitchIcons());
+
+    static VisualMatch? FindMapSwitchIcon(Bitmap screen, IReadOnlyList<VisualTemplate> templates)
+    {
+        if (templates.Count == 0) return null;
+        var left = Math.Clamp((int)Math.Round(screen.Width * .05), 0, screen.Width - 1);
+        var top = 0;
+        var right = Math.Clamp((int)Math.Round(screen.Width * .30), left + 1, screen.Width);
+        var bottom = Math.Clamp((int)Math.Round(screen.Height * .32), top + 1, screen.Height);
+        // 模板尺寸比例以完整屏幕短边为基准，不能先裁剪 ROI 再匹配；否则 1920x1080 下
+        // 218x146 的元素徽章会被误缩放成约 70x47，所有左上切换图标都会漏检。
+        // 在完整屏幕上匹配后再按中心点限制到左上区域，既保持正确缩放，也避免误点其它徽章。
+        var match = templates.SelectMany(template => template.FindAll(screen, .55, 12))
+            .Where(candidate => candidate.Center.X >= left && candidate.Center.X < right &&
+                                candidate.Center.Y >= top && candidate.Center.Y < bottom)
+            .Where(candidate => candidate.Score >= .78)
+            .OrderByDescending(candidate => candidate.Score)
+            .FirstOrDefault();
+        return match;
+    }
+
+    public static bool IsBastanMapOpen(Bitmap screen)
+        => FindBastanTitle(screen) is not null || MatchBastanMapBody(screen) >= .85;
 
     // 整块地图模板来自 1004x565 截图的 (50,90)-(955,525)。顶部横幅及红色标注边框均不在模板内。
     public static double MatchBastanMapBody(Bitmap screen)
@@ -524,6 +556,52 @@ public static class BuiltInUiTemplateCatalog
             try { bastanMapClose = VisualTemplate.FromFile(path, 88d / 1080d, 88d / 1080d); }
             catch { bastanMapClose = null; }
             return bastanMapClose;
+        }
+    }
+
+    static IReadOnlyList<VisualTemplate> GetMapSwitchIcons()
+    {
+        lock (sync)
+        {
+            if (mapSwitchIconLoaded) return mapSwitchIcons;
+            mapSwitchIconLoaded = true;
+            var directory = Path.Combine(AppContext.BaseDirectory, "templates", "ui");
+            var assets = new[]
+            {
+                ("map-switch-icon.png", 120d / 1080d, 120d / 1080d),
+                ("map-switch-element.png", 218d / 1080d, 146d / 1080d),
+                ("map-switch-void.png", 240d / 1080d, 170d / 1080d)
+            };
+            foreach (var (fileName, widthRatio, heightRatio) in assets)
+            {
+                var path = Path.Combine(directory, fileName);
+                if (!File.Exists(path)) continue;
+                try { mapSwitchIcons = mapSwitchIcons.Append(VisualTemplate.FromFile(path, widthRatio, heightRatio)).ToArray(); }
+                catch { }
+            }
+            return mapSwitchIcons;
+        }
+    }
+
+    static IReadOnlyList<VisualTemplate> GetTimeGateSwitchIcons()
+    {
+        lock (sync)
+        {
+            if (timeGateSwitchIconLoaded) return timeGateSwitchIcons;
+            timeGateSwitchIconLoaded = true;
+            var directory = Path.Combine(AppContext.BaseDirectory, "templates", "ui");
+            foreach (var fileName in new[] { "map-switch-time-gate.png", "map-switch-time-gate-hero.png" })
+            {
+                var path = Path.Combine(directory, fileName);
+                if (!File.Exists(path)) continue;
+                try
+                {
+                    timeGateSwitchIcons = timeGateSwitchIcons.Append(
+                        VisualTemplate.FromFile(path, 190d / 1080d, 195d / 1080d)).ToArray();
+                }
+                catch { }
+            }
+            return timeGateSwitchIcons;
         }
     }
 }

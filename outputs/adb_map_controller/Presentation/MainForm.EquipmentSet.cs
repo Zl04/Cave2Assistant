@@ -51,7 +51,7 @@ public sealed partial class MainForm
                     throw new InvalidOperationException("未检测到切换装备确认弹窗");
             }
             await adb.TapScreen(592d / 1004, 361d / 565);
-            await Task.Delay(500, token);
+            await ConfirmEquipmentSwitchDialogClosedAsync(token);
             Log($"已确认切换装备方案{set}");
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
@@ -62,6 +62,29 @@ public sealed partial class MainForm
                 try { await adb.PressBack(); } catch (Exception ex) { Warn($"关闭背包失败：{ex.Message}"); }
             popupHandling = false;
         }
+    }
+
+    async Task ConfirmEquipmentSwitchDialogClosedAsync(CancellationToken token)
+    {
+        var missingChecks = 0;
+        for (var check = 0; check < 10; check++)
+        {
+            await Task.Delay(300, token);
+            using var frame = await CaptureEquipmentFrameAsync(token);
+            var decision = EquipmentSwitchConfirmationPolicy.Decide(
+                IsEquipmentSwitchConfirmVisible(frame), missingChecks);
+            missingChecks = decision.MissingChecks;
+
+            if (decision.Action == EquipmentSwitchConfirmationAction.Completed)
+                return;
+            if (decision.Action == EquipmentSwitchConfirmationAction.RetryTap)
+            {
+                Log("切换装备确认弹窗仍在，重试确认");
+                await adb.TapScreen(592d / 1004, 361d / 565);
+            }
+        }
+
+        throw new InvalidOperationException("切换装备确认弹窗未连续两次消失");
     }
 
     async Task<bool> OpenEquipmentBagAsync(CancellationToken token)

@@ -399,6 +399,7 @@ public sealed class MapPanel : Panel
 
     void DrawRole(Graphics g, RoleInfo role, PointF p, float size, int index)
     {
+        if (role.IsTouchTriggerMonster) return;
         var kind = role.Kind;
         if (MapIconCatalog.TryGetTownIcon(role, out var townIcon))
         {

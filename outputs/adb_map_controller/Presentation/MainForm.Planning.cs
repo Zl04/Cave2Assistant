@@ -14,6 +14,19 @@ namespace AdbMapController;
 public sealed partial class MainForm
 {
     static bool IsCombatInteraction(string kind) => kind is "小怪" or "群怪" or "精英" or "小Boss" or "Boss";
+    async Task<bool> ConfirmInteractionStop(Cell expected, CancellationToken token)
+    {
+        await touch.TouchUp();
+        await Task.Delay((int)interactionSettleDelay.Value, token);
+        var status = await adb.ReadPlayer();
+        if (status.MoveSpeed > 0) dungeon.RouteExecution.MoveSpeed = status.MoveSpeed;
+        var actual = new Cell(status.Player.X, status.Player.Y);
+        if (dungeon.Map is not null) dungeon.Map.Player = status.Player;
+        mapPanel.Invalidate();
+        if (actual == expected) return true;
+        Log($"交互停靠点复核不一致：期望 {expected}，实际 {actual}，重新规划");
+        return false;
+    }
     Cell InputDelta(Cell desired)
     {
         if (dungeon.Map is null) return desired;
@@ -59,30 +72,34 @@ public sealed partial class MainForm
             return;
         }
 
-        State($"持续按住战斗 {task.Target.Kind}，方向 {delta.X},{delta.Y}");
-        Log($"开始持续按住战斗：{start} -> {task.Target.Cell}");
-        await touch.TouchDown(inputDelta, token);
-        try
+        const int combatPulseIntervalMs = 1000;
+        State($"脉冲触发战斗 {task.Target.Kind}，方向 {delta.X},{delta.Y}");
+        Log($"开始战斗单格脉冲：{start} -> {task.Target.Cell}，间隔 {combatPulseIntervalMs}ms");
         {
             var startedAt = Environment.TickCount64;
             var nextMapReadAt = 0L;
+            var nextPulseAt = startedAt;
             var targetGone = false;
             long targetGoneAt = 0;
             while (Environment.TickCount64 - startedAt < 30_000)
             {
                 token.ThrowIfCancellationRequested();
                 await Task.Delay(5, token);
+                if (Environment.TickCount64 >= nextPulseAt)
+                {
+                    await touch.PulseOneCell(inputDelta, (int)singleCellPulseHold.Value, token);
+                    nextPulseAt = Environment.TickCount64 + combatPulseIntervalMs;
+                }
                 var player = await adb.ReadPlayer();
                 if (player.MoveSpeed > 0) dungeon.RouteExecution.MoveSpeed = player.MoveSpeed;
                 var position = new Cell(player.Player.X, player.Player.Y);
                 dungeon.Map.Player = player.Player;
                 mapPanel.Invalidate();
 
-                // 被占据的怪物格变得可通行后，仍按住的方向会自然提交移动。
-                // 在坐标首次变化时释放，避免继续移动到下一个地图格。
+                // 怪物格变得可通行后，首次坐标变化即停止后续脉冲。
                 if (position != start)
                 {
-                    Log($"战斗后人物开始进格：{start} -> {position}，立即松开");
+                    Log($"战斗后人物开始进格：{start} -> {position}，停止脉冲");
                     return;
                 }
 
@@ -107,24 +124,21 @@ public sealed partial class MainForm
                     if (targetGoneAt == 0)
                     {
                         targetGoneAt = Environment.TickCount64;
-                        State($"{task.Target.Kind} 已消失，保持方向直到人物进格");
+                        State($"{task.Target.Kind} 已消失，继续间隔脉冲直到人物进格");
                     }
-                    // 怪物被击败后，其所在格通常会变得可通行，按住的方向也会立即推进玩家。
-                    // 如果在配置的卡顿窗口内没有观察到坐标变化，继续按住可能会让 UI
-                    // 卡在旧的 30 秒战斗超时中。此时释放方向，让常规循环刷新并重新协调路线。
+                    // 怪物消失后若迟迟没有进格，让常规循环刷新并重新协调路线。
                     if (Environment.TickCount64 - targetGoneAt >= Math.Max(300L, (long)stallTimeout.Value))
                     {
-                        Warn($"{task.Target.Kind} 已消失但人物未进格，超过卡住超时，停止当前方向并重新校准");
+                        Warn($"{task.Target.Kind} 已消失但人物未进格，超过卡住超时，停止脉冲并重新校准");
                         return;
                     }
                 }
                 else targetGoneAt = 0;
             }
             Log(targetGone
-                ? $"{task.Target.Kind} 已消失但人物尚未进格，本轮释放后继续确认"
-                : $"{task.Target.Kind} 战斗持续 30 秒，分段释放并继续确认");
+                ? $"{task.Target.Kind} 已消失但人物尚未进格，本轮停止脉冲后继续确认"
+                : $"{task.Target.Kind} 战斗持续 30 秒，停止脉冲并继续确认");
         }
-        finally { await touch.TouchUp(); }
     }
     PlanOptions Options()
     {

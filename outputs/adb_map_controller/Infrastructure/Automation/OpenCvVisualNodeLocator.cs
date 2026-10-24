@@ -197,6 +197,10 @@ public static class OpenCvVisualNodeLocator
 
     public static IReadOnlyList<DrawingRectangle> FindSweepButtonRegions(System.Drawing.Bitmap source, int? mapId = null)
     {
+        // 时光之门英雄页的节点是带“银色/暗金”等标签的奖励宝箱，没有扫荡条。
+        // 其中黄色宝箱会满足普通地图扫荡按钮的颜色和尺寸条件，不能作为点击禁区。
+        if (mapId == DungeonEntryCatalog.TimeGateHeroMapId) return [];
+
         using var image = OpenCvImage.ToMat(source, ImreadModes.Color);
         using var hsv = image.CvtColor(ColorConversionCodes.BGR2HSV);
         using var yellow = hsv.InRange(new Scalar(15, 110, 90), new Scalar(40, 255, 255));
@@ -251,25 +255,6 @@ public static class OpenCvVisualNodeLocator
         var result = new Mat();
         blurred.ConvertTo(result, MatType.CV_32FC1);
         return result;
-    }
-
-    public static VisualIconCandidate? FindMapSwitchIcon(System.Drawing.Bitmap source)
-    {
-        using var image = OpenCvImage.ToMat(source, ImreadModes.Color);
-        using var hsv = image.CvtColor(ColorConversionCodes.BGR2HSV);
-        using var mask = hsv.InRange(new Scalar(0, 42, 75), new Scalar(180, 255, 255));
-        var x1 = Math.Clamp((int)(image.Width * .34), 1, image.Width);
-        var y1 = Math.Clamp((int)(image.Height * .30), 1, image.Height);
-        using var roi = new Mat(mask, new Rect(0, 0, x1, y1)).Clone();
-        if (Cv2.CountNonZero(roi) < image.Width * image.Height * .006) return null;
-
-        using var points = roi.FindNonZero();
-        if (points.Empty()) return null;
-        var local = Cv2.BoundingRect(points);
-        var bounds = new DrawingRectangle(local.X, local.Y, local.Width, local.Height);
-        if (bounds.Width < image.Width * .12 || bounds.Height < image.Height * .10) return null;
-        var center = new DrawingPoint(bounds.Left + bounds.Width / 2, bounds.Top + bounds.Height / 2);
-        return new VisualIconCandidate(center, bounds, Cv2.CountNonZero(roi));
     }
 
 }

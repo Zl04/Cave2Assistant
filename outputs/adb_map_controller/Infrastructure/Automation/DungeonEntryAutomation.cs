@@ -141,7 +141,7 @@ public sealed class DungeonEntryAutomation
                 if (!string.Equals(task.Name, "主城标题已识别", StringComparison.Ordinal))
                 {
                     if (task.Name == "当前地图标题匹配目标")
-                        return await RecognizeCurrentTargetMapAsync(task, selection, token);
+                        return await RecognizeCurrentTargetMapAsync(task, selection, context, token);
                     return MaaPipelineRecognitionResult.Hit(detail: "Pipeline 节点由领域 handler 执行");
                 }
 
@@ -255,7 +255,15 @@ public sealed class DungeonEntryAutomation
         token.ThrowIfCancellationRequested();
         using var frame = await adb.CaptureScreenForAutomationAsync();
         var evidencePath = PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log);
-        var words = await adb.ReadOcrWordsAsync(frame);
+        // Match the cropped OCR used when selecting the difficulty. Full-screen OCR can
+        // miss the small difficulty label even while it is clearly visible on the right.
+        var roi = DifficultyOcrRegion(frame.Width, frame.Height);
+        using var crop = frame.Clone(roi, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+        var words = (await adb.ReadOcrWordsAsync(crop, token)).Select(word => word with
+        {
+            Left = word.Left + roi.Left,
+            Top = word.Top + roi.Top
+        }).ToArray();
         var difficultyName = selection.Difficulty == DungeonDifficulty.Nightmare ? "噩梦" : "精英";
         var label = OcrTextLocator.Find(words, difficultyName,
             word => word.Center.X >= frame.Width * .68 && word.Center.Y >= frame.Height * .25);
@@ -554,37 +562,59 @@ public sealed class DungeonEntryAutomation
     }
 
     async Task<MaaPipelineRecognitionResult> RecognizeCurrentTargetMapAsync(
-        MaaPipelineTask task, DungeonEntrySelection selection, CancellationToken token)
+        MaaPipelineTask task, DungeonEntrySelection selection,
+        MaaPipelineTaskContext<DungeonEntryAutomation> context, CancellationToken token)
     {
         if (!selection.Map.UsesSharedEntrance)
             return MaaPipelineRecognitionResult.Miss(detail: "目标地图不使用共享特殊地图入口");
 
-        token.ThrowIfCancellationRequested();
-        using var frame = await adb.CaptureScreenForAutomationAsync();
-        var roi = task.Roi ?? new MaaRect(0, 28, 435, 205);
-        var x = (int)Math.Round(roi.X * frame.Width / (double)VisionPipeline.DesignWidth);
-        var y = (int)Math.Round(roi.Y * frame.Height / (double)VisionPipeline.DesignHeight);
-        var width = (int)Math.Round(roi.Width * frame.Width / (double)VisionPipeline.DesignWidth);
-        var height = (int)Math.Round(roi.Height * frame.Height / (double)VisionPipeline.DesignHeight);
-        x = Math.Clamp(x, 0, frame.Width - 1);
-        y = Math.Clamp(y, 0, frame.Height - 1);
-        width = Math.Clamp(width, 1, frame.Width - x);
-        height = Math.Clamp(height, 1, frame.Height - y);
-        using var titleCrop = frame.Clone(new Rectangle(x, y, width, height),
-            System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-        var words = await adb.ReadOcrWordsAsync(titleCrop);
-        var title = OcrTextLocator.Compact(string.Concat(
-            words.OrderBy(word => word.Top).ThenBy(word => word.Left).Select(word => word.Text)));
         var expected = OcrTextLocator.Compact(selection.Map.Name);
-        var matches = title.Contains(expected, StringComparison.Ordinal);
-        log($"Pipeline OCR读取左上角地图标题：{(title.Length == 0 ? "<空>" : title)}；目标={selection.Map.Name}，匹配={matches}");
-        if (matches)
+        var knownNames = DungeonEntryCatalog.Maps.Where(map => map.UsesSharedEntrance)
+            .Select(map => OcrTextLocator.Compact(map.Name))
+            .Where(name => name.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        const int maxPasses = 6;
+        string lastTitle = string.Empty;
+        for (var pass = 1; pass <= maxPasses; pass++)
         {
-            state($"已在{selection.Map.Name}，识别目标层节点");
-            return MaaPipelineRecognitionResult.Hit(text: title, detail: "当前标题已匹配目标地图，跳过切换");
+            token.ThrowIfCancellationRequested();
+            using var frame = await adb.CaptureScreenForAutomationAsync();
+            var roi = task.Roi ?? new MaaRect(0, 28, 435, 205);
+            var x = (int)Math.Round(roi.X * frame.Width / (double)VisionPipeline.DesignWidth);
+            var y = (int)Math.Round(roi.Y * frame.Height / (double)VisionPipeline.DesignHeight);
+            var width = (int)Math.Round(roi.Width * frame.Width / (double)VisionPipeline.DesignWidth);
+            var height = (int)Math.Round(roi.Height * frame.Height / (double)VisionPipeline.DesignHeight);
+            x = Math.Clamp(x, 0, frame.Width - 1);
+            y = Math.Clamp(y, 0, frame.Height - 1);
+            width = Math.Clamp(width, 1, frame.Width - x);
+            height = Math.Clamp(height, 1, frame.Height - y);
+            using var titleCrop = frame.Clone(new Rectangle(x, y, width, height),
+                System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            var words = await adb.ReadOcrWordsAsync(titleCrop);
+            lastTitle = OcrTextLocator.Compact(string.Concat(
+                words.OrderBy(word => word.Top).ThenBy(word => word.Left).Select(word => word.Text)));
+            var recognized = knownNames.FirstOrDefault(name => lastTitle.Contains(name, StringComparison.Ordinal));
+            log($"Pipeline OCR读取左上角地图标题 ({pass}/{maxPasses})：{(lastTitle.Length == 0 ? "<空>" : lastTitle)}；目标={selection.Map.Name}，识别地图={recognized ?? "<未知>"}");
+            if (string.Equals(recognized, expected, StringComparison.Ordinal))
+            {
+                state($"已在{selection.Map.Name}，识别目标层节点");
+                return MaaPipelineRecognitionResult.Hit(text: lastTitle, detail: "当前标题已匹配目标地图，跳过切换");
+            }
+            if (recognized is not null)
+                return MaaPipelineRecognitionResult.Miss(
+                    detail: $"已明确识别当前地图为“{recognized}”，目标为“{selection.Map.Name}”，允许切换");
+
+            if (pass == maxPasses)
+            {
+                _ = PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log);
+                throw new InvalidOperationException(
+                    $"连续{maxPasses}次未能明确识别当前特殊地图标题（最后OCR：{(lastTitle.Length == 0 ? "<空>" : lastTitle)}），为避免误切换已停止进图");
+            }
+            await Delay(token, 250);
         }
 
-        return MaaPipelineRecognitionResult.Miss(detail: $"当前标题未匹配目标地图：{title}");
+        throw new InvalidOperationException("未能确认当前特殊地图标题，为避免误切换已停止进图");
     }
 
     async Task EnsureTimeGateVariant(DungeonEntrySelection selection, CancellationToken token)
@@ -608,7 +638,7 @@ public sealed class DungeonEntryAutomation
 
             log($"时光之门页签不符合目标：当前“{title}”={current}，目标={expectedName}；准备打开上方切换入口");
             state($"切换时光之门页签为 {expectedName} ({attempt}/2)");
-            await SelectMapVariant(expectedName, token);
+            await SelectMapVariant(expectedName, token, timeGate: true);
 
             var (verified, verifiedTitle) = await ReadTimeGateVariant(token);
             if (verified == expected)
@@ -723,12 +753,18 @@ public sealed class DungeonEntryAutomation
                 return;
             }
 
-            log($"点击候选 ({candidate.Center.X},{candidate.Center.Y}) 后未确认特殊地图切换图标，关闭当前弹窗并尝试下一个");
-            await adb.PressBack();
-            await Delay(token, 250);
             using var frame = await adb.CaptureScreenForAutomationAsync();
             if (!IsBastanMapFrame(frame))
-                await EnsureBastanMapOpen(token);
+            {
+                if (activeEvidenceRunId is not null)
+                    lastFailureEvidencePath = PipelineEvidenceStore.Save(frame, activeEvidenceRunId, activeEvidenceTaskId, log);
+                throw new InvalidOperationException(
+                    "点击特殊地图入口后已离开巴萨坦，但暂未确认地图界面；为避免关闭已打开的界面，未执行返回键");
+            }
+
+            log($"点击候选 ({candidate.Center.X},{candidate.Center.Y}) 后仍确认处于巴萨坦，关闭当前弹窗并尝试下一个");
+            await adb.PressBack();
+            await Delay(token, 250);
         }
         throw new InvalidOperationException("未能确认已进入共享特殊地图界面，未执行盲点");
     }
@@ -779,23 +815,49 @@ public sealed class DungeonEntryAutomation
     async Task<bool> ConfirmSharedEntryInterface(CancellationToken token)
     {
         // 从城镇地图转场到特殊地图可能需要多帧。
-        // 要求地图切换标记，而不是固定坐标或标题 OCR，
-        // 这样下一步才能安全地切换到请求的变体（元素炼狱/扭曲空间/虚空秘境）。
-        for (var pass = 0; pass < 5; pass++)
+        // 优先匹配地图切换图标；展开动画期间模板可能暂时不稳定，
+        // 此时允许明确的特殊地图标题作为进入界面的辅助证据。
+        const int maxPasses = 12;
+        for (var pass = 1; pass <= maxPasses; pass++)
         {
             token.ThrowIfCancellationRequested();
             using var frame = await adb.CaptureScreenForAutomationAsync();
             var icon = VisualNodeLocator.FindMapSwitchIcon(frame);
             if (icon is not null)
             {
-                log($"识图确认共享特殊地图切换图标：({icon.Center.X},{icon.Center.Y})，像素量 {icon.PixelCount}");
+                log($"模板确认共享特殊地图切换图标：({icon.Center.X},{icon.Center.Y})，相似度 {icon.Score:0.000}");
                 return true;
             }
 
-            if (pass < 4) await Delay(token, 180);
+            var title = await ReadKnownSharedMapTitle(frame);
+            if (title is not null)
+            {
+                log($"OCR确认已进入共享特殊地图界面：{title} ({pass}/{maxPasses})");
+                return true;
+            }
+
+            if (pass == 1 || pass == maxPasses || pass % 4 == 0)
+                log($"等待确认共享特殊地图界面 ({pass}/{maxPasses})：模板未命中，标题未明确");
+            if (pass < maxPasses) await Delay(token, 250);
         }
 
         return false;
+    }
+
+    async Task<string?> ReadKnownSharedMapTitle(Bitmap frame)
+    {
+        var x = 0;
+        var y = Math.Clamp((int)Math.Round(28 * frame.Height / (double)VisionPipeline.DesignHeight), 0, frame.Height - 1);
+        var width = Math.Clamp((int)Math.Round(435 * frame.Width / (double)VisionPipeline.DesignWidth), 1, frame.Width - x);
+        var height = Math.Clamp((int)Math.Round(205 * frame.Height / (double)VisionPipeline.DesignHeight), 1, frame.Height - y);
+        using var crop = frame.Clone(new Rectangle(x, y, width, height),
+            System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+        var words = await adb.ReadOcrWordsAsync(crop);
+        var text = OcrTextLocator.Compact(string.Concat(
+            words.OrderBy(word => word.Top).ThenBy(word => word.Left).Select(word => word.Text)));
+        return DungeonEntryCatalog.Maps.Where(map => map.UsesSharedEntrance)
+            .Select(map => OcrTextLocator.Compact(map.Name))
+            .FirstOrDefault(name => text.Contains(name, StringComparison.Ordinal));
     }
 
     bool IsBastanMapFrame(Bitmap frame)
@@ -840,13 +902,15 @@ public sealed class DungeonEntryAutomation
         }
     }
 
-    async Task SelectMapVariant(string variant, CancellationToken token)
+    async Task SelectMapVariant(string variant, CancellationToken token, bool timeGate = false)
     {
         for (var attempt = 1; attempt <= 8; attempt++)
         {
             token.ThrowIfCancellationRequested();
             using var frame = await adb.CaptureScreenForAutomationAsync();
-            var icon = VisualNodeLocator.FindMapSwitchIcon(frame);
+            var icon = timeGate
+                ? VisualNodeLocator.FindTimeGateSwitchIcon(frame)
+                : VisualNodeLocator.FindMapSwitchIcon(frame);
             if (icon is null)
             {
                 state($"等待识别左上地图切换图标 ({attempt}/8)");
@@ -854,7 +918,7 @@ public sealed class DungeonEntryAutomation
                 continue;
             }
 
-            log($"识图确认地图切换图标：({icon.Center.X},{icon.Center.Y})，像素量 {icon.PixelCount}");
+            log($"模板确认地图切换图标：({icon.Center.X},{icon.Center.Y})，相似度 {icon.Score:0.000}");
             await adb.TapScreen(icon.Center.X / (double)frame.Width, icon.Center.Y / (double)frame.Height);
             await Delay(token, 400);
             var card = await LocateStableText(variant, .25, .78, allowScroll: false, token,
@@ -869,9 +933,38 @@ public sealed class DungeonEntryAutomation
             log($"OCR确认地图页签：{variant}，坐标 ({card.Center.X},{card.Center.Y})，置信度 {card.Confidence:0.0}");
             await adb.TapScreen(card.Center.X / (double)card.FrameWidth, card.Center.Y / (double)card.FrameHeight);
             await Delay(token, 900);
-            return;
+            if (timeGate)
+            {
+                log($"已点击时光之门页签“{variant}”，等待外层标题复核");
+                return;
+            }
+            if (await WaitForSharedMapTitle(variant, token))
+            {
+                log($"已复核地图切换结果：{variant}");
+                return;
+            }
+
+            log($"点击地图页签“{variant}”后未能复核目标标题，重新尝试切换 ({attempt}/8)");
         }
         throw new InvalidOperationException($"未能打开左上地图切换页并确认“{variant}”页签，未执行盲点");
+    }
+
+    async Task<bool> WaitForSharedMapTitle(string expected, CancellationToken token)
+    {
+        var normalizedExpected = OcrTextLocator.Compact(expected);
+        const int maxPasses = 6;
+        for (var pass = 1; pass <= maxPasses; pass++)
+        {
+            token.ThrowIfCancellationRequested();
+            using var frame = await adb.CaptureScreenForAutomationAsync();
+            var current = await ReadKnownSharedMapTitle(frame);
+            if (string.Equals(current, normalizedExpected, StringComparison.Ordinal))
+                return true;
+            if (current is not null)
+                log($"切换后标题仍为“{current}”，目标为“{expected}” ({pass}/{maxPasses})");
+            if (pass < maxPasses) await Delay(token, 250);
+        }
+        return false;
     }
 
     async Task SelectDifficulty(DungeonDifficulty difficulty, CancellationToken token)
@@ -893,9 +986,7 @@ public sealed class DungeonEntryAutomation
             using var frame = await adb.CaptureScreenForAutomationAsync();
             frameWidth = frame.Width;
             frameHeight = frame.Height;
-            var x = (int)Math.Round(frame.Width * .58);
-            var y = (int)Math.Round(frame.Height * .30);
-            var roi = new Rectangle(x, y, frame.Width - x, frame.Height - y);
+            var roi = DifficultyOcrRegion(frame.Width, frame.Height);
             using var crop = frame.Clone(roi, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
             var localWords = await adb.ReadOcrWordsAsync(crop);
             var words = localWords.Select(word => word with
@@ -919,6 +1010,13 @@ public sealed class DungeonEntryAutomation
         log($"已定位{difficultyName}难度按钮，点击一次：({center.X},{center.Y})；不检查当前选中状态");
         await adb.TapScreen(center.X / (double)frameWidth, center.Y / (double)frameHeight);
         await Delay(token, 350);
+    }
+
+    internal static Rectangle DifficultyOcrRegion(int width, int height)
+    {
+        var x = (int)Math.Round(width * .58);
+        var y = (int)Math.Round(height * .30);
+        return new Rectangle(x, y, width - x, height - y);
     }
 
     async Task<bool> LocateAndSelectLayer(DungeonEntrySelection selection, CancellationToken token)
@@ -1130,7 +1228,7 @@ public sealed class DungeonEntryAutomation
         System.Drawing.Point? selectedCenter, int mapId)
     {
         var regions = VisualNodeLocator.FindSweepButtonRegions(frame, mapId).ToList();
-        if (selectedCenter is not null)
+        if (selectedCenter is not null && mapId != DungeonEntryCatalog.TimeGateHeroMapId)
         {
             // 有些地图的“扫荡”条是灰色，颜色掩码无法识别；它总在当前剑形图标下方。
             var halfWidth = (int)Math.Ceiling(55.0 * frame.Width / 1004);

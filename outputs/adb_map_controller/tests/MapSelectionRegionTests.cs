@@ -74,8 +74,8 @@ public sealed class MapSelectionRegionTests
         using var frame = new Bitmap(source, width, height);
         var nodes = VisualNodeLocator.FindMapNodes(frame, 2);
         foreach (var (x, y) in new[] { (.580, .286), (.526, .495), (.765, .458) })
-            Assert.True(nodes.Any(node => Math.Abs(node.Center.X / (double)width - x) < .025 &&
-                Math.Abs(node.Center.Y / (double)height - y) < .025));
+            Assert.Contains(nodes, node => Math.Abs(node.Center.X / (double)width - x) < .025 &&
+                Math.Abs(node.Center.Y / (double)height - y) < .025);
         Assert.DoesNotContain(nodes, node => Math.Abs(node.Center.X / (double)width - .704) < .035 &&
             Math.Abs(node.Center.Y / (double)height - .145) < .055);
     }

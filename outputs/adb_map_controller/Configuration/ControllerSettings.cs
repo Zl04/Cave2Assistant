@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
@@ -11,7 +11,7 @@ public enum ThemeMode
     System,
 }
 
-public enum ExecutionTaskKind { EntryAndRun, CurrentMapRun, CardMining, DreamTrial, SoulArtifactCultivation }
+public enum ExecutionTaskKind { EntryAndRun, CurrentMapRun, CardMining, DreamTrial, SoulArtifactCultivation, FreePrayer, FreeWelfare, AbyssKey, EternalWinterSweep, AbyssSweep, DailySignIn }
 
 public sealed class TaskTemplate
 {
@@ -52,6 +52,7 @@ public sealed class ControllerSettings
     // 正值：在预期格前释放。负值：在到达预期格后释放。
     public decimal MovementReleaseLead { get; set; } = 30;
     public decimal InteractionHold { get; set; } = 300;
+    public decimal InteractionSettleDelay { get; set; } = 300;
     public decimal StallTimeout { get; set; } = 1000;
     public decimal NewFloorStartDelay { get; set; } = 1500;
     public decimal RouteRecoveryAttempts { get; set; } = 3;
@@ -80,6 +81,8 @@ public sealed class ControllerSettings
     public int CardMiningMinimumTools { get; set; } = 1;
     // 从左到右六位分别对应梦境试炼的六位 Boss。
     public int DreamTrialBossMask { get; set; } = 63;
+    public int EternalWinterFloor { get; set; } = 1;
+    public int EternalWinterSweepCount { get; set; } = 1;
     public List<ControllerSettings> ExecutionTasks { get; set; } = [];
     public List<TaskTemplate> TaskTemplates { get; set; } = [];
     public string SelectedTaskTemplateName { get; set; } = "";

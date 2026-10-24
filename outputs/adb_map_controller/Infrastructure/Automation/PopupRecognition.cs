@@ -176,6 +176,15 @@ public static class PopupRecognition
         => OpenCvPopupColorAnalysis.Ratio(source, (.50, .70, .54, .75),
             PopupColorKind.GreenButton) >= .08;
 
+    public static bool LooksLikeCenteredGreenConfirmation(Bitmap source)
+    {
+        var panel = OpenCvPopupColorAnalysis.Ratio(source, (.28, .72, .25, .78),
+            PopupColorKind.LightNeutralPanel);
+        var confirm = OpenCvPopupColorAnalysis.Ratio(source, (.50, .70, .59, .75),
+            PopupColorKind.GreenButton);
+        return panel >= .30 && confirm >= .08;
+    }
+
     static bool HasNextFloorWarningText(Bitmap source)
     {
         var warningText = OpenCvPopupColorAnalysis.Ratio(source, (.33, .67, .37, .58),

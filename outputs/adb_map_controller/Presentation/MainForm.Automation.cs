@@ -351,6 +351,11 @@ public sealed partial class MainForm
                         }
                         else if (portalInteractionDelta != default)
                         {
+                            if (dungeon.Map is null || !await ConfirmInteractionStop(new Cell(dungeon.Map.Player.X, dungeon.Map.Player.Y), owner))
+                            {
+                                floorPhase = FloorPhase.GoToPortal;
+                                continue;
+                            }
                             if (await SendInteraction((portalInteractionDelta, portalInteractionKind), owner))
                             {
                                 await HandleMovementPopupInterrupt(owner);
@@ -374,16 +379,8 @@ public sealed partial class MainForm
                     // 路线可能在长按分段后立即结束。
                     // 在任务停靠点强制执行第二次同步释放，避免交互准备期间
                     // 飞行中的方向指令提交额外的地图格。
-                    await touch.TouchUp();
-                    await Task.Delay(20, owner);
-                    var interactionStatus = await adb.ReadPlayer();
-                    if (interactionStatus.MoveSpeed > 0) dungeon.RouteExecution.MoveSpeed = interactionStatus.MoveSpeed;
-                    var settledCell = new Cell(interactionStatus.Player.X, interactionStatus.Player.Y);
-                    dungeon.Map.Player = interactionStatus.Player;
-                    mapPanel.Invalidate();
-                    if (settledCell != currentCell)
+                    if (!await ConfirmInteractionStop(currentCell, owner))
                     {
-                        Log($"交互位置坐标复核不一致：期望 {currentCell}，实际 {settledCell}，重新规划");
                         // 不要在此处退出 RunLoop。任务停靠点的超调会同时使路线和交互停靠点失效，
                         // 但自动化必须继续运行，并从权威位置重新构建。
                         await RefreshMap(false, waitForLock: true);
@@ -401,7 +398,6 @@ public sealed partial class MainForm
                         await Task.Delay(10, owner);
                         continue;
                     }
-                    currentCell = settledCell;
                     var delta = new Cell(plannedTask.Target.Cell.X - currentCell.X, plannedTask.Target.Cell.Y - currentCell.Y);
                     State($"任务交互 {plannedTask.Target.Kind}，方向 {delta.X},{delta.Y}");
                     var isRoomPortal = IsRoomPortalTarget(plannedTask.Target);
@@ -614,8 +610,8 @@ public sealed partial class MainForm
     async Task<bool> CloseReturnTownDialogsAsync(CancellationToken token)
     {
         var deadline = Stopwatch.StartNew();
-        var sawPopup = false;
         var clickedPopup = false;
+        var consecutiveClearChecks = 0;
         while (deadline.Elapsed < TimeSpan.FromSeconds(10))
         {
             token.ThrowIfCancellationRequested();
@@ -629,6 +625,18 @@ public sealed partial class MainForm
             var lootWords = await adb.ReadOcrWordsAsync(lootTitle, token);
             var lootText = string.Concat(lootWords.Select(word => OcrTextLocator.Compact(word.Text)));
             var loot = lootText.Contains("战利品", StringComparison.Ordinal);
+            if (!loot)
+            {
+                using var enlargedTitle = new Bitmap(lootTitle.Width * 2, lootTitle.Height * 2);
+                using (var graphics = Graphics.FromImage(enlargedTitle))
+                {
+                    graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                    graphics.DrawImage(lootTitle, 0, 0, enlargedTitle.Width, enlargedTitle.Height);
+                }
+                var enlargedWords = await adb.ReadOcrWordsAsync(enlargedTitle, token);
+                lootText = string.Concat(enlargedWords.Select(word => OcrTextLocator.Compact(word.Text)));
+                loot = lootText.Contains("战利品", StringComparison.Ordinal);
+            }
             var advancement = false;
             if (!loot)
             {
@@ -641,10 +649,9 @@ public sealed partial class MainForm
                 var text = string.Concat(advancementWords.Select(word => OcrTextLocator.Compact(word.Text)));
                 advancement = PopupRecognition.IsCharacterAdvancementDialogText(text);
             }
-            var popupVisible = loot || advancement;
-            if (popupVisible) sawPopup = true;
             if (advancement)
             {
+                consecutiveClearChecks = 0;
                 var close = PopupRecognition.FindCharacterAdvancementCloseButton(frame,
                     Path.Combine(AppContext.BaseDirectory, "templates", "ui", "character-advancement-close.png"));
                 if (close is null)
@@ -660,19 +667,25 @@ public sealed partial class MainForm
             }
             if (loot)
             {
+                consecutiveClearChecks = 0;
                 await adb.TapScreen(.5, .9);
                 clickedPopup = true;
-                Log("返回主城后识别到战利品标题并点击确定");
+                Log("返回主城后识别到战利品标题并点击确定，下一轮继续核对是否关闭");
                 await Task.Delay(250, token);
             }
             else
             {
                 if (clickedPopup)
                 {
-                    Log("返回主城后已确认回城弹窗关闭，跑图收尾完成");
-                    return true;
+                    consecutiveClearChecks++;
+                    if (consecutiveClearChecks >= 2)
+                    {
+                        Log("返回主城后连续两轮未识别到战利品或进阶弹窗，确认弹窗已关闭");
+                        return true;
+                    }
+                    Log("返回主城后暂未识别到弹窗，等待下一轮二次确认");
                 }
-                if (!sawPopup && deadline.Elapsed >= TimeSpan.FromSeconds(3))
+                else if (deadline.Elapsed >= TimeSpan.FromSeconds(3))
                 {
                     Log("返回主城后 3 秒内未检测到待处理弹窗，跑图收尾完成");
                     return true;

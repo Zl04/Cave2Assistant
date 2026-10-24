@@ -6,6 +6,10 @@
 - 只有当用户在当前请求中明确点名 `codebase-analysis`（例如“使用 codebase-analysis 技能”）时，才启用该技能。
 - 该规则仅适用于本项目，不影响其它项目或会话。
 
+## 新增任务
+
+- 为 `outputs/adb_map_controller` 添加自动化任务时，优先使用现有 MAA Pipeline：将识别、点击、分支、重试和弹窗处理写入 `Resources/Automation/` 的任务配置，并通过任务入口调用 Pipeline。仅在 Pipeline 现有能力无法表达所需行为时，添加相应的 C# 处理器逻辑。
+
 ## 构建产物
 
 - 构建和发布 `outputs/adb_map_controller` 时，统一运行该项目的 `rebuild.bat`，由脚本完成停止程序、发布到标准目录和清理中间文件；以脚本成功退出且 `publish/.build`、`publish/bin`、`publish/obj` 均不存在作为完成条件。

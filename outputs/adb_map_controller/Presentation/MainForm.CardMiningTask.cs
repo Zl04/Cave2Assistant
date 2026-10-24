@@ -123,19 +123,39 @@ public sealed partial class MainForm
             await adb.TapScreen(.500, .777);
             await Task.Delay(600, token);
             await adb.TapScreen(.591, .712);
-            Log("卡矿任务：已点击返回城镇确认框的绿色勾");
+            Log("卡矿任务：已发送第 1 次返回城镇确认点击，开始循环核对");
+            var confirmationTapCount = 1;
             for (var attempt = 0; attempt < 30; attempt++)
             {
                 await Task.Delay(500, token);
                 var map = await adb.ReadMap();
-                if (MapRunTask.IsReturnDestination(map))
+                var returnedToTown = MapRunTask.IsReturnDestination(map);
+                var confirmationStillVisible = false;
+                if (!returnedToTown)
                 {
-                    lastEntryRunSucceeded = true;
-                    State("卡矿任务完成：镐子已耗尽，已返回城镇");
-                    return;
+                    using var frame = await adb.CaptureScreenForAutomationAsync(token);
+                    confirmationStillVisible = PopupRecognition.LooksLikeCenteredGreenConfirmation(frame);
+                }
+                switch (CardMiningReturnConfirmationPolicy.Decide(
+                    returnedToTown, confirmationStillVisible, attempt + 1))
+                {
+                    case CardMiningReturnConfirmationAction.Completed:
+                        if (!await CloseReturnTownDialogsAsync(token))
+                        {
+                            State("卡矿任务：已返回城镇，但战利品或提示弹窗未确认关闭");
+                            return;
+                        }
+                        lastEntryRunSucceeded = true;
+                        State("卡矿任务完成：镐子已耗尽，已返回城镇且弹窗已关闭");
+                        return;
+                    case CardMiningReturnConfirmationAction.RetryTap:
+                        confirmationTapCount++;
+                        await adb.TapScreen(.591, .712);
+                        Log($"卡矿任务：返回城镇确认框仍存在，执行第 {confirmationTapCount} 次确认点击");
+                        break;
                 }
             }
-            State("卡矿任务：已点击返回城镇，但未确认到达");
+            State($"卡矿任务：返回城镇确认循环超时，共发送 {confirmationTapCount} 次确认点击");
         }
         finally
         {

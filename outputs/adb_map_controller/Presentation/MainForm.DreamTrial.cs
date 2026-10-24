@@ -228,6 +228,7 @@ public sealed partial class MainForm
             var player = new Cell(map.Player.X, map.Player.Y);
             if (Math.Abs(target.X - player.X) + Math.Abs(target.Y - player.Y) == 1)
             {
+                if (!await ConfirmInteractionStop(player, token)) continue;
                 await SendInteraction((new Cell(target.X - player.X, target.Y - player.Y), "挑战任务 NPC"), token);
                 await Task.Delay(450, token);
                 var text = await ReadDreamTrialScreenTextAsync(token);

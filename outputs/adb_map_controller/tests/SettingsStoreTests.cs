@@ -36,7 +36,7 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.False(actual.ExecutionTasks[1].TaskEnabled);
         Assert.Equal(ExecutionTaskKind.CurrentMapRun, actual.ExecutionTasks[1].TaskKind);
         Assert.Equal(ExecutionTaskKind.EntryAndRun, actual.ExecutionTasks[0].TaskKind);
-        Assert.Equal(DungeonDifficulty.Elite, actual.ExecutionTasks[1].EntryDifficulty);
+        Assert.Equal(DungeonDifficulty.Normal, actual.ExecutionTasks[1].EntryDifficulty);
     }
 
     [Fact]
@@ -44,6 +44,30 @@ public sealed class SettingsStoreTests : IDisposable
     {
         var settings = System.Text.Json.JsonSerializer.Deserialize<ControllerSettings>("{\"ExecutionTasks\":[{\"EntryId\":3}]}")!;
         Assert.True(settings.ExecutionTasks[0].TaskEnabled);
+    }
+
+    [Fact]
+    public void EternalWinterSweepTaskRoundTripsFloorAndCount()
+    {
+        Directory.CreateDirectory(directory);
+        var store = new JsonSettingsStore(Path.Combine(directory, "settings.json"));
+        store.Save(new ControllerSettings
+        {
+            TaskTemplates = [new TaskTemplate
+            {
+                Name = "测试模板",
+                Tasks = [new ControllerSettings
+                {
+                    TaskKind = ExecutionTaskKind.EternalWinterSweep,
+                    EternalWinterFloor = 4,
+                    EternalWinterSweepCount = 2
+                }]
+            }]
+        });
+
+        var task = Assert.Single(Assert.Single(store.Load()!.TaskTemplates).Tasks);
+        Assert.Equal(4, task.EternalWinterFloor);
+        Assert.Equal(2, task.EternalWinterSweepCount);
     }
 
     [Fact]

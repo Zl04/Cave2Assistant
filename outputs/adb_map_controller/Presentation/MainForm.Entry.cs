@@ -54,14 +54,10 @@ public sealed partial class MainForm
 
         var selection = new DungeonEntrySelection(SelectedEntryMap.Id,
             Math.Max(1, entryChoice.SelectedIndex + 1), SelectedEntryDifficulty);
-        await operations.RunAsync(ControllerOperationKind.Entry, async token =>
-        {
-            var result = await AutoEnterCore(selection, token, stopBeforeChallenge: true);
-            if (result == AutoEnterResult.ReadyToChallenge)
-                State("已选中关卡，停在点击挑战前");
-        });
+        await operations.RunAsync(ControllerOperationKind.Entry, token =>
+            RunEntryRunPipelineAsync(token, stopAfterEntry: true));
     }
-    async Task RunEntryRunPipelineAsync(CancellationToken owner)
+    async Task RunEntryRunPipelineAsync(CancellationToken owner, bool stopAfterEntry = false)
     {
         lastEntryRunSucceeded = false;
         var configuredRunCount = (int)entryRunCount.Value;
@@ -74,6 +70,7 @@ public sealed partial class MainForm
         int? resolvedRunCount = configuredRunCount > 0
             ? configuredRunCount
             : selectedDifficulty == DungeonDifficulty.Normal ? int.MaxValue : null;
+        UpdateTaskExecutionProgress(1, resolvedRunCount == int.MaxValue ? "∞" : resolvedRunCount?.ToString() ?? "读取中");
 
         MaaPipelineCatalog catalog;
         try { catalog = MaaPipelineCatalogLoader.Load(runtime.Paths.Pipeline("entry-run-pipeline.json")); }
@@ -131,12 +128,20 @@ public sealed partial class MainForm
                             if (configuredRunCount == 0 && resolvedRunCount is null)
                             {
                                 resolvedRunCount = completedRuns + remaining;
+                                context.State.UpdateTaskExecutionProgress(
+                                    resolvedRunCount.Value == 0 ? 0 : Math.Min(completedRuns + 1, resolvedRunCount.Value),
+                                    resolvedRunCount.Value.ToString());
                                 context.State.Log($"自动跑图次数已识别：已有{completedRuns}轮完成，所选关卡剩余{remaining}次，本任务总计{resolvedRunCount}轮");
                             }
                             return configuredRunCount == 0 && selectedDifficulty != DungeonDifficulty.Normal &&
                                 completedRuns > 0 && remaining == 0;
-                        }, requiredRuns);
+                        }, requiredRuns, stopBeforeChallenge: stopAfterEntry);
                         token.ThrowIfCancellationRequested();
+                        if (entryResult == AutoEnterResult.ReadyToChallenge)
+                        {
+                            context.State.Log("已选中目标关卡，停在点击挑战前；未点击挑战");
+                            return MaaPipelineActionResult.Stop();
+                        }
                         if (entryResult == AutoEnterResult.QuotaExhausted)
                         {
                             resolvedRunCount = completedRuns;
@@ -171,6 +176,11 @@ public sealed partial class MainForm
                         if (!context.State.lastMapRunSucceeded)
                             return MaaPipelineActionResult.Failure("跑图未完成");
                         completedRuns++;
+                        context.State.UpdateTaskExecutionProgress(
+                            resolvedRunCount is > 0 and not int.MaxValue
+                                ? Math.Min(completedRuns + 1, resolvedRunCount.Value)
+                                : completedRuns + 1,
+                            resolvedRunCount == int.MaxValue ? "∞" : resolvedRunCount?.ToString() ?? "读取中");
                         context.State.Log($"跑图完成进度：{completedRuns}/{(resolvedRunCount == int.MaxValue ? "∞" : resolvedRunCount?.ToString() ?? "读取中")}");
                         return MaaPipelineActionResult.Success();
                     }
@@ -198,7 +208,7 @@ public sealed partial class MainForm
         var pipeline = new MaaPipeline<MainForm>(catalog, handlers,
             new MaaPipelineExecutionOptions { TaskChain = "EntryAndMapRun", RetryTimes = 0, MaxTransitions = int.MaxValue },
             new MaaPipelineTraceMultiplexer([trace, liveTrace, pipelineWebServer]));
-        State("进图跑图 Pipeline 运行中");
+        State(stopAfterEntry ? "进图 Pipeline 运行中" : "进图跑图 Pipeline 运行中");
         var result = await pipeline.RunAsync(this, ["AlreadyInDungeon", "StartFromTown"], owner);
         try
         {
@@ -210,17 +220,17 @@ public sealed partial class MainForm
         if (result.Status == MaaPipelineExecutionStatus.Canceled)
         {
             Log("进图跑图 Pipeline 已取消");
-            State("进图跑图已取消");
+            State(stopAfterEntry ? "进图已取消" : "进图跑图已取消");
         }
         else if (!result.Succeeded && result.Status != MaaPipelineExecutionStatus.Stopped)
         {
             Log($"进图跑图 Pipeline 失败：{result.Error ?? result.Status.ToString()}", LogLevel.Error);
-            State("进图跑图失败");
+            State(stopAfterEntry ? "进图失败" : "进图跑图失败");
         }
         else
         {
             lastEntryRunSucceeded = true;
-            State("进图跑图任务完成");
+            State(stopAfterEntry ? "已选中关卡，停在点击挑战前" : "进图跑图任务完成");
         }
     }
 

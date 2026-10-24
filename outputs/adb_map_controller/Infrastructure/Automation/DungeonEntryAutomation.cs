@@ -12,6 +12,7 @@ namespace AdbMapController;
 public sealed class DungeonEntryAutomation
 {
     const double BastanMapBodyThreshold = .85;
+    enum AttemptLimitOutcome { None, Insufficient, Exhausted }
     readonly AdbClient adb;
     readonly IMovementInput movement;
     readonly int pulseHoldMs;
@@ -28,6 +29,9 @@ public sealed class DungeonEntryAutomation
     string? activeEvidenceRunId;
     int activeEvidenceTaskId;
     string? lastFailureEvidencePath;
+    AttemptLimitOutcome attemptLimitOutcome;
+    string? attemptLimitReason;
+    string? attemptLimitEvidencePath;
 
     public DungeonEntryAutomation(AdbClient adb, IMovementInput movement, int pulseHoldMs, EntryTemplateStore templates,
         Action<string> log, Action<string> state,
@@ -65,6 +69,9 @@ public sealed class DungeonEntryAutomation
         var pipelinePath = Path.Combine(AppContext.BaseDirectory, "pipelines", "dungeon-entry-pipeline.json");
         mapBeforeChallenge = null;
         lastDungeonMapProbe = null;
+        attemptLimitOutcome = AttemptLimitOutcome.None;
+        attemptLimitReason = null;
+        attemptLimitEvidencePath = null;
         var catalog = MaaPipelineCatalogLoader.Load(pipelinePath);
         var pipeline = new MaaPipeline<DungeonEntryAutomation>(
             catalog,
@@ -84,6 +91,10 @@ public sealed class DungeonEntryAutomation
 
         log($"自动进图 Pipeline 启动：目标 {selection.Map.Name} / {selection.Entry.Name} / {selection.Difficulty}");
         var result = await pipeline.RunAsync(this, ["开始自动进图"], token);
+        if (attemptLimitOutcome != AttemptLimitOutcome.None &&
+            result.Status == MaaPipelineExecutionStatus.Failed &&
+            result.LastTask != "次数不足善后结束")
+            result = result with { Error = $"{attemptLimitReason}；善后未完成：{result.Error}" };
         if (result.Status == MaaPipelineExecutionStatus.Stopped && stopBeforeChallenge && result.LastTask == "识别并选择关卡")
             log("已选中关卡，停在点击挑战前");
         else if (result.Succeeded)
@@ -138,6 +149,10 @@ public sealed class DungeonEntryAutomation
                     return await RecognizeLootedChestDialog(token);
                 if (task.Name == "检查所选难度次数")
                     return await RecognizeDifficultyAttempts(selection, context, token);
+                if (task.Name == "次数不足确认巴萨坦地图" || task.Name == "次数不足关闭巴萨坦地图")
+                    return await RecognizeBastanMapForCleanup(context, token);
+                if (task.Name == "次数不足确认返回主城")
+                    return await RecognizeTownForCleanup(context, token);
                 if (!string.Equals(task.Name, "主城标题已识别", StringComparison.Ordinal))
                 {
                     if (task.Name == "当前地图标题匹配目标")
@@ -159,11 +174,37 @@ public sealed class DungeonEntryAutomation
                 lastFailureEvidencePath = null;
                 if (task.Name == "检查所选难度次数")
                 {
-                    if (recognition.Detail == "自动跑图次数已耗尽，正常结束")
-                        return MaaPipelineActionResult.Stop();
+                    if (attemptLimitOutcome != AttemptLimitOutcome.None)
+                        return MaaPipelineActionResult.Success();
                     return MaaPipelineActionResult.Failure(
                         recognition.Detail ?? "未能确认所选难度的剩余次数，未点击挑战",
                         recognition.EvidencePath);
+                }
+                if (task.Name == "次数不足善后结束")
+                {
+                    log($"{attemptLimitReason}；善后已完成，跳过当前进图任务");
+                    return MaaPipelineActionResult.Stop();
+                }
+                if (task.Name is "次数不足确认巴萨坦地图" or "次数不足确认返回主城")
+                    return MaaPipelineActionResult.Success();
+                if (task.Name == "次数不足关闭巴萨坦地图")
+                {
+                    if (recognition.Box is not { } close)
+                        return MaaPipelineActionResult.Failure("未能定位巴萨坦地图关闭按钮", recognition.EvidencePath);
+                    await adb.TapScreen(close.X / (double)VisionPipeline.DesignWidth,
+                        close.Y / (double)VisionPipeline.DesignHeight);
+                    log("已点击巴萨坦地图关闭按钮，等待二次确认主城界面");
+                    return MaaPipelineActionResult.Success();
+                }
+                if (task.Name == "次数不足关闭关卡界面")
+                {
+                    try { await CloseEntrySelectionForAttemptLimit(selection, token); }
+                    catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+                    catch (Exception ex)
+                    {
+                        return MaaPipelineActionResult.Failure($"{attemptLimitReason}；关闭关卡界面失败：{ex.Message}", attemptLimitEvidencePath);
+                    }
+                    return MaaPipelineActionResult.Success();
                 }
                 if (task.Name == "点击小地图按钮")
                 {
@@ -245,6 +286,65 @@ public sealed class DungeonEntryAutomation
     static bool HasEnteredDungeon(MapDump? previous, MapDump current)
         => previous is not null && current.Level != previous.Level;
 
+    async Task CloseEntrySelectionForAttemptLimit(DungeonEntrySelection selection, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        using var frame = await adb.CaptureScreenForAutomationAsync(token);
+        if (BuiltInUiTemplateCatalog.FindBastanTitle(frame) is not null &&
+            BuiltInUiTemplateCatalog.FindBastanMapClose(frame) is not null)
+        {
+            log("关卡界面已关闭，巴萨坦地图已出现");
+            return;
+        }
+
+        if (selection.MapId is 2 or 3 or 4)
+        {
+            var title = await ReadKnownSharedMapTitle(frame);
+            if (!string.Equals(title, selection.Map.Name, StringComparison.Ordinal))
+                throw new InvalidOperationException($"未确认当前为“{selection.Map.Name}”关卡界面（识别到：{title ?? "<空>"}），未点击关闭按钮");
+            var (x, y) = selection.MapId == 2 ? (1795d / 1920, 107d / 1080) : (1815d / 1920, 190d / 1080);
+            await adb.TapScreen(x, y);
+            log($"已关闭{selection.Map.Name}关卡界面，等待确认巴萨坦地图");
+        }
+        else
+        {
+            // 四种无关闭按钮的关卡界面共用屏幕右下角面板外的 50x30 区域。
+            await adb.TapScreen(1895d / 1920, 1065d / 1080);
+            log($"已点击{selection.Map.Name}界面右下角空白区，等待确认巴萨坦地图");
+        }
+    }
+
+    async Task<MaaPipelineRecognitionResult> RecognizeBastanMapForCleanup(
+        MaaPipelineTaskContext<DungeonEntryAutomation> context, CancellationToken token)
+    {
+        using var frame = await adb.CaptureScreenForAutomationAsync(token);
+        var close = BuiltInUiTemplateCatalog.FindBastanMapClose(frame);
+        var title = BuiltInUiTemplateCatalog.FindBastanTitle(frame);
+        if (close is null || (title is null && BuiltInUiTemplateCatalog.MatchBastanMapBody(frame) < BastanMapBodyThreshold))
+            return MaaPipelineRecognitionResult.Miss(detail: "尚未同时确认完整巴萨坦地图及其关闭按钮");
+        var evidence = PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log);
+        return MaaPipelineRecognitionResult.Hit(score: close.Score,
+            box: new MaaRect(
+                (int)Math.Round(close.Center.X * VisionPipeline.DesignWidth / (double)frame.Width),
+                (int)Math.Round(close.Center.Y * VisionPipeline.DesignHeight / (double)frame.Height), 0, 0),
+            detail: "已确认巴萨坦地图及关闭按钮", evidencePath: evidence);
+    }
+
+    async Task<MaaPipelineRecognitionResult> RecognizeTownForCleanup(
+        MaaPipelineTaskContext<DungeonEntryAutomation> context, CancellationToken token)
+    {
+        using var frame = await adb.CaptureScreenForAutomationAsync(token);
+        var marker = BuiltInUiTemplateCatalog.FindMinimapPlayer(frame);
+        var mapGone = BuiltInUiTemplateCatalog.FindBastanTitle(frame) is null &&
+            BuiltInUiTemplateCatalog.FindBastanMapClose(frame) is null;
+        if (marker is null || !mapGone)
+            return MaaPipelineRecognitionResult.Miss(detail: "尚未确认巴萨坦地图关闭且主城小地图重新出现");
+        var evidence = PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log);
+        log("已二次确认返回巴萨坦主城");
+        return MaaPipelineRecognitionResult.Hit(score: marker.Score,
+            detail: "巴萨坦地图已关闭，主城小地图已出现", evidencePath: evidence);
+    }
+
     async Task<MaaPipelineRecognitionResult> RecognizeDifficultyAttempts(
         DungeonEntrySelection selection, MaaPipelineTaskContext<DungeonEntryAutomation> context,
         CancellationToken token)
@@ -290,10 +390,18 @@ public sealed class DungeonEntryAutomation
 
         log($"挑战前检查次数：{difficultyName}可挑战{remaining}次");
         if (difficultyAttemptsRecognized?.Invoke(remaining) == true)
+        {
+            attemptLimitOutcome = AttemptLimitOutcome.Exhausted;
+            attemptLimitReason = "自动跑图次数已耗尽，正常结束";
+            attemptLimitEvidencePath = evidencePath;
             return MaaPipelineRecognitionResult.Hit(text: countText, detail: "自动跑图次数已耗尽，正常结束", evidencePath: evidencePath);
+        }
         if (requiredDifficultyAttempts is > 0 && remaining < requiredDifficultyAttempts.Value)
         {
             var insufficient = $"所选关卡的{difficultyName}剩余{remaining}次，少于本次任务尚需的{requiredDifficultyAttempts.Value}次；未点击挑战";
+            attemptLimitOutcome = AttemptLimitOutcome.Insufficient;
+            attemptLimitReason = insufficient;
+            attemptLimitEvidencePath = evidencePath;
             log(insufficient);
             return MaaPipelineRecognitionResult.Hit(text: countText, detail: insufficient, evidencePath: evidencePath);
         }
@@ -301,6 +409,9 @@ public sealed class DungeonEntryAutomation
             return MaaPipelineRecognitionResult.Miss(detail: $"{difficultyName}剩余{remaining}次，允许挑战", evidencePath: evidencePath);
 
         var exhausted = $"{difficultyName}难度可挑战次数不足（剩余0次），已停止进图，未点击挑战";
+        attemptLimitOutcome = AttemptLimitOutcome.Insufficient;
+        attemptLimitReason = exhausted;
+        attemptLimitEvidencePath = evidencePath;
         log(exhausted);
         return MaaPipelineRecognitionResult.Hit(text: countText, detail: exhausted, evidencePath: evidencePath);
     }

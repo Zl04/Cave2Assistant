@@ -90,6 +90,47 @@
     "recognition": "Custom",
     "action": "DoNothing",
     "handler": "DungeonEntryStep",
+    "next": ["次数不足关闭关卡界面"],
+    "maxTimes": 1
+  },
+  "次数不足关闭关卡界面": {
+    "recognition": "DirectHit",
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep",
+    "post_delay": 600,
+    "next": ["次数不足确认巴萨坦地图"],
+    "maxTimes": 1
+  },
+  "次数不足确认巴萨坦地图": {
+    "recognition": "Custom",
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep",
+    "timeout": 6000,
+    "rate_limit": 300,
+    "next": ["次数不足关闭巴萨坦地图"],
+    "maxTimes": 1
+  },
+  "次数不足关闭巴萨坦地图": {
+    "recognition": "Custom",
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep",
+    "post_delay": 600,
+    "next": ["次数不足确认返回主城"],
+    "maxTimes": 1
+  },
+  "次数不足确认返回主城": {
+    "recognition": "Custom",
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep",
+    "timeout": 6000,
+    "rate_limit": 300,
+    "next": ["次数不足善后结束"],
+    "maxTimes": 1
+  },
+  "次数不足善后结束": {
+    "recognition": "DirectHit",
+    "action": "DoNothing",
+    "handler": "DungeonEntryStep",
     "maxTimes": 1
   },
   "点击挑战": {

@@ -42,7 +42,7 @@ public sealed partial class MainForm
             throw new InvalidOperationException("请先暂停或停止地图导航，再自动进图");
         if (activeEntry is { IsCompleted: false }) return;
 
-        await operations.RunAsync(ControllerOperationKind.Entry, RunEntryRunPipelineAsync);
+        await operations.RunAsync(ControllerOperationKind.Entry, token => RunEntryRunPipelineAsync(token));
     }
     async Task EnterOnly()
     {
@@ -145,7 +145,7 @@ public sealed partial class MainForm
                         if (entryResult == AutoEnterResult.QuotaExhausted)
                         {
                             resolvedRunCount = completedRuns;
-                            context.State.Log($"所选关卡已无剩余次数，当前已完成{completedRuns}轮，正常结束");
+                            context.State.Log($"所选关卡次数不足，当前已完成{completedRuns}轮；善后完成，继续任务列表");
                             return MaaPipelineActionResult.Stop();
                         }
                         if (entryResult == AutoEnterResult.Entered)
@@ -269,7 +269,7 @@ public sealed partial class MainForm
             {
                 var failedEvent = trace.Events.LastOrDefault(value =>
                     value.Kind is MaaPipelineTraceKind.NodeFailed or MaaPipelineTraceKind.TaskChainFailed);
-                lastEntryFailureError = failedEvent?.Error ?? result.Error;
+                lastEntryFailureError = result.Error ?? failedEvent?.Error;
                 lastEntryFailureEvidencePath = trace.Events.LastOrDefault(value =>
                     (value.Kind is MaaPipelineTraceKind.NodeFailed or MaaPipelineTraceKind.TaskChainFailed)
                     && !string.IsNullOrWhiteSpace(value.EvidencePath))?.EvidencePath;
@@ -295,9 +295,9 @@ public sealed partial class MainForm
                     Log("已选中目标关卡，停在点击挑战前；未点击挑战");
                     return AutoEnterResult.ReadyToChallenge;
                 }
-                if (result.Status == MaaPipelineExecutionStatus.Stopped && result.LastTask == "检查所选难度次数")
+                if (result.Status == MaaPipelineExecutionStatus.Stopped && result.LastTask == "次数不足善后结束")
                 {
-                    Log("已读取所选关卡剩余次数为0，不再发起挑战");
+                    Log("所选关卡次数不足，关卡及巴萨坦地图均已关闭，跳过当前进图任务");
                     return AutoEnterResult.QuotaExhausted;
                 }
                 Log($"自动进图失败：{result.Error ?? result.Status.ToString()}", LogLevel.Error);

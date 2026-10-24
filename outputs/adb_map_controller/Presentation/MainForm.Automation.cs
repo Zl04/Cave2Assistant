@@ -483,6 +483,19 @@ public sealed partial class MainForm
                         await RefreshMap(false, waitForLock: true);
                         continue;
                     }
+                    else if (plannedTask.Target.Kind == "机关密室")
+                    {
+                        if (await SendInteraction((delta, plannedTask.Target.Kind), owner))
+                        {
+                            await HandleMovementPopupInterrupt(owner);
+                            continue;
+                        }
+                        await RefreshMap(false, waitForLock: true);
+                        route = []; plannedInteractions = []; plannedTargetUniverse.Clear();
+                        mapPanel.Route = route; mapPanel.Invalidate();
+                        await Task.Delay(300, owner);
+                        continue;
+                    }
                     else if (IsCombatInteraction(plannedTask.Target.Kind))
                     {
                         if (await FightWhileHolding(plannedTask, owner))
@@ -525,6 +538,14 @@ public sealed partial class MainForm
                 if (route.Count < 2)
                 {
                     var reachableTargets = ReachableActiveTargets(dungeon.Map, Options());
+                    if (Options().Chambers && MechanismChamberPolicy.HasLockedEntrance(dungeon.Map) &&
+                        reachableTargets.Count == 0 && !Planner.HasReachableUnexplored(dungeon.Map, dungeon.Blocked))
+                    {
+                        if (dungeon.LockedChamberWaitSince == 0) dungeon.LockedChamberWaitSince = Environment.TickCount64;
+                        if (Environment.TickCount64 - dungeon.LockedChamberWaitSince > 8000)
+                            throw new InvalidOperationException($"机关密室仍锁定，且无可触发机关或可探索区域；失败机关：{string.Join(", ", dungeon.StalledMechanisms)}");
+                    }
+                    else dungeon.LockedChamberWaitSince = 0;
                     if (floorPhase == FloorPhase.Explore && reachableTargets.Count == 0)
                     {
                         // 当前没有可到达的目标时，探索是主要动作。
@@ -568,7 +589,22 @@ public sealed partial class MainForm
                     continue;
                 }
                 ArmRoomPortalTransition();
+                var executedRoute = route.ToArray();
                 var routeResult = await ExecuteRouteSlice(owner);
+                if (routeResult.Status == RouteExecutionStatus.Completed && dungeon.Map is { } traversedMap)
+                {
+                    var arrival = new Cell(traversedMap.Player.X, traversedMap.Player.Y);
+                    var arrivalIndex = Array.IndexOf(executedRoute, arrival);
+                    for (var index = 1; index <= arrivalIndex; index++)
+                    {
+                        var cell = executedRoute[index];
+                        if (dungeon.PendingMechanismPasses.ContainsKey(cell) ||
+                            !traversedMap.ByCell.TryGetValue(cell, out var tile)) continue;
+                        var trigger = tile.Roles.FirstOrDefault(MechanismChamberPolicy.IsPendingTrigger);
+                        if (trigger is not null)
+                            dungeon.PendingMechanismPasses[cell] = (trigger.TriggeredCount, Environment.TickCount64);
+                    }
+                }
                 if (routeResult.InterruptedByPopup)
                 {
                     await HandleMovementPopupInterrupt(owner);

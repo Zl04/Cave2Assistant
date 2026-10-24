@@ -281,6 +281,8 @@ local function codexExportCurrentMap()
                             talkRange = codexSafeCall(role, "getTalkRange", 0),
                             locked = codexSafeCall(role, "getIsLock", false),
                             opened = codexSafeCall(role, "getIsOpen", false),
+                            triggeredCount = tonumber(role.triggeredCount) or 0,
+                            triggerCountMax = tonumber(role.triggerCountMax) or 0,
                             monsterType = codexSafeCall(role, "getMonsterType", -1),
                             monsterSubType = codexSafeCall(role, "getMonsterSubType", -1),
                             normalMonster = codexSafeCall(role, "isNormalMonster", false),

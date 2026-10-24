@@ -47,12 +47,45 @@ public sealed class DungeonSnapshotUseCase(DungeonSession dungeon, IGameSnapshot
                 dungeon.PendingRoomPortal = null; dungeon.RoomPortalOrigin = null; dungeon.RoomPortalInteractionAt = 0;
             }
         }
-        dungeon.Mechanisms.ObserveLevel(map.Level);
+        foreach (var (cell, pass) in dungeon.PendingMechanismPasses.ToArray())
+        {
+            var trigger = map.ByCell.TryGetValue(cell, out var tile)
+                ? tile.Roles.FirstOrDefault(role => role.RoleType == 5) : null;
+            if (trigger is null || !MechanismChamberPolicy.IsPendingTrigger(trigger))
+            {
+                dungeon.PendingMechanismPasses.Remove(cell);
+                dungeon.StalledMechanisms.Remove(cell);
+                continue;
+            }
+            if (trigger.TriggeredCount > pass.PreviousCount)
+            {
+                dungeon.MechanismAttempts[cell] = (trigger.TriggeredCount, 0);
+                dungeon.PendingMechanismPasses.Remove(cell);
+                dungeon.StalledMechanisms.Remove(cell);
+                messages.Add($"机关 {cell} 触发计数增长至 {trigger.TriggeredCount}/{trigger.TriggerCountMax}");
+            }
+            else if (Environment.TickCount64 - pass.PassedAt >= 500)
+            {
+                dungeon.MechanismAttempts.TryGetValue(cell, out var attempt);
+                var failures = trigger.TriggeredCount > attempt.LastCount ? 0 : attempt.Failures + 1;
+                dungeon.MechanismAttempts[cell] = (trigger.TriggeredCount, failures);
+                dungeon.PendingMechanismPasses.Remove(cell);
+                if (failures >= 2)
+                {
+                    dungeon.StalledMechanisms.Add(cell);
+                    messages.Add($"机关 {cell} 两次经过后计数仍未增长，暂不再重复经过");
+                }
+            }
+        }
+        foreach (var cell in dungeon.StalledMechanisms.ToArray())
+        {
+            var trigger = map.ByCell.TryGetValue(cell, out var tile)
+                ? tile.Roles.FirstOrDefault(role => role.RoleType == 5) : null;
+            dungeon.MechanismAttempts.TryGetValue(cell, out var attempt);
+            if (trigger is null || !MechanismChamberPolicy.IsPendingTrigger(trigger) || trigger.TriggeredCount > attempt.LastCount)
+                dungeon.StalledMechanisms.Remove(cell);
+        }
         dungeon.Map = map; dungeon.Route.Snapshot = MapSnapshot.Capture(map);
-        var cell = new Cell(map.Player.X, map.Player.Y);
-        if (map.ByCell.TryGetValue(cell, out var tile) && tile.Roles.Any(role => role.Kind == "机关") && dungeon.Mechanisms.Add(cell))
-            messages.Add($"已记录机关踩中：{cell}（以实际人物坐标确认）");
-
 
         return new DungeonSnapshotResult(map, messages, JsonDiagnostics.Drain());
     }

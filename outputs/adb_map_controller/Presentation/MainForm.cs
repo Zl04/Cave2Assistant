@@ -76,10 +76,6 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     List<Cell> route { get => dungeon.Route.Route; set => dungeon.Route.Route = value; }
     List<PlannedInteraction> plannedInteractions { get => dungeon.Route.Interactions; set => dungeon.Route.Interactions = value; }
     HashSet<TargetKey> plannedTargetUniverse { get => dungeon.Route.TargetUniverse; set => dungeon.Route.TargetUniverse = value; }
-    // 游戏没有提供稳定且可供 Lua 读取的“机关点亮”字段。
-    // 当实际观察到玩家站在机关格上时，按楼层记录确认状态；
-    // 该状态可跨越地图刷新，从而避免反复为同一个机关重新规划。
-    IReadOnlySet<Cell> visitedMechanisms => dungeon.Mechanisms.Visited;
     Dictionary<Cell, bool> plannedWalkability { get => dungeon.Route.Walkability; set => dungeon.Route.Walkability = value; }
     int? plannedOptionsSignature { get => dungeon.Route.OptionsSignature; set => dungeon.Route.OptionsSignature = value; }
     // 包含已经交互过的传送门，以及刚刚落地的传送门。

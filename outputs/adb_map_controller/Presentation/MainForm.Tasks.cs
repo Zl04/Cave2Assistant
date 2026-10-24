@@ -42,7 +42,7 @@ public sealed partial class MainForm
         var taskBar = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, Margin = Padding.Empty, Tag = ThemeRole.Surface };
         var itemBar = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, Margin = Padding.Empty, Tag = ThemeRole.Surface };
         var taskType = new ThemedComboBox { Width = 135, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "添加任务类型" };
-        taskType.Items.AddRange(["进图并跑图", "当前地图跑图", "卡矿任务", "梦境试炼", "培养魂器", "免费祈祷", "福利活动", "领取深渊钥匙", "扫荡永冬裂缝", "扫荡深渊秘境", "每日签到"]); taskType.SelectedIndex = 0;
+        taskType.Items.AddRange(["进图并跑图", "当前地图跑图", "卡矿任务", "梦境试炼", "培养魂器", "免费祈祷", "福利活动", "领取深渊钥匙", "扫荡永冬裂缝", "扫荡深渊秘境", "每日签到", "幽灵深渊"]); taskType.SelectedIndex = 0;
         var templateChoice = new ThemedComboBox { Width = 160, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "任务模板" };
         taskTemplateChoice = templateChoice;
         var newTemplate = Btn("新建模板", ThemeRole.SecondaryButton);
@@ -234,6 +234,7 @@ public sealed partial class MainForm
                         else if (config.TaskKind == ExecutionTaskKind.DailySignIn) await RunDailySignInAsync(token);
                         else if (config.TaskKind == ExecutionTaskKind.EternalWinterSweep) await RunEternalWinterSweepAsync(config, token);
                         else if (config.TaskKind == ExecutionTaskKind.AbyssSweep) await RunAbyssSweepAsync(token);
+                        else if (config.TaskKind == ExecutionTaskKind.GhostAbyss) await RunGhostAbyssAsync(config, token);
                         else if (config.TaskKind == ExecutionTaskKind.CardMining) await RunCardMiningTaskAsync(config, token);
                         else if (config.TaskKind == ExecutionTaskKind.DreamTrial) await RunDreamTrialTaskAsync(config, token);
                         else if (config.TaskKind == ExecutionTaskKind.EntryAndRun) await RunEntryRunPipelineAsync(token);
@@ -360,6 +361,8 @@ public sealed partial class MainForm
         result.EquipmentSet = task.EquipmentSet;
         result.EternalWinterFloor = task.EternalWinterFloor;
         result.EternalWinterSweepCount = task.EternalWinterSweepCount;
+        result.GhostAbyssFloor = task.GhostAbyssFloor;
+        result.GhostAbyssDouble = task.GhostAbyssDouble;
         if (task.TaskKind is ExecutionTaskKind.EntryAndRun or ExecutionTaskKind.CardMining)
         {
             result.EntryMapId = task.EntryMapId;
@@ -530,6 +533,17 @@ public sealed partial class MainForm
         {
             config.SwitchEquipmentSet = false;
             Row("流程", new Label { Text = "打开地图 → 深渊秘境 → 确认深渊模式 → 按钥匙数量选择扫荡次数 → 二次确认 → 领取战利品", AutoSize = true });
+            ThemeManager.Apply(dialog, currentPalette);
+            return dialog.ShowDialog(this) == DialogResult.OK;
+        }
+        if (config.TaskKind == ExecutionTaskKind.GhostAbyss)
+        {
+            config.SwitchEquipmentSet = false;
+            Number(nameof(config.GhostAbyssFloor), "幽灵深渊层数", 1, 999);
+            var doubleChallenge = Box("双倍挑战"); doubleChallenge.Checked = config.GhostAbyssDouble;
+            doubleChallenge.CheckedChanged += (_, _) => config.GhostAbyssDouble = doubleChallenge.Checked;
+            Row("挑战方式", doubleChallenge);
+            Row("流程", new Label { Text = "选择目标层并挑战；双倍可用时仅跑一轮，否则按剩余次数重复普通挑战", AutoSize = true });
             ThemeManager.Apply(dialog, currentPalette);
             return dialog.ShowDialog(this) == DialogResult.OK;
         }
@@ -714,6 +728,14 @@ public sealed partial class MainForm
                 sweep.Checked = s.TaskEnabled;
                 AddTaskRow(sweep);
                 if (i == selected) { sweep.Selected = true; sweep.EnsureVisible(); }
+                continue;
+            }
+            if (s.TaskKind == ExecutionTaskKind.GhostAbyss)
+            {
+                var abyss = new ListViewItem(new[] { (i + 1).ToString(), "幽灵深渊", "—", s.GhostAbyssDouble ? "优先双倍" : "普通次数", $"{s.GhostAbyssFloor} 层", "进入后跑图" });
+                abyss.Checked = s.TaskEnabled;
+                AddTaskRow(abyss);
+                if (i == selected) { abyss.Selected = true; abyss.EnsureVisible(); }
                 continue;
             }
             var taskName = s.TaskKind switch

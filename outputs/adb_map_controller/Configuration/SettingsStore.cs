@@ -135,6 +135,11 @@ public sealed class JsonSettingsStore : ISettingsStore
                         allowed.Add(nameof(ControllerSettings.EternalWinterFloor));
                         allowed.Add(nameof(ControllerSettings.EternalWinterSweepCount));
                     }
+                    if (kind == ExecutionTaskKind.GhostAbyss)
+                    {
+                        allowed.Add(nameof(ControllerSettings.GhostAbyssFloor));
+                        allowed.Add(nameof(ControllerSettings.GhostAbyssDouble));
+                    }
                     foreach (var field in task.Select(x => x.Key).Where(x => !allowed.Contains(x)).ToArray())
                         task.Remove(field);
     }

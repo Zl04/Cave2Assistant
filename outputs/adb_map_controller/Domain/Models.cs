@@ -61,9 +61,12 @@ public sealed class RoleInfo
     [JsonIgnore] public bool IsDirectBossNpc => ClassName == "TriggerNpcData" &&
         RoleType == 7 && MinimapType == 42 && TreasureType == 39;
 
-    // 幽灵深渊未激活图腾；触发后会由服务器下发同坐标怪物。
+    // 幽灵深渊中触碰后会变成小怪的图腾；祝福选择形态不在此列。
     [JsonIgnore] public bool IsTouchTriggerMonster => ClassName == "TriggerNpcData" &&
         RoleType == 7 && MinimapType == 0 && TemplateID is 10425017 or 10425019 or 10425021;
+
+    [JsonIgnore] public bool IsGhostAbyssBlessingTotem => ClassName == "TriggerNpcData" &&
+        RoleType == 7 && MinimapType == 0 && TemplateID is 10425018 or 10425020 or 10425022;
 
     public string Kind
     {

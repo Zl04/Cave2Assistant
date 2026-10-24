@@ -109,6 +109,12 @@ public sealed partial class MainForm
                 var map = await adb.ReadMap();
                 RouteExecutor.ApplyPlayerStatus(map, player);
                 dungeon.Map = map; mapPanel.Map = map; mapPanel.Route = route; mapPanel.Invalidate();
+                if (map.ByCell.TryGetValue(task.Target.Cell, out var targetTile) &&
+                    targetTile.Roles.Any(role => role.IsGhostAbyssBlessingTotem))
+                {
+                    State("图腾已变为祝福形态，停止触碰");
+                    return;
+                }
                 // 与怪物接触后，游戏可能在玩家坐标变化前切换到战斗场景。
                 // 立即释放方向；战斗过程中绝不能继续移动角色。
                 if (map.InBattle)

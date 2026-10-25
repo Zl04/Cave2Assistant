@@ -117,7 +117,7 @@
           "EntryDifficulty": "Nightmare",
           "EntryRunCount": 0,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": true,
+          "TaskEnabled": false,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 1
         },

@@ -98,16 +98,18 @@ public sealed partial class MainForm
             await Task.Delay(120, token);
             return true;
         }
-        if (tool.Quantity is <= 0)
+        if (tool.Quantity is not > 0)
         {
             LogEscapeReturnDiagnostic($"已识别卷轴但数量不满足，数量={tool.Quantity?.ToString() ?? "未识别"}，坐标=({tool.X:F4},{tool.Y:F4})；{context}");
-            State($"已到 {map.Level} 层，卷轴数量为零，等待卷轴，不再下楼");
+            State(tool.Quantity is 0
+                ? $"已到 {map.Level} 层，卷轴数量为零，等待卷轴，不再下楼"
+                : $"已到 {map.Level} 层，卷轴数量未识别，等待识别成功，不再下楼");
             await touch.EmergencyRelease();
             await Task.Delay(120, token);
             return true;
         }
 
-        LogEscapeReturnDiagnostic($"条件满足，准备点击卷轴，数量={tool.Quantity?.ToString() ?? "未识别，将通过确认框验证"}，坐标=({tool.X:F4},{tool.Y:F4})；{context}");
+        LogEscapeReturnDiagnostic($"条件满足，准备点击卷轴，数量={tool.Quantity}，坐标=({tool.X:F4},{tool.Y:F4})；{context}");
         await touch.EmergencyRelease();
         await adb.TapScreen(tool.X, tool.Y);
         escapeScrollPending = true;

@@ -53,6 +53,7 @@ public sealed class MapPanel : Panel
         {
             if (HasMapIdentityChanged(map, value))
             {
+                panOffset = PointF.Empty;
                 lastCenteredPlayer = null;
                 lastObservedPlayer = null;
                 lastCenteredViewport = Size.Empty;
@@ -67,6 +68,7 @@ public sealed class MapPanel : Panel
     public MapPanel()
     {
         DoubleBuffered = true;
+        SetStyle(ControlStyles.StandardClick | ControlStyles.StandardDoubleClick, true);
         Tag = ThemeRole.Map;
         ResizeRedraw = true;
         Cursor = Cursors.Hand;
@@ -166,6 +168,11 @@ public sealed class MapPanel : Panel
     {
         base.OnMouseDoubleClick(e);
         if (e.Button != MouseButtons.Left) return;
+        ResetMapPosition();
+    }
+
+    void ResetMapPosition()
+    {
         panOffset = PointF.Empty;
         zoom = DefaultZoom;
         lastCenteredPlayer = null;
@@ -288,6 +295,9 @@ public sealed class MapPanel : Panel
         previous is null || current is null ||
         previous.Level != current.Level ||
         previous.SceneType != current.SceneType ||
+        previous.TownMapId != current.TownMapId ||
+        previous.CaveMode != current.CaveMode ||
+        previous.MapName != current.MapName ||
         previous.Width != current.Width ||
         previous.Height != current.Height;
 

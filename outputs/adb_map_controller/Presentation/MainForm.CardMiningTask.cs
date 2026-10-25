@@ -289,7 +289,7 @@ public sealed partial class MainForm
             Log($"卡矿任务到达目标层 {map.Level}，直接开始挖矿，不再等待镐子达到门槛");
             return true;
         }
-        if (DateTime.Now < config.CardMiningStartAt || Environment.TickCount64 < cardMiningNextToolCheck) return false;
+        if (Environment.TickCount64 < cardMiningNextToolCheck) return false;
         cardMiningNextToolCheck = Environment.TickCount64 + 5000;
         MiningToolStatus status;
         try { status = await adb.ReadMiningToolStatusAsync(token); }
@@ -301,7 +301,8 @@ public sealed partial class MainForm
         await touch.EmergencyRelease();
         cardMiningEarlyStop = true;
         ClearMiningRoute();
-        Log($"卡矿任务时间与镐子数量已满足（{status.Quantity}/{config.CardMiningMinimumTools}），在第 {map.Level} 层开始挖矿");
+        Log($"卡矿任务镐子数量已满足（{status.Quantity}/{config.CardMiningMinimumTools}），在第 {map.Level} 层停止跑图" +
+            (DateTime.Now < config.CardMiningStartAt ? "，等待开始挖矿时间" : "，开始挖矿"));
         return true;
     }
 

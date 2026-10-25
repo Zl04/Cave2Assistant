@@ -207,6 +207,12 @@ public sealed partial class MainForm
         {
             while (!owner.IsCancellationRequested)
             {
+                if (popupHandling)
+                {
+                    await touch.EmergencyRelease();
+                    await Task.Delay(80, owner);
+                    continue;
+                }
                 if (serverErrorDialogVisible)
                 {
                     await WaitForConnectionRecoveryAsync(owner);

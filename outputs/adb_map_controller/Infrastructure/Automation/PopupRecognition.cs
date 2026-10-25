@@ -13,8 +13,7 @@ namespace AdbMapController;
 /// </summary>
 public static class PopupRecognition
 {
-    // 临时兼容：跑图误触点金台时仅识别其界面，用于立即关闭。
-    // 后续实现点金台交互时，应移除对应的自动关闭分支，并重新决定是否保留此识别器。
+    // 点金台任务入口识别。识别器只判断界面是否可见，交互交由 AltarPipeline。
     public static bool HasAltarDialog(Bitmap frame)
     {
         var path = Path.Combine(AppContext.BaseDirectory, "templates", "ui", "altar-dialog.png");

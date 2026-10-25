@@ -274,11 +274,7 @@ public sealed partial class MainForm
             }
             else if (kind == MovementPopupKind.AltarDialog)
             {
-                // 临时兼容：跑图误触点金台后点击空白处关闭。
-                // 实现点金台交互时移除此分支，并同步调整 PopupUiPipeline、popup-watchdog.json 中的识别节点。
-                await adb.TapScreen(.46, .63);
-                Log("检测到点金台界面，已点击空白区域关闭");
-                await Task.Delay(180, ownerToken);
+                await HandleAltarDialog(ownerToken);
             }
             else if (kind == MovementPopupKind.EnchantingDialog)
             {
@@ -358,8 +354,7 @@ public sealed partial class MainForm
                 Log($"独立弹窗监控：已点击第 {runeSelectionCard + 1} 张秘境宝石卡，移动路线未修改");
                 return true;
             case MovementPopupKind.AltarDialog:
-                await adb.TapScreenSecondary(.46, .63);
-                Log("独立弹窗监控：已关闭点金台界面，移动路线未修改");
+                await HandleAltarDialog(token);
                 return true;
             case MovementPopupKind.EnchantingDialog:
                 await adb.TapScreenSecondary(.44, .18);

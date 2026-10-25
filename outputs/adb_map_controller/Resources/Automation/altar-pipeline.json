@@ -1,0 +1,17 @@
+{
+  "$settings": {
+    "maxPages": 30,
+    "scrollDistance": 115,
+    "scrollDurationMs": 950,
+    "settleDelayMs": 450
+  },
+  "Start": { "algorithm": "JustReturn", "handler": "Altar", "action": "DoNothing", "next": ["FindUsable", "Scroll", "Finish"] },
+  "FindUsable": { "algorithm": "Custom", "handler": "Altar", "action": "DoNothing", "next": ["DoubleClick"] },
+  "Scroll": { "algorithm": "Custom", "handler": "Altar", "action": "DoNothing", "next": ["FindUsable", "Scroll", "Finish"], "postDelay": 450 },
+  "DoubleClick": { "algorithm": "Custom", "handler": "Altar", "action": "DoNothing", "next": ["Ready", "RetryDoubleClick"], "postDelay": 400 },
+  "Ready": { "algorithm": "Custom", "handler": "Altar", "action": "DoNothing", "next": ["Submit"], "timeout": 1200, "rateLimit": 150 },
+  "RetryDoubleClick": { "algorithm": "Custom", "handler": "Altar", "action": "DoNothing", "next": ["ReadyAfterRetry"], "postDelay": 400 },
+  "ReadyAfterRetry": { "algorithm": "Custom", "handler": "Altar", "action": "DoNothing", "next": ["Submit", "Finish"], "timeout": 1200, "rateLimit": 150 },
+  "Submit": { "algorithm": "Custom", "handler": "Altar", "action": "DoNothing", "next": ["Finish"], "postDelay": 700 },
+  "Finish": { "algorithm": "Custom", "handler": "Altar", "action": "DoNothing" }
+}

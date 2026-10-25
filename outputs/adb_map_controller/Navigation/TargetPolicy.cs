@@ -62,7 +62,7 @@ public static class TargetPolicy
             TargetKind.StonePile => options.Bones,
             TargetKind.Gold => options.Gold,
             TargetKind.Rune => options.Runes,
-            TargetKind.Altar => options.Altars,
+            TargetKind.Altar => options.Altars && !role.Opened,
             TargetKind.Chamber or TargetKind.MechanismChamber or TargetKind.Mechanism => options.Chambers,
             _ => false
         });

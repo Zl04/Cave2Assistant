@@ -169,7 +169,7 @@ public sealed partial class MainForm
             Bones = includeAll || bones.Checked,
             Gold = includeAll || gold.Checked,
             Runes = includeAll || runes.Checked,
-            Altars = includeAll || altars.Checked,
+            Altars = (includeAll || altars.Checked) && dungeon.Map?.Level != dungeon.AltarAttemptedLevel,
             Chambers = includeAll || chambers.Checked
         };
     }
@@ -328,6 +328,7 @@ public sealed partial class MainForm
             dungeon.RouteExecution.ClearPulseFallback();
             dungeon.FloorMiningCompletedLevel = -1;
             dungeon.FloorMiningSkippedLevel = -1;
+            dungeon.AltarAttemptedLevel = -1;
             dungeon.RouteRecoveryUsed = 0;
             dungeon.Blocked.Clear(); dungeon.LastBlockedAttempt = null; dungeon.UnchangedCount = 0;
             dungeon.LastAcceptedPlayerCell = null;

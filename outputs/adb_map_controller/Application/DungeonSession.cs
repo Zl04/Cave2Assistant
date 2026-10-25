@@ -38,6 +38,7 @@ public sealed class DungeonSession
     public bool TargetFloorStopped { get; set; }
     public int FloorMiningCompletedLevel { get; set; } = -1;
     public int FloorMiningSkippedLevel { get; set; } = -1;
+    public int AltarAttemptedLevel { get; set; } = -1;
 
     public void Reset()
     {
@@ -72,6 +73,7 @@ public sealed class DungeonSession
         TargetFloorStopped = false;
         FloorMiningCompletedLevel = -1;
         FloorMiningSkippedLevel = -1;
+        AltarAttemptedLevel = -1;
         MotionInterrupt.Clear();
     }
 
@@ -91,6 +93,7 @@ public sealed class DungeonSession
         TargetFloorStopped = false;
         FloorMiningCompletedLevel = -1;
         FloorMiningSkippedLevel = -1;
+        AltarAttemptedLevel = -1;
         AttemptedRoomPortals.Clear();
         PendingRoomPortal = null;
         RoomPortalOrigin = null;

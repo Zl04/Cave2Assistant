@@ -284,7 +284,11 @@ public sealed partial class MainForm
     {
         if (dungeon.Map is null) return;
         var active = ActiveTargets(dungeon.Map, Options());
-        var newlyCompleted = plannedTargetUniverse.Where(target => Planner.IsCompletedTarget(target, active) && dungeon.ConfirmedCompletedTargets.Add(target)).ToList();
+        // 预警阶段临时加入的小怪不属于用户勾选的目标集合。
+        // 只有地图确认怪物消失，才能移除其攻击停靠动作。
+        var newlyCompleted = plannedTargetUniverse.Where(target =>
+            !(target.Kind is "小怪" or "群怪" or "精英") || !HasTarget(target))
+            .Where(target => Planner.IsCompletedTarget(target, active) && dungeon.ConfirmedCompletedTargets.Add(target)).ToList();
         foreach (var target in newlyCompleted) dungeon.ExpectedTaskRoadChanges.Add(target.Cell);
         var removed = plannedInteractions.RemoveAll(task => dungeon.ConfirmedCompletedTargets.Contains(task.Target));
         if (newlyCompleted.Count > 0)

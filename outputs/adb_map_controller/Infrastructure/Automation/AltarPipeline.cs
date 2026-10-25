@@ -68,19 +68,19 @@ public sealed class AltarPipeline : IMaaPipelineHandler<AltarPipeline>
             ? MaaPipelineRecognitionResult.Hit() : MaaPipelineRecognitionResult.Miss("点金前按钮未点亮");
         if (task.Name != "FindUsable") return MaaPipelineRecognitionResult.Miss("未知节点");
         if (!PopupRecognition.HasAltarDialog(frame)) return MaaPipelineRecognitionResult.Miss("点金台界面已关闭");
-        candidate = AltarVision.FindUsable(frame, out var bestScore, out var rows);
-        log($"点金台第 {pages + 1} 页扫描：空格=中心RGB总亮度跨度<22，可用分=平均色差+90×明暗标准差，阈值=20");
+        candidate = AltarVision.FindUsable(frame, out var quality, out var rows);
+        log($"点金台第 {pages + 1} 页扫描：按装备底板边缘识别白色/蓝色品质，其余品质和空格跳过");
         foreach (var row in rows) log($"点金台格子扫描：{row}");
         if (candidate is not null)
         {
-            log($"点金台发现可点击装备：({candidate.Value.X},{candidate.Value.Y})，第 {pages + 1} 页，可用分={bestScore}");
+            log($"点金台发现可点击装备：({candidate.Value.X},{candidate.Value.Y})，第 {pages + 1} 页，品质={quality}");
             return MaaPipelineRecognitionResult.Hit();
         }
         lastPage = AltarVision.HasEmptyCell(frame);
         var signature = AltarVision.PageSignature(frame);
         unchanged = signature == previousPage ? unchanged + 1 : 0;
         previousPage = signature;
-        log($"点金台第 {pages + 1} 页未发现可点击装备，最高可用分={bestScore}，末页={lastPage}，连续未变化={unchanged}");
+        log($"点金台第 {pages + 1} 页未发现白色或蓝色装备，末页={lastPage}，连续未变化={unchanged}");
         return MaaPipelineRecognitionResult.Miss("当前页未发现可点击装备");
     }
 
@@ -123,10 +123,10 @@ public static class AltarVision
     static readonly int[] X = [667, 731, 794, 858, 922];
     static readonly int[] Y = [154, 218, 282, 347, 411];
 
-    public static Point? FindUsable(Bitmap frame, out int bestScore, out string[] rows)
+    public static Point? FindUsable(Bitmap frame, out string quality, out string[] rows)
     {
-        Point? best = null;
-        bestScore = 0;
+        Point? blue = null, white = null;
+        quality = "无";
         var details = new List<string>();
         for (var row = 0; row < 4; row++)
         {
@@ -139,27 +139,51 @@ public static class AltarVision
                     cells.Add($"{col + 1}({x},{y})=空");
                     continue;
                 }
-                var chroma = 0d;
-                var brightness = new List<double>();
-                for (var dy = -22; dy <= 22; dy += 3)
-                for (var dx = -22; dx <= 22; dx += 3)
-                {
-                    var c = frame.GetPixel(x + dx, y + dy);
-                    chroma += Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B));
-                    brightness.Add(c.GetBrightness());
-                }
-                var mean = brightness.Average();
-                var contrast = Math.Sqrt(brightness.Average(value => Math.Pow(value - mean, 2)));
-                // 游戏禁用态将物品子元素透明度从 255 降到 85。
-                // 色差和明暗起伏都随透明度下降；取格内均值避免红点/单个高亮像素误导。
-                var score = (int)Math.Round(chroma / brightness.Count + contrast * 90);
-                cells.Add($"{col + 1}({x},{y})={score}{(score >= 20 ? "候选" : "低分")}");
-                if (score > bestScore) { bestScore = score; best = new Point(x, y); }
+                var detected = ClassifyPlate(frame, x, y);
+                cells.Add($"{col + 1}({x},{y})={detected}");
+                if (detected == "蓝色" && blue is null) blue = new Point(x, y);
+                if (detected == "白色" && white is null) white = new Point(x, y);
             }
             details.Add($"第{row + 1}行 {string.Join(" ", cells)}");
         }
         rows = details.ToArray();
-        return bestScore >= 20 ? best : null;
+        if (blue is not null) { quality = "蓝色"; return blue; }
+        if (white is not null) { quality = "白色"; return white; }
+        return null;
+    }
+
+    static string ClassifyPlate(Bitmap frame, int x, int y)
+    {
+        // 与装备出售识别相同：在底板的左右及上下窄边取样，要求至少两条边
+        // 呈现同一品质颜色，且其中一条为侧边，避免图标内部颜色冒充底板。
+        var strips = new[]
+        {
+            Rectangle.FromLTRB(x - 28, y - 17, x - 23, y + 18),
+            Rectangle.FromLTRB(x + 23, y - 17, x + 28, y + 18),
+            Rectangle.FromLTRB(x - 17, y - 28, x + 18, y - 23),
+            Rectangle.FromLTRB(x - 17, y + 23, x + 18, y + 28)
+        };
+        var blueStrips = 0; var whiteStrips = 0;
+        var blueSide = false; var whiteSide = false;
+        for (var i = 0; i < strips.Length; i++)
+        {
+            var blue = 0; var white = 0;
+            var strip = strips[i];
+            for (var py = strip.Top; py < strip.Bottom; py++)
+            for (var px = strip.Left; px < strip.Right; px++)
+            {
+                var color = frame.GetPixel(px, py);
+                var saturation = color.GetSaturation();
+                var brightness = color.GetBrightness();
+                if (saturation >= .12 && brightness >= .20 && color.GetHue() is >= 165 and <= 255) blue++;
+                if (saturation <= .13 && brightness >= .60) white++;
+            }
+            if (blue >= 12) { blueStrips++; if (i < 2) blueSide = true; }
+            if (white >= 12) { whiteStrips++; if (i < 2) whiteSide = true; }
+        }
+        if (blueStrips >= 2 && blueSide) return "蓝色";
+        if (whiteStrips >= 2 && whiteSide) return "白色";
+        return "其他/禁用";
     }
 
     public static bool HasEmptyCell(Bitmap frame)

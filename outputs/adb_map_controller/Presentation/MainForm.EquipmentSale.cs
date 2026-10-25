@@ -14,6 +14,8 @@ public sealed partial class MainForm
 
     async Task HandleMerchantEquipmentSale(MapDump map, CancellationToken token)
     {
+        // 梦境试炼即使启用了通用商人自动售出，也不能出售装备。
+        if (dreamTrialRunning) return;
         // 地图快照只用于现有跑图入口判断；装备、品质及出售结果全部从截图识别。
         if (!map.MapName.Contains("神秘商人", StringComparison.Ordinal))
         {

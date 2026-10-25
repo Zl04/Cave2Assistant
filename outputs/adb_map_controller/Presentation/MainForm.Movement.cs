@@ -222,7 +222,7 @@ public sealed partial class MainForm
     }
 
     bool PopupProbeEnabled()
-        => !startupPreparing && !popupHandling;
+        => !startupPreparing && !popupHandling && !serverErrorDialogVisible;
 
     string PopupProbeDisabledReason()
     {
@@ -262,7 +262,7 @@ public sealed partial class MainForm
             if (kind == MovementPopupKind.ServerError)
             {
                 BeginConnectionRecovery();
-                State("服务器连接异常，已停止运行");
+                State("服务器连接异常，正在恢复连接");
                 return;
             }
 
@@ -338,20 +338,13 @@ public sealed partial class MainForm
                     return true;
                 }
                 var returnAtTargetFloor = dungeon.Map is not null && ShouldReturnFromGreedySelection(dungeon.Map);
-                if (returnAtTargetFloor && !probe.GreedySelectionReturnOnly && probe.GreedySelectionReturnCards.Count == 0)
-                {
-                    Log("指定层贪婪抉择暂未识别回城卡，等待下一帧");
-                    return false;
-                }
-                var preferred = bonusPriority.Items.Count == 0 ? "增益效果" : bonusPriority.Items[0]?.ToString() ?? "增益效果";
-                var cardIndex = returnAtTargetFloor
-                    ? (probe.GreedySelectionReturnCards.Count > 0 ? probe.GreedySelectionReturnCards[0] : 0)
-                    : preferred switch
-                    {
-                        "回复药剂" => 1,
-                        "道具" or "魔法材料" or "物资" or "锻造材料" or "附魔材料" => 2,
-                        _ => 0
-                    };
+                if (returnAtTargetFloor && probe.GreedySelectionReturnCards.Count == 0)
+                    Log("指定层未识别到回城卡，随机选择一张卡继续");
+                var selection = returnAtTargetFloor && probe.GreedySelectionReturnCards.Count == 1
+                    ? (Index: probe.GreedySelectionReturnCards[0], Reward: "回城")
+                    : await FindPreferredGreedyCardAsync(probe.GreedySelectionReturnCards, returnAtTargetFloor, token);
+                var cardIndex = selection.Index;
+                var preferred = selection.Reward;
                 await adb.TapScreenSecondary(cardIndex switch { 1 => 0.50, 2 => 0.6875, _ => 0.3125 }, 0.657);
                 Log($"独立弹窗监控：已点击第 {cardIndex + 1} 张贪婪卡（{preferred}），移动路线未修改");
                 if (probe.GreedySelectionReturnOnly ||
@@ -390,6 +383,7 @@ public sealed partial class MainForm
 
     async Task RunMovementScope(CancellationToken owner, Func<CancellationToken, Task> action, bool startupProbePaused = false)
     {
+        mapRunActiveDuringRecovery = true;
         if (startupProbePaused) startupPreparing = true;
         devices.Enabled = false;
         dungeon.MotionInterrupt.Clear();
@@ -404,6 +398,7 @@ public sealed partial class MainForm
         {
             watchdogCts.Cancel();
             try { await watchdogTask; } catch (OperationCanceledException) { }
+            mapRunActiveDuringRecovery = false;
             dungeon.MotionInterrupt.Clear();
             if (startupProbePaused) startupPreparing = false;
             UpdateDeviceAvailability();
@@ -428,6 +423,8 @@ public sealed partial class MainForm
         }
         finally
         {
+            serverErrorDialogVisible = false;
+            dungeon.MotionInterrupt.Clear();
             // StopMovement 是一次新的运行/导航请求的边界。若上一次宝石弹窗
             // 在点击后被急停，PopupWatchdog 已停止探测，而锁存状态会一直
             // 遗留到下一次启动，导致普通战斗画面仍显示“宝石选择”。

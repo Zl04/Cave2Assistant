@@ -11,7 +11,7 @@ public enum ThemeMode
     System,
 }
 
-public enum ExecutionTaskKind { EntryAndRun, CurrentMapRun, CardMining, DreamTrial, SoulArtifactCultivation, FreePrayer, FreeWelfare, AbyssKey, EternalWinterSweep, AbyssSweep, DailySignIn, GhostAbyss, GuildTasks }
+public enum ExecutionTaskKind { EntryAndRun, CurrentMapRun, CardMining, DreamTrial, SoulArtifactCultivation, FreePrayer, FreeWelfare, AbyssKey, EternalWinterSweep, AbyssSweep, DailySignIn, GhostAbyss, GuildTasks, BossChallenge, ScheduledConnectionRecovery }
 
 public sealed class TaskTemplate
 {
@@ -79,6 +79,7 @@ public sealed class ControllerSettings
     public bool SwitchEquipmentSet { get; set; }
     public int EquipmentSet { get; set; } = 1;
     public DateTime CardMiningStartAt { get; set; } = DateTime.Today.AddDays(1);
+    public DateTime ScheduledRecoveryStartAt { get; set; } = DateTime.Today.AddDays(1);
     public int CardMiningMinimumTools { get; set; } = 1;
     // 从左到右六位分别对应梦境试炼的六位 Boss。
     public int DreamTrialBossMask { get; set; } = 63;

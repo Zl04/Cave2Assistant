@@ -142,12 +142,12 @@ public sealed partial class MainForm
             }
             if (dungeon.MotionInterrupt.Reason == MotionInterruptReason.Popup)
                 await HandleMovementPopupInterrupt(owner);
-            if (serverErrorDialogVisible || owner.IsCancellationRequested)
+            if (serverErrorDialogVisible)
             {
-                return serverErrorDialogVisible
-                    ? MaaPipelineActionResult.Failure("服务器连接异常")
-                    : throw new OperationCanceledException(owner);
+                await WaitForConnectionRecoveryAsync(owner);
+                ready = await RefreshMap(true, waitForLock: true);
             }
+            owner.ThrowIfCancellationRequested();
             // 刷新已经等待完成的标题 OCR（包括模型启动）。
             // 重复执行否定检查会拖慢每次正常启动；移动开始后由移动看门狗监控新覆盖层。
             if ((!ready || dungeon.Map is null) && !runeSelectionVisible && floorPhase != FloorPhase.SelectBonus)
@@ -207,6 +207,16 @@ public sealed partial class MainForm
         {
             while (!owner.IsCancellationRequested)
             {
+                if (serverErrorDialogVisible)
+                {
+                    await WaitForConnectionRecoveryAsync(owner);
+                    route = []; plannedInteractions = []; plannedTargetUniverse.Clear();
+                    mapPanel.Route = route; mapPanel.Invalidate();
+                    dungeon.MotionInterrupt.Clear();
+                    await RefreshMap(false, waitForLock: true);
+                    skipRefreshForConfirmedTaskStop = true;
+                    continue;
+                }
                 if (dreamTrialRunning && await TryHandleDreamTrialVictoryAsync(owner))
                     continue;
                 if (escapeScrollPending)
@@ -231,7 +241,8 @@ public sealed partial class MainForm
                 {
                     await RefreshMap(false);
                 }
-                if (serverErrorDialogVisible || owner.IsCancellationRequested) break;
+                if (serverErrorDialogVisible) continue;
+                if (owner.IsCancellationRequested) break;
                 if (dungeon.Map is { } observedMap)
                 {
                     if (runTask.Observe(observedMap))
@@ -271,7 +282,8 @@ public sealed partial class MainForm
                 if (runeSelectionVisible)
                 {
                     await RefreshOverlayState(false, failSafe: true);
-                    if (serverErrorDialogVisible || owner.IsCancellationRequested) break;
+                    if (serverErrorDialogVisible) continue;
+                    if (owner.IsCancellationRequested) break;
                 }
                 if (runeSelectionVisible)
                 {
@@ -627,7 +639,7 @@ public sealed partial class MainForm
                 }
                 await Task.Delay(10, owner);
             }
-            if (serverErrorDialogVisible) throw new IOException("服务器连接已断开");
+            if (serverErrorDialogVisible) await WaitForConnectionRecoveryAsync(owner);
             owner.ThrowIfCancellationRequested();
         }
         catch (Exception error) { executionError = error; throw; }
@@ -651,85 +663,86 @@ public sealed partial class MainForm
         while (deadline.Elapsed < TimeSpan.FromSeconds(10))
         {
             token.ThrowIfCancellationRequested();
-            using var frame = await adb.CaptureMovementPopupFrameAsync(token);
-            // The loot title occupies the small banner above the reward grid.
-            // Full-frame OCR is slow and can miss the title among item labels.
-            var lootTitleArea = new Rectangle(
-                (int)(frame.Width * .405), (int)(frame.Height * .138),
-                (int)(frame.Width * .190), (int)(frame.Height * .128));
-            using var lootTitle = frame.Clone(lootTitleArea, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-            var lootWords = await adb.ReadOcrWordsAsync(lootTitle, token);
-            var lootText = string.Concat(lootWords.Select(word => OcrTextLocator.Compact(word.Text)));
-            var loot = lootText.Contains("战利品", StringComparison.Ordinal);
-            if (!loot)
-            {
-                using var enlargedTitle = new Bitmap(lootTitle.Width * 2, lootTitle.Height * 2);
-                using (var graphics = Graphics.FromImage(enlargedTitle))
-                {
-                    graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                    graphics.DrawImage(lootTitle, 0, 0, enlargedTitle.Width, enlargedTitle.Height);
-                }
-                var enlargedWords = await adb.ReadOcrWordsAsync(enlargedTitle, token);
-                lootText = string.Concat(enlargedWords.Select(word => OcrTextLocator.Compact(word.Text)));
-                loot = lootText.Contains("战利品", StringComparison.Ordinal);
-            }
-            var advancement = false;
-            if (!loot)
-            {
-                var advancementTextArea = new Rectangle(
-                    (int)(frame.Width * .34), (int)(frame.Height * .35),
-                    (int)(frame.Width * .32), (int)(frame.Height * .17));
-                using var advancementText = frame.Clone(advancementTextArea,
-                    System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-                var advancementWords = await adb.ReadOcrWordsAsync(advancementText, token);
-                var text = string.Concat(advancementWords.Select(word => OcrTextLocator.Compact(word.Text)));
-                advancement = PopupRecognition.IsCharacterAdvancementDialogText(text);
-            }
-            if (advancement)
+            var popup = await TryCloseReturnTownPopupAsync(token, "返回主城后");
+            if (popup is null)
             {
                 consecutiveClearChecks = 0;
-                var close = PopupRecognition.FindCharacterAdvancementCloseButton(frame,
-                    Path.Combine(AppContext.BaseDirectory, "templates", "ui", "character-advancement-close.png"));
-                if (close is null)
-                {
-                    await Task.Delay(150, token);
-                    continue;
-                }
-                await adb.TapScreen((double)close.Center.X / frame.Width, (double)close.Center.Y / frame.Height);
+                await Task.Delay(150, token);
+                continue;
+            }
+            if (popup.Value)
+            {
+                consecutiveClearChecks = 0;
                 clickedPopup = true;
-                Log($"返回主城后识别到角色进阶提示，已点击 × 关闭：({close.Center.X},{close.Center.Y})，匹配分数 {close.Score:F3}");
                 await Task.Delay(250, token);
                 continue;
             }
-            if (loot)
+            if (clickedPopup)
             {
-                consecutiveClearChecks = 0;
-                await adb.TapScreen(.5, .9);
-                clickedPopup = true;
-                Log("返回主城后识别到战利品标题并点击确定，下一轮继续核对是否关闭");
-                await Task.Delay(250, token);
-            }
-            else
-            {
-                if (clickedPopup)
+                consecutiveClearChecks++;
+                if (consecutiveClearChecks >= 2)
                 {
-                    consecutiveClearChecks++;
-                    if (consecutiveClearChecks >= 2)
-                    {
-                        Log("返回主城后连续两轮未识别到战利品或进阶弹窗，确认弹窗已关闭");
-                        return true;
-                    }
-                    Log("返回主城后暂未识别到弹窗，等待下一轮二次确认");
-                }
-                else if (deadline.Elapsed >= TimeSpan.FromSeconds(3))
-                {
-                    Log("返回主城后 3 秒内未检测到待处理弹窗，跑图收尾完成");
+                    Log("返回主城后连续两轮未识别到战利品或进阶弹窗，确认弹窗已关闭");
                     return true;
                 }
-                await Task.Delay(150, token);
+                Log("返回主城后暂未识别到弹窗，等待下一轮二次确认");
             }
+            else if (deadline.Elapsed >= TimeSpan.FromSeconds(3))
+            {
+                Log("返回主城后 3 秒内未检测到待处理弹窗，跑图收尾完成");
+                return true;
+            }
+            await Task.Delay(150, token);
         }
         Warn("回城弹窗在 10 秒内未能关闭；跑图任务不标记完成");
         return false;
+    }
+
+    async Task<bool?> TryCloseReturnTownPopupAsync(CancellationToken token, string context)
+    {
+        using var frame = await adb.CaptureMovementPopupFrameAsync(token);
+        // The loot title occupies the small banner above the reward grid.
+        // Full-frame OCR is slow and can miss the title among item labels.
+        var lootTitleArea = new Rectangle(
+            (int)(frame.Width * .405), (int)(frame.Height * .138),
+            (int)(frame.Width * .190), (int)(frame.Height * .128));
+        using var lootTitle = frame.Clone(lootTitleArea, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+        var lootWords = await adb.ReadOcrWordsAsync(lootTitle, token);
+        var lootText = string.Concat(lootWords.Select(word => OcrTextLocator.Compact(word.Text)));
+        var loot = lootText.Contains("战利品", StringComparison.Ordinal);
+        if (!loot)
+        {
+            using var enlargedTitle = new Bitmap(lootTitle.Width * 2, lootTitle.Height * 2);
+            using (var graphics = Graphics.FromImage(enlargedTitle))
+            {
+                graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                graphics.DrawImage(lootTitle, 0, 0, enlargedTitle.Width, enlargedTitle.Height);
+            }
+            var enlargedWords = await adb.ReadOcrWordsAsync(enlargedTitle, token);
+            lootText = string.Concat(enlargedWords.Select(word => OcrTextLocator.Compact(word.Text)));
+            loot = lootText.Contains("战利品", StringComparison.Ordinal);
+        }
+        if (loot)
+        {
+            await adb.TapScreen(.5, .9);
+            Log($"{context}识别到战利品标题并点击确定，下一轮继续核对是否关闭");
+            return true;
+        }
+
+        var advancementTextArea = new Rectangle(
+            (int)(frame.Width * .34), (int)(frame.Height * .35),
+            (int)(frame.Width * .32), (int)(frame.Height * .17));
+        using var advancementText = frame.Clone(advancementTextArea,
+            System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+        var advancementWords = await adb.ReadOcrWordsAsync(advancementText, token);
+        var text = string.Concat(advancementWords.Select(word => OcrTextLocator.Compact(word.Text)));
+        if (!PopupRecognition.IsCharacterAdvancementDialogText(text)) return false;
+
+        var close = PopupRecognition.FindCharacterAdvancementCloseButton(frame,
+            Path.Combine(AppContext.BaseDirectory, "templates", "ui", "character-advancement-close.png"));
+        if (close is null) return null;
+        await adb.TapScreen((double)close.Center.X / frame.Width, (double)close.Center.Y / frame.Height);
+        Log($"{context}识别到角色进阶提示，已点击 × 关闭：({close.Center.X},{close.Center.Y})，匹配分数 {close.Score:F3}");
+        return true;
     }
 }

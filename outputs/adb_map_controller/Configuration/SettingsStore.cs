@@ -130,6 +130,8 @@ public sealed class JsonSettingsStore : ISettingsStore
                     }
                     if (kind == ExecutionTaskKind.DreamTrial)
                         allowed.Add(nameof(ControllerSettings.DreamTrialBossMask));
+                    if (kind == ExecutionTaskKind.ScheduledConnectionRecovery)
+                        allowed.Add(nameof(ControllerSettings.ScheduledRecoveryStartAt));
                     if (kind == ExecutionTaskKind.EternalWinterSweep)
                     {
                         allowed.Add(nameof(ControllerSettings.EternalWinterFloor));

@@ -198,7 +198,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         var plan = Btn("规划路线", ThemeRole.InfoButton); var start = Btn("开始", ThemeRole.SuccessButton); var pause = Btn("暂停", ThemeRole.WarningButton); var step = Btn("单步", ThemeRole.InfoButton); var stop = Btn("急停", ThemeRole.DangerButton);
         var autoEnter = Btn("进图并跑图", ThemeRole.SuccessButton); var enterOnly = Btn("进图", ThemeRole.InfoButton); var calibrateEntry = Btn("更新入口模板", ThemeRole.UtilityButton);
         var openWebMonitor = Btn("Web监控", ThemeRole.InfoButton);
-        var detectAssistant = Btn("检测助手", ThemeRole.UtilityButton); var installAssistant = Btn("安装助手", ThemeRole.UtilityButton); var restoreAssistant = Btn("恢复原版", ThemeRole.DangerButton); var openTestPanel = Btn("打开测试面板", ThemeRole.WarningButton);
+        var detectAssistant = Btn("检测助手", ThemeRole.UtilityButton); var installAssistant = Btn("安装助手", ThemeRole.UtilityButton); var restoreAssistant = Btn("恢复原版", ThemeRole.DangerButton); var openTestPanel = Btn("打开测试面板", ThemeRole.WarningButton); var testConnectionRecovery = Btn("测试重连", ThemeRole.WarningButton);
         var mine = Btn("挖矿", ThemeRole.WarningButton);
         var sell = Btn("一键售出", ThemeRole.WarningButton);
         sell.Click += async (_, _) => await RunUi(() => RunMovement(async () =>
@@ -206,7 +206,17 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             var result = await RunEquipmentSaleAsync(operations.CurrentToken);
             State(result ? "装备出售完成" : "装备出售未完成，已停止");
         }));
-        top.Controls.AddRange([refresh, plan, start, mine, sell, pause, step, stop, autoEnter, enterOnly, calibrateEntry, openWebMonitor]);
+        top.Controls.AddRange([refresh, plan, start, mine, sell, pause, step, stop, autoEnter, calibrateEntry]);
+        var testTop = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding = new(10, 8, 10, 6),
+            WrapContents = true,
+            Tag = ThemeRole.Surface
+        };
+        testTop.Controls.AddRange([enterOnly, testConnectionRecovery, openWebMonitor, openTestPanel]);
         var settingsTop = new FlowLayoutPanel
         {
             Dock = DockStyle.Top,
@@ -222,7 +232,6 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             detectAssistant,
             installAssistant,
             restoreAssistant,
-            openTestPanel,
             assistantState,
             new Label { Text = "主题", AutoSize = true, Padding = new(10, 6, 0, 0) },
             themeChoice]);
@@ -247,8 +256,10 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         var settingsPage = new ThemedTabPage { Text = "设置", Padding = new(0), Tag = ThemeRole.Default };
         settingsPage.Controls.Add(CreateMiningSettings());
         settingsPage.Controls.Add(timing); settingsPage.Controls.Add(escapeReturnOptions); settingsPage.Controls.Add(floorStop); settingsPage.Controls.Add(entryOptions); settingsPage.Controls.Add(saleOptions); settingsPage.Controls.Add(bonusOptions); settingsPage.Controls.Add(options); settingsPage.Controls.Add(settingsTop);
+        var testPage = new ThemedTabPage { Text = "测试", Padding = new(0), Tag = ThemeRole.Default };
+        testPage.Controls.Add(testTop);
         var tabs = new ThemedTabControl { Dock = DockStyle.Fill, Tag = ThemeRole.Default };
-        tabs.TabPages.Add(runPage); tabs.TabPages.Add(CreateTaskListPage()); tabs.TabPages.Add(settingsPage); tabs.TabPages.Add(logPage);
+        tabs.TabPages.Add(runPage); tabs.TabPages.Add(CreateTaskListPage()); tabs.TabPages.Add(settingsPage); tabs.TabPages.Add(testPage); tabs.TabPages.Add(logPage);
         Controls.Add(tabs);
         scan.Click += async (_, _) => await RunUi(Scan); refresh.Click += async (_, _) => await RunUi(() => RefreshMap()); plan.Click += async (_, _) => await RunUi(Replan); start.Click += async (_, _) => await RunUi(StartRun); pause.Click += async (_, _) => await RunUi(async () => { await StopMovement(); State("已暂停"); }); step.Click += async (_, _) => await RunUi(Step); stop.Click += async (_, _) => await RunUi(EmergencyStopAndClear);
         autoEnter.Click += async (_, _) => await RunUi(AutoEnter); enterOnly.Click += async (_, _) => await RunUi(EnterOnly); calibrateEntry.Click += async (_, _) => await RunUi(CalibrateEntry);
@@ -257,6 +268,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         openWebMonitor.Click += (_, _) => OpenPipelineWebMonitor();
         alwaysOnTop.CheckedChanged += (_, _) => { ApplyAlwaysOnTop(); SaveSettings(); };
         detectAssistant.Click += async (_, _) => await RunUi(DetectAssistant); installAssistant.Click += async (_, _) => await RunUi(InstallAssistant); restoreAssistant.Click += async (_, _) => await RunUi(RestoreAssistant); openTestPanel.Click += async (_, _) => await RunUi(OpenTestPanel);
+        testConnectionRecovery.Click += (_, _) => StartConnectionRecoveryTest();
         bonusPriorityToggle.Click += (_, _) =>
         {
             if (bonusPriorityPopup.Visible)
@@ -338,6 +350,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
 
     async Task ShutdownCore()
     {
+        Log("控制器正在关闭");
         closing = true; Enabled = false; refreshTimer.Stop(); SaveSettings();
         connectionRecoveryCancellation?.Cancel();
         miniWindowMode = false;

@@ -42,7 +42,7 @@ public sealed partial class MainForm
         var taskBar = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, Margin = Padding.Empty, Tag = ThemeRole.Surface };
         var itemBar = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, Margin = Padding.Empty, Tag = ThemeRole.Surface };
         var taskType = new ThemedComboBox { Width = 135, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "添加任务类型" };
-        taskType.Items.AddRange(["进图并跑图", "当前地图跑图", "卡矿任务", "梦境试炼", "培养魂器", "免费祈祷", "福利活动", "领取深渊钥匙", "扫荡永冬裂缝", "扫荡深渊秘境", "每日签到", "幽灵深渊", "冒险家公会"]); taskType.SelectedIndex = 0;
+        taskType.Items.AddRange(["进图并跑图", "当前地图跑图", "卡矿任务", "梦境试炼", "培养魂器", "免费祈祷", "福利活动", "领取深渊钥匙", "扫荡永冬裂缝", "扫荡深渊秘境", "每日签到", "幽灵深渊", "冒险家公会", "首领挑战", "定时启动"]); taskType.SelectedIndex = 0;
         var templateChoice = new ThemedComboBox { Width = 160, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "任务模板" };
         taskTemplateChoice = templateChoice;
         var newTemplate = Btn("新建模板", ThemeRole.SecondaryButton);
@@ -226,27 +226,69 @@ public sealed partial class MainForm
                         UpdateTaskExecutionProgress(1, GetInitialTaskExecutionCount(config));
                         ApplySettings(config, applyEquipmentSale: false); RefreshTaskList(i);
                         Log($"执行任务列表：第 {i + 1}/{scheduledTasks.Count} 项");
-                        if (config.SwitchEquipmentSet && config.TaskKind is not (ExecutionTaskKind.SoulArtifactCultivation or ExecutionTaskKind.FreePrayer or ExecutionTaskKind.FreeWelfare or ExecutionTaskKind.AbyssKey or ExecutionTaskKind.AbyssSweep or ExecutionTaskKind.DailySignIn or ExecutionTaskKind.GuildTasks)) await TrySwitchTaskEquipmentAsync(config.EquipmentSet, token);
-                        if (config.TaskKind == ExecutionTaskKind.SoulArtifactCultivation) await RunSoulArtifactCultivationAsync(token);
-                        else if (config.TaskKind == ExecutionTaskKind.FreePrayer) await RunFreePrayerAsync(token);
-                        else if (config.TaskKind == ExecutionTaskKind.FreeWelfare) await RunFreeWelfareAsync(token);
-                        else if (config.TaskKind == ExecutionTaskKind.AbyssKey) await RunAbyssKeyAsync(token);
-                        else if (config.TaskKind == ExecutionTaskKind.DailySignIn) await RunDailySignInAsync(token);
-                        else if (config.TaskKind == ExecutionTaskKind.EternalWinterSweep) await RunEternalWinterSweepAsync(config, token);
-                        else if (config.TaskKind == ExecutionTaskKind.AbyssSweep) await RunAbyssSweepAsync(token);
-                        else if (config.TaskKind == ExecutionTaskKind.GhostAbyss) await RunGhostAbyssAsync(config, token);
-                        else if (config.TaskKind == ExecutionTaskKind.GuildTasks) await RunGuildTasksAsync(config, token);
-                        else if (config.TaskKind == ExecutionTaskKind.CardMining) await RunCardMiningTaskAsync(config, token);
-                        else if (config.TaskKind == ExecutionTaskKind.DreamTrial) await RunDreamTrialTaskAsync(config, token);
-                        else if (config.TaskKind == ExecutionTaskKind.EntryAndRun) await RunEntryRunPipelineAsync(token);
-                        else if (config.TaskKind == ExecutionTaskKind.CurrentMapRun)
+                        if (config.TaskKind == ExecutionTaskKind.ScheduledConnectionRecovery)
                         {
-                            await RunMovementScope(token, StartRunCore, startupProbePaused: true);
-                            lastEntryRunSucceeded = lastMapRunSucceeded;
+                            await RunScheduledConnectionRecoveryAsync(config.ScheduledRecoveryStartAt, token);
+                            lastEntryRunSucceeded = true;
+                            continue;
                         }
-                        else { State("任务列表停止：不支持的任务类型"); return; }
-                        token.ThrowIfCancellationRequested();
-                        if (!lastEntryRunSucceeded) { State($"任务列表停止：第 {i + 1} 项未完成"); return; }
+                        var retries = 0;
+                        while (true)
+                        {
+                            token.ThrowIfCancellationRequested();
+                            await WaitForConnectionRecoveryAsync(token);
+                            using var attempt = CancellationTokenSource.CreateLinkedTokenSource(token);
+                            taskAttemptCancellation = attempt;
+                            var restartAtStart = taskRestartGeneration;
+                            using var monitorCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+                            var connectionMonitor = MonitorTaskConnectionAsync(monitorCancellation.Token);
+                            lastEntryRunSucceeded = false;
+                            try
+                            {
+                                var attemptToken = attempt.Token;
+                                if (config.SwitchEquipmentSet && config.TaskKind is not (ExecutionTaskKind.SoulArtifactCultivation or ExecutionTaskKind.FreePrayer or ExecutionTaskKind.FreeWelfare or ExecutionTaskKind.AbyssKey or ExecutionTaskKind.AbyssSweep or ExecutionTaskKind.DailySignIn or ExecutionTaskKind.GuildTasks)) await TrySwitchTaskEquipmentAsync(config.EquipmentSet, attemptToken);
+                                if (config.TaskKind == ExecutionTaskKind.SoulArtifactCultivation) await RunSoulArtifactCultivationAsync(attemptToken);
+                                else if (config.TaskKind == ExecutionTaskKind.FreePrayer) await RunFreePrayerAsync(attemptToken);
+                                else if (config.TaskKind == ExecutionTaskKind.FreeWelfare) await RunFreeWelfareAsync(attemptToken);
+                                else if (config.TaskKind == ExecutionTaskKind.AbyssKey) await RunAbyssKeyAsync(attemptToken);
+                                else if (config.TaskKind == ExecutionTaskKind.DailySignIn) await RunDailySignInAsync(attemptToken);
+                                else if (config.TaskKind == ExecutionTaskKind.EternalWinterSweep) await RunEternalWinterSweepAsync(config, attemptToken);
+                                else if (config.TaskKind == ExecutionTaskKind.AbyssSweep) await RunAbyssSweepAsync(attemptToken);
+                                else if (config.TaskKind == ExecutionTaskKind.GhostAbyss) await RunGhostAbyssAsync(config, attemptToken);
+                                else if (config.TaskKind == ExecutionTaskKind.GuildTasks) await RunGuildTasksAsync(config, attemptToken);
+                                else if (config.TaskKind == ExecutionTaskKind.CardMining) await RunCardMiningTaskAsync(config, attemptToken);
+                                else if (config.TaskKind == ExecutionTaskKind.DreamTrial) await RunDreamTrialTaskAsync(config, attemptToken);
+                                else if (config.TaskKind == ExecutionTaskKind.BossChallenge) await RunBossChallengeAsync(attemptToken);
+                                else if (config.TaskKind == ExecutionTaskKind.EntryAndRun) await RunEntryRunPipelineAsync(attemptToken);
+                                else if (config.TaskKind == ExecutionTaskKind.CurrentMapRun)
+                                {
+                                    await RunMovementScope(attemptToken, StartRunCore, startupProbePaused: true);
+                                    lastEntryRunSucceeded = lastMapRunSucceeded;
+                                }
+                                else { State("任务列表停止：不支持的任务类型"); return; }
+                            }
+                            catch (Exception ex) when (!token.IsCancellationRequested && restartAtStart != taskRestartGeneration)
+                            {
+                                Log($"断线恢复：第 {i + 1} 项已中断，将从该项重新执行（{ex.Message}）");
+                            }
+                            finally
+                            {
+                                monitorCancellation.Cancel();
+                                try { await connectionMonitor; }
+                                catch (OperationCanceledException) when (monitorCancellation.IsCancellationRequested) { }
+                                if (ReferenceEquals(taskAttemptCancellation, attempt)) taskAttemptCancellation = null;
+                            }
+                            token.ThrowIfCancellationRequested();
+                            if (restartAtStart != taskRestartGeneration)
+                            {
+                                if (++retries > 3) throw new InvalidOperationException($"第 {i + 1} 项连续断线超过 3 次，已停止任务列表");
+                                await WaitForConnectionRecoveryAsync(token);
+                                Log($"断线恢复：重新执行第 {i + 1} 项（第 {retries} 次重试）");
+                                continue;
+                            }
+                            if (!lastEntryRunSucceeded) { State($"任务列表停止：第 {i + 1} 项未完成"); return; }
+                            break;
+                        }
                     }
                     State("已启用的任务全部完成");
                 });
@@ -358,6 +400,7 @@ public sealed partial class MainForm
             System.Text.Json.JsonSerializer.Serialize(current))!;
         result.TaskKind = task.TaskKind;
         result.TaskEnabled = task.TaskEnabled;
+        result.ScheduledRecoveryStartAt = task.ScheduledRecoveryStartAt;
         result.SwitchEquipmentSet = task.SwitchEquipmentSet;
         result.EquipmentSet = task.EquipmentSet;
         result.EternalWinterFloor = task.EternalWinterFloor;
@@ -521,6 +564,25 @@ public sealed partial class MainForm
             switchEquipment.CheckedChanged += (_, _) => { config.SwitchEquipmentSet = switchEquipment.Checked; equipmentSets.Enabled = switchEquipment.Checked; };
             Row("装备", switchEquipment, equipmentSets);
             dialog.Shown += (_, _) => RefreshEquipmentSetAppearance();
+        }
+        if (config.TaskKind == ExecutionTaskKind.ScheduledConnectionRecovery)
+        {
+            config.SwitchEquipmentSet = false;
+            var now = DateTime.Now;
+            config.ScheduledRecoveryStartAt = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0);
+            var start = new DateTimePicker { Width = 190, Format = DateTimePickerFormat.Custom,
+                CustomFormat = "yyyy-MM-dd HH:mm", Value = config.ScheduledRecoveryStartAt };
+            start.ValueChanged += (_, _) => config.ScheduledRecoveryStartAt = start.Value;
+            Row("开始时间", start);
+            Row("流程", new Label { Text = "等待至指定时间 → 断线重连并确认游戏就绪 → 继续列表", AutoSize = true });
+            ThemeManager.Apply(dialog, currentPalette);
+            return dialog.ShowDialog(this) == DialogResult.OK;
+        }
+        if (config.TaskKind == ExecutionTaskKind.BossChallenge)
+        {
+            Row("流程", new Label { Text = "活动 → 首领入侵 → 立即加入 → 跑图至回城", AutoSize = true });
+            ThemeManager.Apply(dialog, currentPalette);
+            return dialog.ShowDialog(this) == DialogResult.OK;
         }
         if (config.TaskKind == ExecutionTaskKind.SoulArtifactCultivation)
         {
@@ -716,6 +778,14 @@ public sealed partial class MainForm
             var entry = DungeonEntryCatalog.EntriesForMap(s.EntryMapId).FirstOrDefault(x => x.Id == s.EntryId);
             var targets = new[] { (s.AttackBoss, "Boss"), (s.Monsters, "小怪"), (s.Elites, "精英"), (s.Chests, "箱子"), (s.Pots, "罐子"), (s.Bones, "石堆"), (s.Gold, "金币"), (s.Runes, "符文"), (s.Altars, "点金台"), (s.Chambers, "密室") };
             var count = s.EntryRunCount > 0 ? $"{s.EntryRunCount} 次" : s.EntryDifficulty == DungeonDifficulty.Normal ? "自动（无限）" : "剩余次数";
+            if (s.TaskKind == ExecutionTaskKind.ScheduledConnectionRecovery)
+            {
+                var timed = new ListViewItem(new[] { (i + 1).ToString(), "定时启动", "—",
+                    $"{s.ScheduledRecoveryStartAt:yyyy-MM-dd HH:mm}", "到点重连", "游戏就绪后继续列表" });
+                timed.Checked = s.TaskEnabled; AddTaskRow(timed);
+                if (i == selected) { timed.Selected = true; timed.EnsureVisible(); }
+                continue;
+            }
             if (s.TaskKind == ExecutionTaskKind.DreamTrial)
             {
                 var names = new[] { "Troll", "DastardBot", "EldestOne", "Shoggoth", "GodsSpirit", "Mad King" };
@@ -796,6 +866,13 @@ public sealed partial class MainForm
                 var guild = new ListViewItem(new[] { (i + 1).ToString(), "冒险家公会", s.SwitchEquipmentSet ? $"方案{s.EquipmentSet}" : "—", "按界面次数", "公会地图", selectedActions });
                 guild.Checked = s.TaskEnabled; AddTaskRow(guild);
                 if (i == selected) { guild.Selected = true; guild.EnsureVisible(); }
+                continue;
+            }
+            if (s.TaskKind == ExecutionTaskKind.BossChallenge)
+            {
+                var bossChallenge = new ListViewItem(new[] { (i + 1).ToString(), "首领挑战", "—", "1 次", "回城结束", "首领入侵" });
+                bossChallenge.Checked = s.TaskEnabled; AddTaskRow(bossChallenge);
+                if (i == selected) { bossChallenge.Selected = true; bossChallenge.EnsureVisible(); }
                 continue;
             }
             var taskName = s.TaskKind switch

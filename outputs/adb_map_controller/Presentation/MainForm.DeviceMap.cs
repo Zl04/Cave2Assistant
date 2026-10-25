@@ -160,14 +160,11 @@ public sealed partial class MainForm
             if (popup == MovementPopupKind.ServerError)
             {
                 if (!serverErrorDialogVisible)
-                    Log("检测到服务器连接异常弹窗，已停止运行；请重新进入游戏", LogLevel.Error);
-                serverErrorDialogVisible = true;
-                await touch.EmergencyRelease();
-                operations.Cancel(ControllerOperationKind.Movement);
-                State("服务器连接异常，已停止运行");
+                    Log("检测到服务器连接异常弹窗，暂停当前任务并尝试重连");
+                BeginConnectionRecovery();
+                State("服务器连接异常，正在恢复连接");
                 return false;
             }
-            serverErrorDialogVisible = false;
 
             // 用户按下开始时，游戏可能停留在居中的“是否进入下一层？”对话框上。
             // 在同一次启动覆盖层检查中识别它，避免过期的地图传送门路线在模态框下方

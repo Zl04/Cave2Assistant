@@ -27,6 +27,12 @@ internal sealed class ConnectionRecoveryPipeline
         return result.Succeeded ? result.LastTask : null;
     }
 
+    public async Task<bool> IsGameReadyAsync(CancellationToken token)
+    {
+        var result = await pipeline.RunAsync(device, ["GameReady"], token);
+        return result.Succeeded && result.LastTask == "GameReady";
+    }
+
     sealed class ConnectionDialogHandler : IMaaPipelineHandler<MaaAdbPipelineState>
     {
         public string Name => "ConnectionDialog";

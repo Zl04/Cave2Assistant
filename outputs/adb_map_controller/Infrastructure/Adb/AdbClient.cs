@@ -159,6 +159,18 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
     public Task<Bitmap> CaptureScreenForAutomationAsync(CancellationToken token)
         => CaptureScreenAsync("无法截取设备屏幕", token);
 
+    internal async Task<IReadOnlyList<string?>> ReadGreedyCardTextsAsync(CancellationToken token)
+    {
+        using var frame = await CaptureScreenAsync("无法截取贪婪抉择卡片", token);
+        var result = new string?[3];
+        var centers = new[] { .3125, .5, .6875 };
+        for (var index = 0; index < centers.Length; index++)
+            result[index] = await screenAnalyzer.ReadScreenTextAsync(frame,
+                (centers[index] - .085, centers[index] + .085, .33, .63),
+                $"贪婪抉择第 {index + 1} 张卡片", token);
+        return result;
+    }
+
     public async Task<bool> HasNextFloorButton()
     {
         using var bitmap = await CaptureScreenAsync("无法截取设备屏幕");

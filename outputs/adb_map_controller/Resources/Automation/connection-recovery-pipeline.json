@@ -12,5 +12,10 @@
     "algorithm": "OcrDetect", "handler": "ConnectionAdb", "action": "ClickRect",
     "text": ["开始游戏"], "roi": [450, 525, 380, 95],
     "specificRect": [555, 540, 170, 65]
+  },
+  "GameReady": {
+    "algorithm": "MatchTemplate", "handler": "ConnectionAdb", "action": "DoNothing",
+    "template": ["templates/ui/game-settings-button.png"], "templThreshold": 0.82,
+    "roi": [1210, 0, 70, 65]
   }
 }

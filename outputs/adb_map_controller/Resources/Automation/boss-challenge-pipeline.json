@@ -1,0 +1,22 @@
+{
+  "OpenActivities": { "algorithm": "MatchTemplate", "handler": "BossAdb", "action": "ClickSelf", "template": ["templates/ui/boss-challenge-activities-entry.png"], "templThreshold": 0.80, "roi": [1030, 168, 85, 82], "timeout": 4000, "rateLimit": 250, "postDelay": 450, "next": ["ActivitiesReady"] },
+  "ActivitiesReady": { "algorithm": "OcrDetect", "handler": "BossAdb", "action": "DoNothing", "text": ["活动"], "roi": [570, 35, 150, 90], "timeout": 5000, "rateLimit": 250, "next": ["OpenInvasion"], "onErrorNext": ["RetryInvasionGate"] },
+  "OpenInvasion": { "algorithm": "OcrDetect", "handler": "BossAdb", "action": "ClickSelf", "text": ["首领入侵"], "roi": [270, 195, 210, 110], "postDelay": 450, "timeout": 4000, "rateLimit": 250, "next": ["ChallengeReady"] },
+  "RetryInvasionGate": { "algorithm": "JustReturn", "handler": "BossChallenge", "action": "DoNothing", "next": ["ConfirmInvasion"], "onErrorNext": ["CloseActivities"], "timeout": 2500, "rateLimit": 250 },
+  "ConfirmInvasion": { "algorithm": "OcrDetect", "handler": "BossAdb", "action": "ClickSelf", "text": ["首领入侵"], "roi": [270, 195, 210, 110], "postDelay": 450, "next": ["ChallengeReady"] },
+  "CloseActivities": { "algorithm": "JustReturn", "handler": "BossAdb", "action": "ClickRect", "specificRect": [1190, 410, 1, 1], "postDelay": 350, "next": ["VerifyActivitiesClosed"], "onErrorNext": ["CloseActivitiesAgain"], "timeout": 2500, "rateLimit": 250 },
+  "VerifyActivitiesClosed": { "algorithm": "Custom", "handler": "BossChallenge", "action": "DoNothing", "next": ["ReportInvasionUnavailable"] },
+  "CloseActivitiesAgain": { "algorithm": "JustReturn", "handler": "BossAdb", "action": "ClickRect", "specificRect": [1190, 410, 1, 1], "postDelay": 350, "next": ["VerifyActivitiesClosedFinal"], "timeout": 2500, "rateLimit": 250 },
+  "VerifyActivitiesClosedFinal": { "algorithm": "Custom", "handler": "BossChallenge", "action": "DoNothing", "next": ["ReportInvasionUnavailable"] },
+  "ReportInvasionUnavailable": { "algorithm": "JustReturn", "handler": "BossChallenge", "action": "DoNothing" },
+  "ChallengeReady": { "algorithm": "OcrDetect", "handler": "BossAdb", "action": "DoNothing", "text": ["首领入侵"], "roi": [545, 30, 190, 90], "timeout": 5000, "rateLimit": 250, "next": ["Expired", "JoinAvailable"] },
+  "Expired": { "algorithm": "OcrDetect", "handler": "BossAdb", "action": "DoNothing", "text": ["活动报名已截止"], "roi": [560, 525, 280, 90], "next": ["CloseExpiredChallenge"] },
+  "CloseExpiredChallenge": { "algorithm": "JustReturn", "handler": "BossAdb", "action": "ClickRect", "specificRect": [1190, 410, 1, 1], "postDelay": 350, "next": ["VerifyChallengeClosed"], "onErrorNext": ["CloseExpiredChallengeAgain"], "timeout": 2500, "rateLimit": 250 },
+  "VerifyChallengeClosed": { "algorithm": "Custom", "handler": "BossChallenge", "action": "DoNothing", "next": ["ReportExpired"] },
+  "CloseExpiredChallengeAgain": { "algorithm": "JustReturn", "handler": "BossAdb", "action": "ClickRect", "specificRect": [1190, 410, 1, 1], "postDelay": 350, "next": ["VerifyChallengeClosedFinal"], "timeout": 2500, "rateLimit": 250 },
+  "VerifyChallengeClosedFinal": { "algorithm": "Custom", "handler": "BossChallenge", "action": "DoNothing", "next": ["ReportExpired"] },
+  "ReportExpired": { "algorithm": "JustReturn", "handler": "BossChallenge", "action": "DoNothing" },
+  "JoinAvailable": { "algorithm": "OcrDetect", "handler": "BossAdb", "action": "ClickSelf", "text": ["立即加入"], "roi": [280, 520, 250, 85], "postDelay": 800, "timeout": 2000, "rateLimit": 250, "next": ["WaitForMap"] },
+  "WaitForMap": { "algorithm": "Custom", "handler": "BossChallenge", "action": "DoNothing", "timeout": 18000, "rateLimit": 350, "next": ["RunMap"] },
+  "RunMap": { "algorithm": "JustReturn", "handler": "BossChallenge", "action": "DoNothing" }
+}

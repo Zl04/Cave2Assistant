@@ -1,0 +1,21 @@
+{
+  "DisconnectConfirm": {
+    "algorithm": "Custom", "handler": "ConnectionDialog", "action": "ClickRect",
+    "specificRect": [604, 440, 72, 42]
+  },
+  "LoginButton": {
+    "algorithm": "OcrDetect", "handler": "ConnectionAdb", "action": "ClickRect",
+    "text": ["登录"], "roi": [505, 535, 270, 70],
+    "specificRect": [585, 548, 110, 46]
+  },
+  "StartGameButton": {
+    "algorithm": "OcrDetect", "handler": "ConnectionAdb", "action": "ClickRect",
+    "text": ["开始游戏"], "roi": [450, 525, 380, 95],
+    "specificRect": [555, 540, 170, 65]
+  },
+  "GameReady": {
+    "algorithm": "MatchTemplate", "handler": "ConnectionAdb", "action": "DoNothing",
+    "template": ["templates/ui/game-settings-button.png"], "templThreshold": 0.82,
+    "roi": [1210, 0, 70, 65]
+  }
+}

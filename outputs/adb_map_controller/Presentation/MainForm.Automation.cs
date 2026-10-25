@@ -361,14 +361,17 @@ public sealed partial class MainForm
                             await adb.TapScreen(0.890625, 0.498);
                             Log("换层弹窗尚未出现，重新点击前往下层快捷入口");
                         }
-                        else if (portalInteractionDelta != default)
+                        else
                         {
-                            if (dungeon.Map is null || !await ConfirmInteractionStop(new Cell(dungeon.Map.Player.X, dungeon.Map.Player.Y), owner))
+                            if (dungeon.Map is null || !await ConfirmInteractionStop(portalInteractionStop, owner))
                             {
                                 floorPhase = FloorPhase.GoToPortal;
+                                route = []; plannedInteractions = []; plannedTargetUniverse.Clear();
+                                mapPanel.Route = route; mapPanel.Invalidate();
                                 continue;
                             }
-                            if (await SendInteraction((portalInteractionDelta, portalInteractionKind), owner))
+                            if (portalInteractionDelta != default &&
+                                await SendInteraction((portalInteractionDelta, portalInteractionKind), owner))
                             {
                                 await HandleMovementPopupInterrupt(owner);
                                 continue;
@@ -439,6 +442,7 @@ public sealed partial class MainForm
                             continue;
                         }
                         portalInteractionDelta = delta;
+                        portalInteractionStop = currentCell;
                         portalInteractionKind = plannedTask.Target.Kind;
                         // 到达楼层传送门后，必须在任何换层动作前完成挖矿判断。
                         // 这里既覆盖传送门交互，也覆盖同一位置出现的右侧快捷入口，

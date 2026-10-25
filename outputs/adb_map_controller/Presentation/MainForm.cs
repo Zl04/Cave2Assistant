@@ -103,6 +103,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     bool portalInteractionBlockedByGem;
     long portalInteractionAt;
     Cell portalInteractionDelta;
+    Cell portalInteractionStop;
     string portalInteractionKind = "传送门";
     readonly CoroutineRunner coroutines = new();
     Coroutine? portalChoiceCoroutine;

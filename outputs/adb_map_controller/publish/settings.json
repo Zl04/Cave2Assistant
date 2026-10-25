@@ -87,7 +87,7 @@
           "EntryId": 12,
           "EntryDifficulty": "Normal",
           "TaskKind": "CardMining",
-          "TaskEnabled": true,
+          "TaskEnabled": false,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 2,
           "CardMiningStartAt": "2026-10-26T00:00:00\u002B08:00",

@@ -1,5 +1,7 @@
 # MAA Pipeline
 
+任务节点可设置 `"saveScreenshot": false`，关闭该节点正常识别过程中的截图保存；省略时默认为 `true`。运行出错时的现场截图不受此字段影响，仍会尝试保存到 `publish/pipeline-traces/evidence/`。例如：`"识别节点": { "saveScreenshot": false, "recognition": "OCR", ... }`。
+
 项目现在使用 `Infrastructure/Automation/MaaPipeline.cs` 提供 MAA v1 风格的任务编译和运行时。
 
 当前协议层按 MaaFramework Pipeline v1/v2 兼容：支持 `recognition`/`action`、v2 的

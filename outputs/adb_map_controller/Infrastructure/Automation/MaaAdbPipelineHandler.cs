@@ -56,9 +56,19 @@ public sealed class MaaAdbPipelineHandler<TState> : IMaaPipelineHandler<TState>
         var state = stateFactory(context.State);
         using var frame = await state.Adb.CaptureScreenForAutomationAsync();
         state.LastScreenSize = frame.Size;
-        var visionTask = CreateVisionTask(task, state.ResourceRoot);
-        var result = await state.Vision.RecognizeAsync(visionTask, frame, token: token);
-        var evidencePath = state.SaveEvidence
+        VisionRecognitionResult result;
+        try
+        {
+            var visionTask = CreateVisionTask(task, state.ResourceRoot);
+            result = await state.Vision.RecognizeAsync(visionTask, frame, token: token);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+        catch
+        {
+            _ = PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, state.Log);
+            throw;
+        }
+        var evidencePath = state.SaveEvidence && task.SaveScreenshot
             ? PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, state.Log)
             : null;
         MaaRect? box = result.Box.IsEmpty
@@ -86,35 +96,63 @@ public sealed class MaaAdbPipelineHandler<TState> : IMaaPipelineHandler<TState>
     {
         var state = stateFactory(context.State);
         token.ThrowIfCancellationRequested();
-        switch (task.Action)
+        try
         {
-            case MaaPipelineAction.DoNothing:
-                return MaaPipelineActionResult.Success();
-            case MaaPipelineAction.ClickSelf:
-            case MaaPipelineAction.ClickRand:
-                if (recognition.Box is not { } box || box.Width < 0 || box.Height < 0)
-                    return MaaPipelineActionResult.Failure("Click 动作没有可用的识别目标");
-                await TapDesignRect(state, box);
-                return MaaPipelineActionResult.Success();
-            case MaaPipelineAction.ClickRect:
-                if (task.SpecificRect is not { } rect)
-                    return MaaPipelineActionResult.Failure("ClickRect 缺少 specificRect");
-                await TapDesignRect(state, rect);
-                return MaaPipelineActionResult.Success();
-            case MaaPipelineAction.Swipe:
-                if (task.SpecificRect is not { } begin || task.RectMove is not { } move)
-                    return MaaPipelineActionResult.Failure("Swipe 缺少 specificRect 或 rectMove");
-                await state.Adb.SwipeScreen(
-                    begin.X / (double)VisionPipeline.DesignWidth,
-                    begin.Y / (double)VisionPipeline.DesignHeight,
-                    (begin.X + move.X) / (double)VisionPipeline.DesignWidth,
-                    (begin.Y + move.Y) / (double)VisionPipeline.DesignHeight,
-                    Math.Max(1, move.Width));
-                return MaaPipelineActionResult.Success();
-            case MaaPipelineAction.Input:
-                return MaaPipelineActionResult.Failure("当前 ADB Pipeline 尚未实现 InputText 动作");
-            default:
-                return MaaPipelineActionResult.Failure($"ADB Pipeline 不支持动作：{task.Action}");
+            switch (task.Action)
+            {
+                case MaaPipelineAction.DoNothing:
+                    return MaaPipelineActionResult.Success();
+                case MaaPipelineAction.ClickSelf:
+                case MaaPipelineAction.ClickRand:
+                    if (recognition.Box is not { } box || box.Width < 0 || box.Height < 0)
+                        return await FailureAsync("Click 动作没有可用的识别目标", state, context);
+                    await TapDesignRect(state, box);
+                    return MaaPipelineActionResult.Success();
+                case MaaPipelineAction.ClickRect:
+                    if (task.SpecificRect is not { } rect)
+                        return await FailureAsync("ClickRect 缺少 specificRect", state, context);
+                    await TapDesignRect(state, rect);
+                    return MaaPipelineActionResult.Success();
+                case MaaPipelineAction.Swipe:
+                    if (task.SpecificRect is not { } begin || task.RectMove is not { } move)
+                        return await FailureAsync("Swipe 缺少 specificRect 或 rectMove", state, context);
+                    await state.Adb.SwipeScreen(
+                        begin.X / (double)VisionPipeline.DesignWidth,
+                        begin.Y / (double)VisionPipeline.DesignHeight,
+                        (begin.X + move.X) / (double)VisionPipeline.DesignWidth,
+                        (begin.Y + move.Y) / (double)VisionPipeline.DesignHeight,
+                        Math.Max(1, move.Width));
+                    return MaaPipelineActionResult.Success();
+                case MaaPipelineAction.Input:
+                    return await FailureAsync("当前 ADB Pipeline 尚未实现 InputText 动作", state, context);
+                default:
+                    return await FailureAsync($"ADB Pipeline 不支持动作：{task.Action}", state, context);
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+        catch
+        {
+            await SaveFailureAsync(state, context);
+            throw;
+        }
+    }
+
+    static async Task<MaaPipelineActionResult> FailureAsync(
+        string error, MaaAdbPipelineState state, MaaPipelineTaskContext<TState> context)
+        => MaaPipelineActionResult.Failure(error, await SaveFailureAsync(state, context));
+
+    static async Task<string?> SaveFailureAsync(
+        MaaAdbPipelineState state, MaaPipelineTaskContext<TState> context)
+    {
+        try
+        {
+            using var frame = await state.Adb.CaptureScreenForAutomationAsync();
+            return PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, state.Log);
+        }
+        catch (Exception error)
+        {
+            state.Log?.Invoke($"Pipeline 失败现场截图未保存：{error.Message}");
+            return null;
         }
     }
 

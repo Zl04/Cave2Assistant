@@ -116,14 +116,14 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
     {
         if (task.Name is "Prepare" or "FailClose" or "Cleanup") return MaaPipelineRecognitionResult.Hit();
         if (task.Name == "SkipBlueWhite") return options.BlueWhite
-            ? await OptionalQuickAbsent(context, token) : MaaPipelineRecognitionResult.Hit(detail: "蓝白出售已关闭");
+            ? await OptionalQuickAbsent(task, context, token) : MaaPipelineRecognitionResult.Hit(detail: "蓝白出售已关闭");
         if (task.Name == "SkipSelective") return options.HasSelective ? MaaPipelineRecognitionResult.Miss() : MaaPipelineRecognitionResult.Hit();
         if (task.Name == "SelectedSubmit" && !hasSelection || task.Name == "EmptySelectionExit" && hasSelection)
             return MaaPipelineRecognitionResult.Miss();
         if (task.Name == "Scroll") return !end ? MaaPipelineRecognitionResult.Hit() : MaaPipelineRecognitionResult.Miss();
         if (task.Name == "Scan") return MaaPipelineRecognitionResult.Hit();
         using var frame = await Capture(token);
-        var evidencePath = PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log);
+        var evidencePath = task.SaveScreenshot ? PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log) : null;
         if (task.Name is "InventoryOpen" or "InventoryReady" or "InventoryClosed")
         {
             var result = task.Name == "InventoryClosed"
@@ -145,10 +145,10 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
         return Match(frame, task) with { EvidencePath = evidencePath };
     }
 
-    async Task<MaaPipelineRecognitionResult> OptionalQuickAbsent(MaaPipelineTaskContext<EquipmentSalePipeline> context, CancellationToken token)
+    async Task<MaaPipelineRecognitionResult> OptionalQuickAbsent(MaaPipelineTask task, MaaPipelineTaskContext<EquipmentSalePipeline> context, CancellationToken token)
     {
         using var frame = await Capture(token);
-        var evidencePath = PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log);
+        var evidencePath = task.SaveScreenshot ? PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log) : null;
         // 仅在装备页仍有效时允许跳过，不能把识别到弹窗/丢失界面当作按钮不存在。
         return (Match(frame, catalog.Get("EquipmentActive")).Matched && !MatchQuickButton(frame).Matched
             ? MaaPipelineRecognitionResult.Hit(detail: "当前装备页没有蓝白出售按钮") : MaaPipelineRecognitionResult.Miss())

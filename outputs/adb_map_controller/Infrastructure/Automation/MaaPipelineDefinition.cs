@@ -46,6 +46,7 @@ public sealed record MaaPipelineTask
     public IReadOnlyList<string> ExceededNext { get; init; } = [];
     public IReadOnlyList<string> OnErrorNext { get; init; } = [];
     public bool Enabled { get; init; } = true;
+    public bool SaveScreenshot { get; init; } = true;
     public int TimeoutMs { get; init; } = 20_000;
     public int RateLimitMs { get; init; } = 1_000;
     public int PreDelayMs { get; init; }
@@ -275,6 +276,7 @@ public static class MaaPipelineCatalogLoader
                 InputText = ReadString(node, "inputText") ?? "",
                 SubErrorIgnored = ReadBool(node, "subErrorIgnored") ?? false,
                 Enabled = ReadBool(node, "enabled") ?? true,
+                SaveScreenshot = ReadBool(node, "saveScreenshot") ?? true,
                 TimeoutMs = ReadNumber(node, "timeout") is { } timeout
                     ? Math.Max(-1, (int)Math.Round(timeout))
                     : 20_000,

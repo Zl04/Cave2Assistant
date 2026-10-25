@@ -43,7 +43,7 @@ public sealed class SoulArtifactPipeline : IMaaPipelineHandler<SoulArtifactPipel
     {
         using var source = await device.CaptureAsync(token);
         using var frame = EquipmentSaleVision.Normalize(source);
-        var evidence = PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log);
+        var evidence = task.SaveScreenshot ? PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log) : null;
         if (task.Name == "CloseBag")
         {
             var button = MainForm.FindEquipmentTemplate(frame, "back.png", new Rectangle(818, 0, 112, 60));

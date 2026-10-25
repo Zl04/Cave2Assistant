@@ -226,7 +226,7 @@ public sealed partial class MainForm
                         UpdateTaskExecutionProgress(1, GetInitialTaskExecutionCount(config));
                         ApplySettings(config, applyEquipmentSale: false); RefreshTaskList(i);
                         Log($"执行任务列表：第 {i + 1}/{scheduledTasks.Count} 项");
-                        if (config.SwitchEquipmentSet && config.TaskKind is not (ExecutionTaskKind.SoulArtifactCultivation or ExecutionTaskKind.FreePrayer or ExecutionTaskKind.FreeWelfare or ExecutionTaskKind.AbyssKey or ExecutionTaskKind.AbyssSweep or ExecutionTaskKind.DailySignIn)) await TrySwitchTaskEquipmentAsync(config.EquipmentSet, token);
+                        if (config.SwitchEquipmentSet && config.TaskKind is not (ExecutionTaskKind.SoulArtifactCultivation or ExecutionTaskKind.FreePrayer or ExecutionTaskKind.FreeWelfare or ExecutionTaskKind.AbyssKey or ExecutionTaskKind.AbyssSweep or ExecutionTaskKind.DailySignIn or ExecutionTaskKind.GuildTasks)) await TrySwitchTaskEquipmentAsync(config.EquipmentSet, token);
                         if (config.TaskKind == ExecutionTaskKind.SoulArtifactCultivation) await RunSoulArtifactCultivationAsync(token);
                         else if (config.TaskKind == ExecutionTaskKind.FreePrayer) await RunFreePrayerAsync(token);
                         else if (config.TaskKind == ExecutionTaskKind.FreeWelfare) await RunFreeWelfareAsync(token);
@@ -490,6 +490,38 @@ public sealed partial class MainForm
             control.ValueChanged += (_, _) => { info.SetValue(config, info.PropertyType == typeof(decimal) ? (object)control.Value : (int)control.Value); };
             Row(caption, control);
         }
+        void EquipmentSelection()
+        {
+            var switchEquipment = Box("装备检测"); switchEquipment.Checked = config.SwitchEquipmentSet;
+            var equipmentSets = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new(0), Enabled = switchEquipment.Checked };
+            var setOptions = new List<RadioButton>();
+            void RefreshEquipmentSetAppearance()
+            {
+                foreach (var option in setOptions)
+                {
+                    var selected = option.Checked;
+                    option.Text = $"{(selected ? "✓ " : "")}{option.Tag}";
+                    option.BackColor = selected ? currentPalette.ButtonAccent : currentPalette.InputBackground;
+                    option.ForeColor = selected ? currentPalette.ButtonText : currentPalette.Text;
+                    option.FlatAppearance.BorderColor = selected ? currentPalette.FocusBorder : currentPalette.Border;
+                    option.FlatAppearance.BorderSize = selected ? 2 : 1;
+                }
+            }
+            for (var number = 1; number <= 3; number++)
+            {
+                var selectedSet = number;
+                var option = new RadioButton { Text = $"方案{number}", Tag = $"方案{number}", Appearance = Appearance.Button,
+                    FlatStyle = FlatStyle.Flat, TextAlign = ContentAlignment.MiddleCenter, AutoSize = false,
+                    Width = 88, Height = 28, Margin = new(2, 0, 2, 0), AccessibleName = $"装备方案{number}",
+                    Checked = Math.Clamp(config.EquipmentSet, 1, 3) == number };
+                option.CheckedChanged += (_, _) => { if (option.Checked) config.EquipmentSet = selectedSet; RefreshEquipmentSetAppearance(); };
+                setOptions.Add(option);
+                equipmentSets.Controls.Add(option);
+            }
+            switchEquipment.CheckedChanged += (_, _) => { config.SwitchEquipmentSet = switchEquipment.Checked; equipmentSets.Enabled = switchEquipment.Checked; };
+            Row("装备", switchEquipment, equipmentSets);
+            dialog.Shown += (_, _) => RefreshEquipmentSetAppearance();
+        }
         if (config.TaskKind == ExecutionTaskKind.SoulArtifactCultivation)
         {
             config.SwitchEquipmentSet = false;
@@ -543,7 +575,7 @@ public sealed partial class MainForm
         }
         if (config.TaskKind == ExecutionTaskKind.GhostAbyss)
         {
-            config.SwitchEquipmentSet = false;
+            EquipmentSelection();
             Number(nameof(config.GhostAbyssFloor), "幽灵深渊层数", 1, 999);
             var doubleChallenge = Box("双倍挑战"); doubleChallenge.Checked = config.GhostAbyssDouble;
             doubleChallenge.CheckedChanged += (_, _) => config.GhostAbyssDouble = doubleChallenge.Checked;
@@ -554,10 +586,7 @@ public sealed partial class MainForm
         }
         if (config.TaskKind == ExecutionTaskKind.GuildTasks)
         {
-            var equipment = Box("挑战前检测装备方案"); equipment.Checked = config.SwitchEquipmentSet;
-            equipment.CheckedChanged += (_, _) => config.SwitchEquipmentSet = equipment.Checked;
-            Row("装备", equipment);
-            Number(nameof(config.EquipmentSet), "装备方案（1 至 3）", 1, 3);
+            EquipmentSelection();
             var wish = Box("金币许愿"); wish.Checked = config.GuildWish;
             wish.CheckedChanged += (_, _) => config.GuildWish = wish.Checked;
             var shop = Box("水晶商店免费"); shop.Checked = config.GuildCrystalShop;
@@ -565,39 +594,39 @@ public sealed partial class MainForm
             var dungeon = Box("公会副本"); dungeon.Checked = config.GuildDungeon;
             dungeon.CheckedChanged += (_, _) => config.GuildDungeon = dungeon.Checked;
             Row("可选任务", wish, shop, dungeon);
-            Number(nameof(config.GuildBoss), "副本 Boss（1 至 5）", 1, 5);
+            var bossOptions = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new(0), Enabled = dungeon.Checked };
+            var bossButtons = new List<RadioButton>();
+            void RefreshBossAppearance()
+            {
+                foreach (var button in bossButtons)
+                {
+                    var selected = button.Checked;
+                    button.Text = $"{(selected ? "✓ " : "")}Boss {button.Tag}";
+                    button.BackColor = selected ? currentPalette.ButtonAccent : currentPalette.InputBackground;
+                    button.ForeColor = selected ? currentPalette.ButtonText : currentPalette.Text;
+                    button.FlatAppearance.BorderColor = selected ? currentPalette.FocusBorder : currentPalette.Border;
+                    button.FlatAppearance.BorderSize = selected ? 2 : 1;
+                }
+            }
+            for (var number = 1; number <= 5; number++)
+            {
+                var selectedBoss = number;
+                var button = new RadioButton { Tag = number, Appearance = Appearance.Button,
+                    FlatStyle = FlatStyle.Flat, TextAlign = ContentAlignment.MiddleCenter, AutoSize = false,
+                    Width = 88, Height = 28, Margin = new(2, 0, 2, 0), AccessibleName = $"副本 Boss {number}",
+                    Checked = Math.Clamp(config.GuildBoss, 1, 5) == number };
+                button.CheckedChanged += (_, _) => { if (button.Checked) config.GuildBoss = selectedBoss; RefreshBossAppearance(); };
+                bossButtons.Add(button);
+                bossOptions.Controls.Add(button);
+            }
+            dungeon.CheckedChanged += (_, _) => bossOptions.Enabled = dungeon.Checked;
+            Row("副本 Boss", bossOptions);
+            dialog.Shown += (_, _) => RefreshBossAppearance();
             Row("流程", new Label { Text = "读取剩余次数；所选任务完成后传送回巴萨坦", AutoSize = true });
             ThemeManager.Apply(dialog, currentPalette);
             return dialog.ShowDialog(this) == DialogResult.OK;
         }
-        var switchEquipment = Box("装备检测"); switchEquipment.Checked = config.SwitchEquipmentSet;
-        var equipmentSets = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new(0), Enabled = switchEquipment.Checked };
-        var setOptions = new List<RadioButton>();
-        void RefreshEquipmentSetAppearance()
-        {
-            foreach (var option in setOptions)
-            {
-                var selected = option.Checked;
-                option.Text = $"{(selected ? "✓ " : "")}{option.Tag}";
-                option.BackColor = selected ? currentPalette.ButtonAccent : currentPalette.InputBackground;
-                option.ForeColor = selected ? currentPalette.ButtonText : currentPalette.Text;
-                option.FlatAppearance.BorderColor = selected ? currentPalette.FocusBorder : currentPalette.Border;
-                option.FlatAppearance.BorderSize = selected ? 2 : 1;
-            }
-        }
-        for (var number = 1; number <= 3; number++)
-        {
-            var selectedSet = number;
-            var option = new RadioButton { Text = $"方案{number}", Tag = $"方案{number}", Appearance = Appearance.Button,
-                FlatStyle = FlatStyle.Flat, TextAlign = ContentAlignment.MiddleCenter, AutoSize = false,
-                Width = 88, Height = 28, Margin = new(2, 0, 2, 0), AccessibleName = $"装备方案{number}",
-                Checked = Math.Clamp(config.EquipmentSet, 1, 3) == number };
-            option.CheckedChanged += (_, _) => { if (option.Checked) config.EquipmentSet = selectedSet; RefreshEquipmentSetAppearance(); };
-            setOptions.Add(option);
-            equipmentSets.Controls.Add(option);
-        }
-        switchEquipment.CheckedChanged += (_, _) => { config.SwitchEquipmentSet = switchEquipment.Checked; equipmentSets.Enabled = switchEquipment.Checked; };
-        Row("装备", switchEquipment, equipmentSets);
+        EquipmentSelection();
         if (config.TaskKind == ExecutionTaskKind.EntryAndRun) Number(nameof(config.EntryRunCount), "跑图次数（0=自动，普通无限）", 0, 9999);
         if (config.TaskKind is not (ExecutionTaskKind.CardMining or ExecutionTaskKind.DreamTrial)) Number(nameof(config.TargetStopFloor), "停住楼层（0=关闭）", 0, 999);
         if (config.TaskKind is not (ExecutionTaskKind.CardMining or ExecutionTaskKind.DreamTrial)) Number(nameof(config.EscapeReturnFloor), "卷轴主动回城楼层（0=关闭）", 0, 999);
@@ -651,7 +680,6 @@ public sealed partial class MainForm
         if (config.TaskKind != ExecutionTaskKind.DreamTrial) Row("目标（钥匙必选）", checks.ToArray());
         if (config.TaskKind == ExecutionTaskKind.CardMining) Row("固定规则", new Label { Text = "卡矿、常规挖矿、指定层停住、卷轴回城关闭", AutoSize = true });
         ThemeManager.Apply(dialog, currentPalette);
-        RefreshEquipmentSetAppearance();
         if (dialog.ShowDialog(this) != DialogResult.OK) return false;
         dialog.ValidateChildren();
         if (config.TaskKind == ExecutionTaskKind.CardMining) EnforceCardMiningOptions(config);
@@ -755,7 +783,7 @@ public sealed partial class MainForm
             }
             if (s.TaskKind == ExecutionTaskKind.GhostAbyss)
             {
-                var abyss = new ListViewItem(new[] { (i + 1).ToString(), "幽灵深渊", "—", s.GhostAbyssDouble ? "优先双倍" : "普通次数", $"{s.GhostAbyssFloor} 层", "进入后跑图" });
+                var abyss = new ListViewItem(new[] { (i + 1).ToString(), "幽灵深渊", s.SwitchEquipmentSet ? $"方案{s.EquipmentSet}" : "—", s.GhostAbyssDouble ? "优先双倍" : "普通次数", $"{s.GhostAbyssFloor} 层", "进入后跑图" });
                 abyss.Checked = s.TaskEnabled;
                 AddTaskRow(abyss);
                 if (i == selected) { abyss.Selected = true; abyss.EnsureVisible(); }
@@ -764,7 +792,7 @@ public sealed partial class MainForm
             if (s.TaskKind == ExecutionTaskKind.GuildTasks)
             {
                 var selectedActions = string.Join("、", new[] { (s.GuildWish, "许愿"), (s.GuildCrystalShop, "水晶商店"), (s.GuildDungeon, $"副本 Boss {s.GuildBoss}") }.Where(x => x.Item1).Select(x => x.Item2));
-                var guild = new ListViewItem(new[] { (i + 1).ToString(), "冒险家公会", "—", "按界面次数", "公会地图", selectedActions });
+                var guild = new ListViewItem(new[] { (i + 1).ToString(), "冒险家公会", s.SwitchEquipmentSet ? $"方案{s.EquipmentSet}" : "—", "按界面次数", "公会地图", selectedActions });
                 guild.Checked = s.TaskEnabled; AddTaskRow(guild);
                 if (i == selected) { guild.Selected = true; guild.EnsureVisible(); }
                 continue;

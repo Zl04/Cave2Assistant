@@ -15,6 +15,7 @@ public sealed partial class MainForm
         public bool PanelOpen;
         public string? PanelKind;
         public int DungeonRuns;
+        public bool ShopFailed;
     }
 
     async Task RunGuildTasksAsync(ControllerSettings config, CancellationToken token)
@@ -44,8 +45,16 @@ public sealed partial class MainForm
             token.ThrowIfCancellationRequested();
             if (!result.Succeeded) throw new InvalidOperationException($"{result.LastTask ?? "入口"}：{result.Error ?? result.Status.ToString()}");
             lastEntryRunSucceeded = true;
-            Log($"冒险家公会任务完成：副本挑战 {state.DungeonRuns} 次");
-            State($"冒险家公会任务完成，副本挑战 {state.DungeonRuns} 次");
+            if (state.ShopFailed)
+            {
+                Log($"冒险家公会任务结束：水晶商店未完成，副本挑战 {state.DungeonRuns} 次");
+                State($"冒险家公会任务结束，水晶商店未完成，副本挑战 {state.DungeonRuns} 次");
+            }
+            else
+            {
+                Log($"冒险家公会任务完成：副本挑战 {state.DungeonRuns} 次");
+                State($"冒险家公会任务完成，副本挑战 {state.DungeonRuns} 次");
+            }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
         catch (Exception ex) { Log($"冒险家公会任务失败：{ex}", LogLevel.Error); State($"冒险家公会任务未完成：{ex.Message}"); }
@@ -96,7 +105,7 @@ public sealed partial class MainForm
                     Log("冒险家公会：已确认切换到公会地图");
                 }
                 else return MaaPipelineActionResult.Failure($"当前地图无法识别为巴萨坦或公会：{currentMap.MapName}，TownMapId={currentMap.TownMapId}");
-                Log("冒险家公会：检查进阶弹窗（最多 10 秒）");
+                Log("冒险家公会：检查进阶弹窗（最多 5 秒）");
                 await GuildDismissAdvancementAsync(token);
                 break;
             case "OpenGuildMap":
@@ -110,9 +119,19 @@ public sealed partial class MainForm
                 break;
             case "Shop":
                 Log("冒险家公会：开始水晶商店免费购买");
-                if (!await GuildShopAsync(s, token)) return MaaPipelineActionResult.Failure("水晶商店免费购买未完成");
+                if (!await GuildShopAsync(s, token))
+                {
+                    s.ShopFailed = true;
+                    Log("冒险家公会：水晶商店未完成，关闭界面后继续后续节点");
+                    await GuildCleanupOpenScreensAsync(s, token);
+                }
                 break;
             case "Dungeon":
+                if (s.Config.SwitchEquipmentSet)
+                {
+                    await GuildCloseMapAsync(s, token);
+                    await TrySwitchTaskEquipmentAsync(s.Config.EquipmentSet, token);
+                }
                 Log($"冒险家公会：开始公会副本，选择 Boss {s.Config.GuildBoss}");
                 if (!await GuildDungeonAsync(s, token)) return MaaPipelineActionResult.Failure("公会副本未完成");
                 break;
@@ -214,7 +233,7 @@ public sealed partial class MainForm
     async Task GuildDismissAdvancementAsync(CancellationToken token)
     {
         var clock = Stopwatch.StartNew();
-        while (clock.Elapsed < TimeSpan.FromSeconds(10))
+        while (clock.Elapsed < TimeSpan.FromSeconds(5))
         {
             token.ThrowIfCancellationRequested();
             using var frame = await adb.CaptureScreenForAutomationAsync(token);
@@ -229,7 +248,7 @@ public sealed partial class MainForm
             }
             await Task.Delay(250, token);
         }
-        Log("冒险家公会：10 秒内未出现进阶弹窗，继续任务");
+        Log("冒险家公会：5 秒内未出现进阶弹窗，继续任务");
     }
 
     async Task<bool> GuildWishesAsync(GuildTaskState s, CancellationToken token)
@@ -242,7 +261,7 @@ public sealed partial class MainForm
         {
             using var frame = await adb.CaptureScreenForAutomationAsync(token);
             var text = await GuildTextAsync(frame, 270, 385, 205, 65, token);
-            var count = Regex.Match(text, @"铜质幸运币\(?([0-3])/3\)?");
+            var count = Regex.Match(text, @"铜质幸运币\s*[（(]?\s*([0-3])\s*/\s*3\s*[）)]?");
             if (!count.Success) { Log($"公会许愿：未读到金币次数，OCR={text}"); await Task.Delay(400, token); continue; }
             Log($"公会许愿：金币剩余 {count.Groups[1].Value}/3");
             if (count.Groups[1].Value == "0")
@@ -296,18 +315,25 @@ public sealed partial class MainForm
             if (tab.Contains("水晶商店") && (goods.Contains("下次进货时间") || goods.Contains("级符文石礼包")))
             {
                 crystalReady = true;
-                if (GuildFind(frame, "shop-sold-out") is not null)
-                {
-                    Log("公会水晶商店：免费商品已售罄，视为任务完成");
-                    break;
-                }
                 var button = await GuildTextAsync(frame, 120, 470, 200, 70, token);
                 if (button.Contains("售罄")) { Log("公会水晶商店：免费商品已售罄，视为任务完成"); break; }
                 if (!button.Contains('0')) { Log($"公会水晶商店：免费按钮未识别，OCR={button}", LogLevel.Error); return false; }
                 await GuildClickTargetAsync("shop-free-button", token);
-                using var confirm = await adb.CaptureScreenForAutomationAsync(token);
-                var dialog = await GuildTextAsync(confirm, 300, 150, 390, 260, token);
-                if (!dialog.Contains("确认购买") || !dialog.Contains('0')) return false;
+                var confirmClock = Stopwatch.StartNew();
+                var confirmedFree = false;
+                var dialog = string.Empty;
+                while (confirmClock.Elapsed < TimeSpan.FromSeconds(4))
+                {
+                    using var confirm = await adb.CaptureScreenForAutomationAsync(token);
+                    dialog = await GuildTextAsync(confirm, 300, 150, 390, 260, token);
+                    if ((dialog.Contains("确定购买") || dialog.Contains("确认购买")) && dialog.Contains('0'))
+                    {
+                        confirmedFree = true;
+                        break;
+                    }
+                    await Task.Delay(250, token);
+                }
+                if (!confirmedFree) { Log($"公会水晶商店：未确认免费购买弹窗，OCR={dialog}", LogLevel.Error); return false; }
                 Log("公会水晶商店：已确认价格为 0，点击购买确认");
                 await GuildClickTargetAsync("shop-confirm", token);
                 await Task.Delay(450, token);
@@ -344,6 +370,7 @@ public sealed partial class MainForm
                 }
             }
             await GuildSelectBossAsync(Math.Clamp(s.Config.GuildBoss, 1, 5), token);
+            await GuildWaitBossAvailableAsync(Math.Clamp(s.Config.GuildBoss, 1, 5), token);
             Log($"公会副本：已选择 Boss {s.Config.GuildBoss}，点击挑战");
             await GuildClickTargetAsync("dungeon-challenge", token, "前往挑战");
             if (!await GuildWaitDungeonEntryAsync(token)) { Log("公会副本：挑战后 15 秒内未切换地图", LogLevel.Error); return false; }

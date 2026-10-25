@@ -109,10 +109,21 @@ public sealed partial class MainForm
             "dungeon" => "dungeon-challenge",
             _ => throw new ArgumentOutOfRangeException(nameof(panel))
         };
-        using (var frame = await adb.CaptureScreenForAutomationAsync(token))
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        var missing = 0;
+        while (timer.Elapsed < TimeSpan.FromSeconds(8))
         {
-            var anchor = GuildFind(frame, anchorName)
-                ?? throw new InvalidOperationException($"未定位到{panel}界面，不能计算面板外点击位置");
+            token.ThrowIfCancellationRequested();
+            using var frame = await adb.CaptureScreenForAutomationAsync(token);
+            var anchor = GuildFind(frame, anchorName);
+            if (anchor is null)
+            {
+                if (!requireGone) throw new InvalidOperationException($"未定位到{panel}界面，不能计算面板外点击位置");
+                if (++missing >= 2) return;
+                await Task.Delay(300, token);
+                continue;
+            }
+            missing = 0;
             var point = panel switch
             {
                 "wish" => new Point(anchor.Center.X + (int)(frame.Width * .40), anchor.Center.Y + (int)(frame.Height * .40)),
@@ -123,15 +134,8 @@ public sealed partial class MainForm
             point.Y = Math.Clamp(point.Y, 3, frame.Height - 4);
             Log($"公会面板外点击：{panel}，依据{anchorName}定位到 ({point.X},{point.Y})");
             await adb.TapScreen(point.X / (double)frame.Width, point.Y / (double)frame.Height);
-        }
-        if (!requireGone) return;
-        var timer = System.Diagnostics.Stopwatch.StartNew();
-        while (timer.Elapsed < TimeSpan.FromSeconds(5))
-        {
-            token.ThrowIfCancellationRequested();
-            using var frame = await adb.CaptureScreenForAutomationAsync(token);
-            if (GuildFind(frame, anchorName) is null) return;
-            await Task.Delay(250, token);
+            if (!requireGone) return;
+            await Task.Delay(400, token);
         }
         throw new InvalidOperationException($"点击面板外后{panel}界面仍未关闭");
     }
@@ -176,5 +180,39 @@ public sealed partial class MainForm
             await Task.Delay(250, token);
         }
         throw new InvalidOperationException($"未确认第 {boss} 个 Boss 已被选中");
+    }
+
+    async Task GuildWaitBossAvailableAsync(int boss, CancellationToken token)
+    {
+        var waiting = false;
+        var availableChecks = 0;
+        while (true)
+        {
+            token.ThrowIfCancellationRequested();
+            using var frame = await adb.CaptureScreenForAutomationAsync(token);
+            var challenge = GuildFind(frame, "dungeon-challenge")
+                ?? throw new InvalidOperationException("等待 Boss 时公会副本面板已关闭");
+            var center = GuildBossCenter(frame, challenge, boss);
+            var words = await adb.ReadOcrWordsAsync(frame, token);
+            var status = string.Concat(words.Where(word =>
+                word.Center.X >= center.X + frame.Width * .035 &&
+                word.Center.X <= center.X + frame.Width * .17 &&
+                word.Center.Y >= center.Y + frame.Height * .035 &&
+                word.Center.Y <= center.Y + frame.Height * .105)
+                .OrderBy(word => word.Center.X).Select(word => OcrTextLocator.Compact(word.Text)));
+            var occupied = status.Contains("战斗中");
+            if (occupied)
+            {
+                availableChecks = 0;
+                if (!waiting) Log($"公会副本：第 {boss} 个 Boss 正在被挑战，等待空闲");
+                waiting = true;
+            }
+            else if (++availableChecks >= 2)
+            {
+                if (waiting) Log($"公会副本：第 {boss} 个 Boss 已空闲，继续挑战");
+                return;
+            }
+            await Task.Delay(waiting ? 2000 : 350, token);
+        }
     }
 }

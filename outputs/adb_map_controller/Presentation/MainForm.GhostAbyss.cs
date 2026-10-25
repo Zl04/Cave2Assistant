@@ -85,6 +85,8 @@ public sealed partial class MainForm
         if (name is "NeedFloor" or "TargetSelected")
             return (s.CurrentFloor == s.Floor) == (name == "TargetSelected")
                 ? MaaPipelineRecognitionResult.Hit(detail: $"当前{s.CurrentFloor}层，目标{s.Floor}层") : MaaPipelineRecognitionResult.Miss();
+        if (name == "LockedFloor")
+            return s.Locked ? MaaPipelineRecognitionResult.Hit(detail: $"{s.Floor}层未解锁，关闭界面") : MaaPipelineRecognitionResult.Miss();
         if (name is "NoQuota" or "HasQuota")
             return (s.Remaining == 0) == (name == "NoQuota") ? MaaPipelineRecognitionResult.Hit() : MaaPipelineRecognitionResult.Miss();
         if (name is "UseDouble" or "UseNormal")
@@ -170,9 +172,12 @@ public sealed partial class MainForm
             case "OpenFloorList": s.ListOpen = true; break;
             case "ScrollFloor":
                 if (s.Locked) return MaaPipelineActionResult.Stop();
-                await adb.SwipeScreen(.5, s.ScrollTowardHigher ? .66 : .42, .5, s.ScrollTowardHigher ? .42 : .66, 750);
+                // 关卡行位于画面宽度的 25%～48%；在行内拖动才能滚动该列表。
+                await adb.SwipeScreen(.37, s.ScrollTowardHigher ? .67375 : .39625,
+                    .37, s.ScrollTowardHigher ? .39625 : .67375, 1000);
                 break;
             case "ChooseFloor": await adb.TapScreen(s.FloorX, s.FloorY); s.ListOpen = false; break;
+            case "CloseFloorList": await GhostTapAsync(805, 525); s.ListOpen = false; break;
             case "QuotaGate":
                 using (var frame = await adb.CaptureScreenForAutomationAsync(token))
                 {

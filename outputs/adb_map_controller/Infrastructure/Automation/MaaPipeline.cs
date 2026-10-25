@@ -165,8 +165,6 @@ public sealed class MaaPipeline<TState>
                     token.ThrowIfCancellationRequested();
                     var task = catalog.Get(name);
                     if (!task.Enabled) continue;
-                    if (trace is IMaaPipelineDebugControl debugger)
-                        await debugger.BeforeCandidateAsync(runId, task.Name, token);
                     var handler = GetHandler(task);
                     var context = CreateContext(state, task, parentTask, retry, GetCount(task.Name));
                     Emit(new(MaaPipelineTraceKind.CandidateRecognizing, runId, options.TaskChain, context.TaskId, task.Name,

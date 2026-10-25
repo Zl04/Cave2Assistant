@@ -153,11 +153,6 @@ public interface IMaaPipelineTraceSink
     void Write(MaaPipelineTraceEvent value);
 }
 
-public interface IMaaPipelineDebugControl
-{
-    Task BeforeCandidateAsync(string runId, string taskName, CancellationToken token);
-}
-
 public sealed class DelegateMaaPipelineTraceSink : IMaaPipelineTraceSink
 {
     readonly Action<MaaPipelineTraceEvent> action;
@@ -168,7 +163,7 @@ public sealed class DelegateMaaPipelineTraceSink : IMaaPipelineTraceSink
     public void Write(MaaPipelineTraceEvent value) => action(value);
 }
 
-public sealed class MaaPipelineTraceMultiplexer : IMaaPipelineTraceSink, IMaaPipelineDebugControl
+public sealed class MaaPipelineTraceMultiplexer : IMaaPipelineTraceSink
 {
     readonly IReadOnlyList<IMaaPipelineTraceSink> sinks;
 
@@ -184,11 +179,6 @@ public sealed class MaaPipelineTraceMultiplexer : IMaaPipelineTraceSink, IMaaPip
         }
     }
 
-    public async Task BeforeCandidateAsync(string runId, string taskName, CancellationToken token)
-    {
-        foreach (var sink in sinks.OfType<IMaaPipelineDebugControl>())
-            await sink.BeforeCandidateAsync(runId, taskName, token);
-    }
 }
 
 public sealed class MaaPipelineTraceCollector : IMaaPipelineTraceSink

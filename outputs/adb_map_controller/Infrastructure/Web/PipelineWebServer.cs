@@ -9,7 +9,7 @@ namespace AdbMapController;
 /// Local-only read-only dashboard for MAA pipeline traces.
 /// The listener is deliberately bound to loopback; it is not a remote control API.
 /// </summary>
-public sealed class PipelineWebServer : IMaaPipelineTraceSink, IMaaPipelineDebugControl, IAsyncDisposable
+public sealed class PipelineWebServer : IMaaPipelineTraceSink, IAsyncDisposable
 {
     const int PreferredPort = 17830;
     const int PortAttempts = 10;
@@ -27,15 +27,7 @@ public sealed class PipelineWebServer : IMaaPipelineTraceSink, IMaaPipelineDebug
     readonly object liveGate = new();
     readonly string traceDirectory;
     readonly string webRoot;
-    readonly Func<IReadOnlyList<string>>? diagnostics;
     readonly List<MaaPipelineTraceEvent> liveEvents = [];
-    readonly HashSet<string> breakpoints = new(StringComparer.OrdinalIgnoreCase);
-    readonly string pipelineDirectory;
-    TaskCompletionSource<bool>? resumeGate;
-    bool pauseRequested;
-    bool stepRequested;
-    string? pausedTask;
-    public Func<string, string?, Task<object>>? ControllerCommand { get; set; }
     readonly CancellationTokenSource stopSource = new();
     HttpListener? listener;
     Task? listenerTask;
@@ -44,14 +36,10 @@ public sealed class PipelineWebServer : IMaaPipelineTraceSink, IMaaPipelineDebug
     DateTimeOffset? liveStartedAt;
     DateTimeOffset? liveLastEventAt;
 
-    public PipelineWebServer(string traceDirectory, string webRoot) : this(traceDirectory, webRoot, null) { }
-
-    public PipelineWebServer(string traceDirectory, string webRoot, Func<IReadOnlyList<string>>? diagnostics)
+    public PipelineWebServer(string traceDirectory, string webRoot)
     {
         this.traceDirectory = Path.GetFullPath(traceDirectory);
         this.webRoot = Path.GetFullPath(webRoot);
-        pipelineDirectory = Path.GetFullPath(Path.Combine(this.webRoot, "..", "pipelines"));
-        this.diagnostics = diagnostics;
     }
 
     public string? Url { get; private set; }
@@ -107,37 +95,7 @@ public sealed class PipelineWebServer : IMaaPipelineTraceSink, IMaaPipelineDebug
                 or MaaPipelineTraceKind.Canceled
                 or MaaPipelineTraceKind.Stopped)
                 liveRunning = false;
-            if (!liveRunning) ReleasePause();
         }
-    }
-
-    public async Task BeforeCandidateAsync(string runId, string taskName, CancellationToken token)
-    {
-        Task? wait = null;
-        lock (liveGate)
-        {
-            if (!string.Equals(liveRunId, runId, StringComparison.Ordinal)) return;
-            if (pauseRequested || stepRequested || breakpoints.Contains(taskName))
-            {
-                pauseRequested = false;
-                stepRequested = false;
-                pausedTask = taskName;
-                resumeGate = new(TaskCreationOptions.RunContinuationsAsynchronously);
-                wait = resumeGate.Task;
-            }
-        }
-        if (wait is not null)
-        {
-            try { await wait.WaitAsync(token); }
-            finally { lock (liveGate) pausedTask = null; }
-        }
-    }
-
-    void ReleasePause()
-    {
-        resumeGate?.TrySetResult(true);
-        resumeGate = null;
-        pausedTask = null;
     }
 
     async Task ListenLoopAsync(HttpListener currentListener, CancellationToken token)
@@ -163,23 +121,6 @@ public sealed class PipelineWebServer : IMaaPipelineTraceSink, IMaaPipelineDebug
         try
         {
             var path = context.Request.Url?.AbsolutePath ?? "/";
-            if (string.Equals(context.Request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase)
-                && path.Equals("/api/debug", StringComparison.OrdinalIgnoreCase))
-            {
-                await HandleDebugCommandAsync(context);
-                return;
-            }
-            if (string.Equals(context.Request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase)
-                && path.Equals("/api/controller", StringComparison.OrdinalIgnoreCase))
-            {
-                if (ControllerCommand is null) { await WriteTextAsync(context, 503, "Controller unavailable", "text/plain; charset=utf-8"); return; }
-                using var document = await JsonDocument.ParseAsync(context.Request.InputStream);
-                var root = document.RootElement;
-                var command = root.GetProperty("command").GetString() ?? "";
-                var argument = root.TryGetProperty("argument", out var property) ? property.GetString() : null;
-                await WriteJsonAsync(context, await ControllerCommand(command, argument));
-                return;
-            }
             if (HttpMethodsIsGet(context.Request.HttpMethod))
             {
                 const string evidencePrefix = "/api/evidence/";
@@ -195,36 +136,9 @@ public sealed class PipelineWebServer : IMaaPipelineTraceSink, IMaaPipelineDebug
                     await WriteFileAsync(context, Path.Combine(traceDirectory, "evidence", fileName), "image/jpeg");
                     return;
                 }
-                if (path.Equals("/api/controller", StringComparison.OrdinalIgnoreCase))
-                {
-                    await WriteJsonAsync(context, ControllerCommand is null ? new { error = "Controller unavailable" } : await ControllerCommand("status", null));
-                    return;
-                }
-                if (path.Equals("/api/pipelines", StringComparison.OrdinalIgnoreCase))
-                {
-                    await WriteJsonAsync(context, ListPipelines());
-                    return;
-                }
-                if (path.StartsWith("/api/pipelines/", StringComparison.OrdinalIgnoreCase))
-                {
-                    await WritePipelineAsync(context, Uri.UnescapeDataString(path[15..]));
-                    return;
-                }
                 if (path == "/" || path == "/index.html")
                 {
                     await WriteFileAsync(context, Path.Combine(webRoot, "pipeline.html"), "text/html; charset=utf-8");
-                    return;
-                }
-
-                if (path.Equals("/api/diagnostics", StringComparison.OrdinalIgnoreCase))
-                {
-                    await WriteJsonAsync(context, diagnostics?.Invoke() ?? Array.Empty<string>());
-                    return;
-                }
-
-                if (path.Equals("/api/health", StringComparison.OrdinalIgnoreCase))
-                {
-                    await WriteJsonAsync(context, new { ok = true, url = Url, now = DateTimeOffset.Now });
                     return;
                 }
 
@@ -273,48 +187,8 @@ public sealed class PipelineWebServer : IMaaPipelineTraceSink, IMaaPipelineDebug
                 startedAt = liveStartedAt,
                 lastEventAt = liveLastEventAt,
                 events = liveEvents.ToArray()
-                , pausedTask,
-                breakpoints = breakpoints.Order(StringComparer.OrdinalIgnoreCase).ToArray()
             };
         }
-    }
-
-    async Task HandleDebugCommandAsync(HttpListenerContext context)
-    {
-        using var document = await JsonDocument.ParseAsync(context.Request.InputStream);
-        var root = document.RootElement;
-        var command = root.TryGetProperty("command", out var value) ? value.GetString() : null;
-        var task = root.TryGetProperty("task", out value) ? value.GetString() : null;
-        lock (liveGate)
-        {
-            switch (command)
-            {
-                case "pause": pauseRequested = true; break;
-                case "continue": pauseRequested = false; stepRequested = false; ReleasePause(); break;
-                case "step": stepRequested = true; ReleasePause(); break;
-                case "breakpoint" when !string.IsNullOrWhiteSpace(task):
-                    if (!breakpoints.Add(task)) breakpoints.Remove(task);
-                    break;
-                case "clear": breakpoints.Clear(); break;
-                default: context.Response.StatusCode = 400; return;
-            }
-        }
-        await WriteJsonAsync(context, new { ok = true });
-    }
-
-    string[] ListPipelines() => Directory.Exists(pipelineDirectory)
-        ? Directory.EnumerateFiles(pipelineDirectory, "*-pipeline.json").Select(Path.GetFileName).OfType<string>().Order().ToArray()
-        : [];
-
-    async Task WritePipelineAsync(HttpListenerContext context, string fileName)
-    {
-        if (!ListPipelines().Contains(fileName, StringComparer.OrdinalIgnoreCase))
-        {
-            await WriteTextAsync(context, 404, "Pipeline not found", "text/plain; charset=utf-8");
-            return;
-        }
-        var catalog = MaaPipelineCatalogLoader.Load(Path.Combine(pipelineDirectory, fileName));
-        await WriteJsonAsync(context, catalog.Names.Order().Select(catalog.Get).ToArray());
     }
 
     IReadOnlyList<TraceRunSummary> ListRuns()

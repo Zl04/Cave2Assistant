@@ -145,7 +145,6 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         movementExecution = new MovementExecution(dungeon.MotionInterrupt);
         routeExecutor = new RouteExecutor(adb, touch);
         pipelineWebServer = runtime.PipelineMonitor;
-        pipelineWebServer.ControllerCommand = HandlePipelineControllerCommandAsync;
         entryTemplates = new EntryTemplateStore(runtime.Paths.EntryTemplates);
         touch.InputFailed += ex => { operations.Cancel(ControllerOperationKind.Movement); operations.Cancel(ControllerOperationKind.Entry); Error(ex); };
         Text = "洞窟地图 ADB 控制器"; Width = 786; Height = 643; MinimumSize = new(786, 643);

@@ -31,7 +31,7 @@ public sealed class ControllerRuntime : IAsyncDisposable
         Touch = new TouchController(Adb);
         PipelineMonitor = new PipelineWebServer(
             Path.Combine(Paths.Root, "pipeline-traces"),
-            Paths.Web, Diagnostics.Snapshot);
+            Paths.Web);
     }
 
     public ValueTask DisposeAsync()

@@ -75,15 +75,20 @@ public sealed class SoulArtifactPipeline : IMaaPipelineHandler<SoulArtifactPipel
         };
     }
 
-    public Task<MaaPipelineActionResult> ExecuteAsync(MaaPipelineTask task,
+    public async Task<MaaPipelineActionResult> ExecuteAsync(MaaPipelineTask task,
         MaaPipelineRecognitionResult recognition, MaaPipelineTaskContext<SoulArtifactPipeline> context,
         CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
+        if (task.Name == "CloseBag")
+        {
+            await EquipmentBagCloser.CloseAsync(device, log, token);
+            return MaaPipelineActionResult.Success();
+        }
         if (task.Name == "CultivateAvailable")
         {
             var match = Regex.Match(recognition.Detail ?? "", @"(\d{1,2})/(\d{1,2})");
-            if (!match.Success) return Task.FromResult(MaaPipelineActionResult.Failure("普通培养次数缺失"));
+            if (!match.Success) return MaaPipelineActionResult.Failure("普通培养次数缺失");
             previous = int.Parse(match.Groups[1].Value);
             log($"魂器普通培养：准备第 {context.ExecutionCount} 次，当前 {recognition.Detail}");
         }
@@ -91,10 +96,10 @@ public sealed class SoulArtifactPipeline : IMaaPipelineHandler<SoulArtifactPipel
         if (task.Action == MaaPipelineAction.ClickSelf)
         {
             if (recognition.Box is not { } box)
-                return Task.FromResult(MaaPipelineActionResult.Failure("识别成功但缺少点击区域"));
-            return ClickRecognizedAsync(box);
+                return MaaPipelineActionResult.Failure("识别成功但缺少点击区域");
+            return await ClickRecognizedAsync(box);
         }
-        return Task.FromResult(MaaPipelineActionResult.Success());
+        return MaaPipelineActionResult.Success();
     }
 
     async Task<MaaPipelineActionResult> ClickRecognizedAsync(MaaRect box)
@@ -108,16 +113,7 @@ public sealed class SoulArtifactPipeline : IMaaPipelineHandler<SoulArtifactPipel
         if (!bagOpened) return;
         try
         {
-            using var source = await device.CaptureAsync(CancellationToken.None);
-            using var frame = EquipmentSaleVision.Normalize(source);
-            var button = MainForm.FindEquipmentTemplate(frame, "back.png", new Rectangle(818, 0, 112, 60));
-            if (button is null)
-            {
-                log("培养魂器善后：未识别到背包返回按钮");
-                return;
-            }
-            log("培养魂器善后：已识别返回按钮，执行关闭");
-            await device.TapAsync(button.Value.X / 1004d, button.Value.Y / 565d);
+            await EquipmentBagCloser.CloseAsync(device, log, CancellationToken.None);
         }
         catch (Exception ex) { log($"关闭背包失败：{ex.Message}"); }
     }

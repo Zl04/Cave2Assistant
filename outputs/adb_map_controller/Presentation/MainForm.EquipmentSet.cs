@@ -32,7 +32,7 @@ public sealed partial class MainForm
                 Log($"背包容量 {count}，剩余 {free} 格");
                 if (free < 9)
                 {
-                    await adb.PressBack();
+                    await EquipmentBagCloser.CloseAsync(new AdbEquipmentSaleDevice(adb), Log, CancellationToken.None);
                     bagOpen = false;
                     popupHandling = false;
                     Log("背包不足 9 格，先出售装备");
@@ -58,9 +58,8 @@ public sealed partial class MainForm
         catch (Exception ex) { Warn($"装备方案切换未完成：{ex.Message}，继续执行任务"); }
         finally
         {
-            if (bagOpen)
-                try { await adb.PressBack(); } catch (Exception ex) { Warn($"关闭背包失败：{ex.Message}"); }
             popupHandling = false;
+            if (bagOpen) await EquipmentBagCloser.CloseAsync(new AdbEquipmentSaleDevice(adb), Log, CancellationToken.None);
         }
     }
 

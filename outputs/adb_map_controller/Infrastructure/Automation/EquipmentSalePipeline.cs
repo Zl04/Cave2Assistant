@@ -222,6 +222,11 @@ public sealed class EquipmentSalePipeline : IMaaPipelineHandler<EquipmentSalePip
         if (task.Name == "Prepare")
             log($"出售品质：蓝白={options.BlueWhite}，紫={options.Purple}，暗金={options.DarkGold}，金={options.Gold}，红={options.Red}");
         if (task.Name == "FailClose") return MaaPipelineActionResult.Failure("背包返回按钮重试达到上限");
+        if (task.Name == "Back")
+        {
+            await EquipmentBagCloser.CloseAsync(device, log, token);
+            return MaaPipelineActionResult.Success();
+        }
         if (task.Name == "Scan") return await Scan(token);
         if (task.Name == "Scroll")
         {

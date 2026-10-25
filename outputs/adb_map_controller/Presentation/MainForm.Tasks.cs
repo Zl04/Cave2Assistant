@@ -632,6 +632,7 @@ public sealed partial class MainForm
         if (config.TaskKind is not (ExecutionTaskKind.CardMining or ExecutionTaskKind.DreamTrial)) Number(nameof(config.EscapeReturnFloor), "卷轴主动回城楼层（0=关闭）", 0, 999);
         if (config.TaskKind == ExecutionTaskKind.CardMining)
         {
+            config.CardMiningStartAt = DateTime.Today.AddDays(1);
             var start = new DateTimePicker { Width = 190, Format = DateTimePickerFormat.Custom, CustomFormat = "yyyy-MM-dd HH:mm", Value = config.CardMiningStartAt };
             start.ValueChanged += (_, _) => config.CardMiningStartAt = start.Value;
             Row("开始挖矿时间", start);

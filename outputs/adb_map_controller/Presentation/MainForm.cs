@@ -88,6 +88,8 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     bool pendingGreedySelectionReturnOnly;
     IReadOnlyList<int> pendingGreedySelectionReturnCards = Array.Empty<int>();
     bool serverErrorDialogVisible;
+    CancellationTokenSource? connectionRecoveryCancellation;
+    Task? connectionRecoveryTask;
     volatile bool popupHandling;
     // 启动预检和移动 watchdog 不能同时抢占截图/OCR 管线。
     // 预检完成后立即释放该门控，避免把 watchdog 整个运行期关闭。
@@ -337,6 +339,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     async Task ShutdownCore()
     {
         closing = true; Enabled = false; refreshTimer.Stop(); SaveSettings();
+        connectionRecoveryCancellation?.Cancel();
         miniWindowMode = false;
         if (miniMapForm is { IsDisposed: false }) miniMapForm.CloseFromOwner();
         // 移动任务失败时不能跳出异步 FormClosing 事件，

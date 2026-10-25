@@ -261,8 +261,7 @@ public sealed partial class MainForm
 
             if (kind == MovementPopupKind.ServerError)
             {
-                serverErrorDialogVisible = true;
-                operations.Cancel(ControllerOperationKind.Movement);
+                BeginConnectionRecovery();
                 State("服务器连接异常，已停止运行");
                 return;
             }
@@ -374,7 +373,7 @@ public sealed partial class MainForm
                 Log("独立弹窗监控：已关闭附魔台界面，移动路线未修改");
                 return true;
             case MovementPopupKind.ServerError:
-                Warn("独立弹窗监控：检测到服务器连接异常，移动路线未修改");
+                BeginConnectionRecovery();
                 return true;
             default:
                 return false;
@@ -416,8 +415,11 @@ public sealed partial class MainForm
         stopping = true;
         try
         {
+            connectionRecoveryCancellation?.Cancel();
             operations.Cancel(ControllerOperationKind.Movement);
             operations.Cancel(ControllerOperationKind.Entry);
+            if (connectionRecoveryTask is { } recovery)
+                try { await recovery; } catch (OperationCanceledException) { }
             try { await touch.EmergencyRelease(); } catch (Exception ex) { Error(ex); }
             // The Application operation includes watchdog and final cleanup.
             try { await operations.StopAsync(closeAdmission: closing); } catch (OperationCanceledException) { }

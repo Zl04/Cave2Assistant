@@ -109,8 +109,7 @@ public sealed partial class MainForm
                     Log($"换层弹窗 OCR 正文：{probe.NextFloorDialogBodyText.Replace("\r", " ").Replace("\n", "|")}");
                 if (popup == MovementPopupKind.ServerError)
                 {
-                    serverErrorDialogVisible = true;
-                    operations.Cancel(ControllerOperationKind.Movement);
+                    BeginConnectionRecovery();
                     yield break;
                 }
                 if (popup == MovementPopupKind.RiftGemSelection)

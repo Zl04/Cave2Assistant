@@ -581,6 +581,7 @@ public sealed partial class MainForm
         }
         if (config.TaskKind == ExecutionTaskKind.BossChallenge)
         {
+            EquipmentSelection();
             Row("流程", new Label { Text = "活动 → 首领入侵 → 立即加入 → 跑图至回城", AutoSize = true });
             ThemeManager.Apply(dialog, currentPalette);
             return dialog.ShowDialog(this) == DialogResult.OK;
@@ -871,7 +872,7 @@ public sealed partial class MainForm
             }
             if (s.TaskKind == ExecutionTaskKind.BossChallenge)
             {
-                var bossChallenge = new ListViewItem(new[] { (i + 1).ToString(), "首领挑战", "—", "1 次", "回城结束", "首领入侵" });
+                var bossChallenge = new ListViewItem(new[] { (i + 1).ToString(), "首领挑战", s.SwitchEquipmentSet ? $"方案{s.EquipmentSet}" : "—", "1 次", "回城结束", "首领入侵" });
                 bossChallenge.Checked = s.TaskEnabled; AddTaskRow(bossChallenge);
                 if (i == selected) { bossChallenge.Selected = true; bossChallenge.EnsureVisible(); }
                 continue;

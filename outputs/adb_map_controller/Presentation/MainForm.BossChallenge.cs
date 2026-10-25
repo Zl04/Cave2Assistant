@@ -7,11 +7,13 @@ namespace AdbMapController;
 public sealed partial class MainForm
 {
     string? bossChallengeSkipReason;
+    int bossGoldInspirationClicks;
 
     async Task RunBossChallengeAsync(CancellationToken token)
     {
         lastEntryRunSucceeded = false;
         bossChallengeSkipReason = null;
+        bossGoldInspirationClicks = 0;
         adb.Serial = devices.Text;
         Log("首领挑战：开始执行，检查当前地图");
         var town = await adb.ReadMap();
@@ -27,7 +29,15 @@ public sealed partial class MainForm
         var progress = new DelegateMaaPipelineTraceSink(value =>
         {
             if (value.Kind == MaaPipelineTraceKind.NodeCompleted)
-                Log($"首领挑战：{BossChallengeStep(value.TaskName)}完成");
+            {
+                if (value.TaskName == "BuyGoldInspiration")
+                {
+                    bossGoldInspirationClicks++;
+                    Log($"首领挑战：金币鼓舞已点击 {bossGoldInspirationClicks}/4 次");
+                }
+                else if (value.TaskName is not "InspirationGate" and not "InspirationSettle")
+                    Log($"首领挑战：{BossChallengeStep(value.TaskName)}完成");
+            }
             else if (value.Kind is MaaPipelineTraceKind.NodeFailed or MaaPipelineTraceKind.TaskChainFailed)
                 Log($"首领挑战：{BossChallengeStep(value.TaskName)}失败：{value.Error ?? value.Detail}", LogLevel.Error);
         });
@@ -81,6 +91,10 @@ public sealed partial class MainForm
         "Expired" or "ReportExpired" => "检查报名截止状态",
         "JoinAvailable" => "点击立即加入",
         "WaitForMap" => "等待地图切换",
+        "InspirationGate" => "检查金币鼓舞按钮",
+        "BuyGoldInspiration" => "点击金币鼓舞",
+        "InspirationSettle" => "等待鼓舞界面更新",
+        "InspirationComplete" => "结束金币鼓舞",
         "RunMap" => "跑图并返回城镇",
         _ => name ?? "未知步骤"
     };
@@ -122,6 +136,11 @@ public sealed partial class MainForm
         {
             Log("首领挑战：活动报名已截止，挑战详情已关闭", LogLevel.Warning);
             bossChallengeSkipReason = "活动报名已截止";
+            return MaaPipelineActionResult.Success();
+        }
+        if (name == "InspirationComplete")
+        {
+            Log($"首领挑战：金币鼓舞结束，共点击 {bossGoldInspirationClicks}/4 次；按钮未显示或已达到次数上限");
             return MaaPipelineActionResult.Success();
         }
         if (name != "RunMap") return MaaPipelineActionResult.Success();

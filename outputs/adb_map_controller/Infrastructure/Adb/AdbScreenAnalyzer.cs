@@ -183,7 +183,7 @@ internal sealed class AdbScreenAnalyzer : IDisposable
     public async Task<bool> HasServerErrorDialogAsync(Bitmap source, CancellationToken token = default)
     {
         if (!ConnectionPopupRecognition.IsCandidate(source)) return false;
-        // Color is only a cheap candidate filter. The modal text is authoritative.
+        // Match the confirm button before reading the modal text.
         var text = await ReadScreenTextAsync(source, (.25, .75, .24, .74), "服务器异常弹窗", token);
         return ConnectionPopupRecognition.IsDisconnectText(text);
     }

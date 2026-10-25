@@ -95,8 +95,7 @@ public static class PopupUiPipeline
         {
             "ServerErrorDialog" => async (context, token) =>
             {
-                // Server errors have a distinctive modal layout. Use the cheap visual
-                // candidate filter before OCR, then OCR only its message region.
+                // Match the dialog's confirm button before reading its message.
                 return await adb.HasServerErrorDialog(context.Frame, token);
             },
             "NextFloorDialog" => async (context, token) =>

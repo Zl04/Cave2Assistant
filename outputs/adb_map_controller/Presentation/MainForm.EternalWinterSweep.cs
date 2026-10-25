@@ -178,7 +178,8 @@ public sealed partial class MainForm
             case "OpenMap": await BastanMapOpening.EnsureOpenAsync(adb, message => Log(message), token); break;
             case "SelectTargetFloor": await adb.TapScreen(state.TargetFloorX, state.TargetFloorY); break;
             case "ScrollFloorList":
-                await adb.SwipeScreen(.5, state.SwipeDown ? .72 : .35, .5, state.SwipeDown ? .35 : .72, 350);
+                // 与幽灵深渊的层数选择弹窗保持相同拖拽速度。
+                await adb.SwipeScreen(.5, state.SwipeDown ? .72 : .35, .5, state.SwipeDown ? .35 : .72, 750);
                 break;
         }
         return MaaPipelineActionResult.Success();

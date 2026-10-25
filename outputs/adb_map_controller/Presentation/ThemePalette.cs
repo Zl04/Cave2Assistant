@@ -889,6 +889,7 @@ public sealed class ThemedRichTextBox : RichTextBox
     const int EmGetFirstVisibleLine = 0x00CE;
     const int EmLineScroll = 0x00B6;
     ThemePalette palette = ThemePalette.Light;
+    int redrawSuspendCount;
 
     public int FirstVisibleLine => IsHandleCreated
         ? (int)SendMessage(Handle, EmGetFirstVisibleLine, IntPtr.Zero, IntPtr.Zero)
@@ -920,13 +921,19 @@ public sealed class ThemedRichTextBox : RichTextBox
 
     public void ReplaceRtf(string rtf)
     {
+        RunWithoutRedraw(() => Rtf = rtf);
+    }
+
+    public void RunWithoutRedraw(Action action)
+    {
         // WM_SETREDRAW 在隐藏窗口上会改变原生可见状态，因此仅在可见时使用。
         var suspendRedraw = IsHandleCreated && Visible;
-        if (suspendRedraw) _ = SendMessage(Handle, WmSetRedraw, IntPtr.Zero, IntPtr.Zero);
-        try { Rtf = rtf; }
+        if (suspendRedraw && redrawSuspendCount++ == 0)
+            _ = SendMessage(Handle, WmSetRedraw, IntPtr.Zero, IntPtr.Zero);
+        try { action(); }
         finally
         {
-            if (suspendRedraw)
+            if (suspendRedraw && --redrawSuspendCount == 0)
             {
                 _ = SendMessage(Handle, WmSetRedraw, new IntPtr(1), IntPtr.Zero);
                 Invalidate(true);

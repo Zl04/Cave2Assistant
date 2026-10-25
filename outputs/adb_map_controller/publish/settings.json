@@ -53,8 +53,8 @@
   "TaskEnabled": true,
   "SwitchEquipmentSet": false,
   "EquipmentSet": 1,
-  "CardMiningStartAt": "2026-10-26T00:00:00\u002B08:00",
-  "ScheduledRecoveryStartAt": "2026-10-26T00:00:00\u002B08:00",
+  "CardMiningStartAt": "2026-10-27T00:00:00\u002B08:00",
+  "ScheduledRecoveryStartAt": "2026-10-27T00:00:00\u002B08:00",
   "CardMiningMinimumTools": 1,
   "DreamTrialBossMask": 63,
   "EternalWinterFloor": 1,
@@ -87,7 +87,7 @@
           "EntryId": 12,
           "EntryDifficulty": "Normal",
           "TaskKind": "CardMining",
-          "TaskEnabled": false,
+          "TaskEnabled": true,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 2,
           "CardMiningStartAt": "2026-10-26T00:00:00\u002B08:00",
@@ -117,7 +117,7 @@
           "EntryDifficulty": "Nightmare",
           "EntryRunCount": 0,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": false,
+          "TaskEnabled": true,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 1
         },
@@ -235,7 +235,7 @@
         },
         {
           "TaskKind": "DreamTrial",
-          "TaskEnabled": false,
+          "TaskEnabled": true,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 1,
           "DreamTrialBossMask": 31
@@ -279,7 +279,7 @@
           "Bones": false,
           "Gold": false,
           "Runes": false,
-          "Altars": false,
+          "Altars": true,
           "Chambers": false,
           "Mining": true,
           "CardMining": false,
@@ -292,7 +292,7 @@
           "EntryDifficulty": "Normal",
           "EntryRunCount": 1,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": false,
+          "TaskEnabled": true,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 1
         },
@@ -344,7 +344,7 @@
           "EscapeReturnAttackBoss": true,
           "CardLayer": false,
           "EntryMapId": 6,
-          "EntryId": 1,
+          "EntryId": 5,
           "EntryDifficulty": "Normal",
           "EntryRunCount": 1,
           "TaskKind": "EntryAndRun",
@@ -607,10 +607,10 @@
           "Altars": false,
           "Chambers": true,
           "TaskKind": "ScheduledConnectionRecovery",
-          "TaskEnabled": false,
+          "TaskEnabled": true,
           "SwitchEquipmentSet": false,
           "EquipmentSet": 1,
-          "ScheduledRecoveryStartAt": "2026-10-25T20:10:00"
+          "ScheduledRecoveryStartAt": "2026-10-25T20:03:00"
         },
         {
           "AttackBoss": true,
@@ -627,7 +627,7 @@
           "Chambers": true,
           "TaskKind": "BossChallenge",
           "TaskEnabled": true,
-          "SwitchEquipmentSet": false,
+          "SwitchEquipmentSet": true,
           "EquipmentSet": 1
         }
       ]
@@ -642,11 +642,11 @@
           "Elites": false,
           "WoodChests": false,
           "OtherChests": true,
-          "Pots": false,
+          "Pots": true,
           "Bones": false,
           "Gold": false,
           "Runes": false,
-          "Altars": false,
+          "Altars": true,
           "Chambers": true,
           "Mining": false,
           "CardMining": false,
@@ -666,5 +666,5 @@
       ]
     }
   ],
-  "SelectedTaskTemplateName": "\u4E34\u65F6\u6A21\u677F"
+  "SelectedTaskTemplateName": "\u8DD1\u56FE\u4EFB\u52A1\u6A21\u677F"
 }

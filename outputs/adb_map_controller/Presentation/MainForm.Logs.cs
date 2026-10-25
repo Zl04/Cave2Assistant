@@ -200,7 +200,7 @@ public sealed partial class MainForm
         if (IsDisposed || Disposing) return;
         var entry = new LogEntry(DateTime.Now, level, text);
         ApplicationLog.Write(entry);
-        if (InvokeRequired)
+        if (InvokeRequired || IsHandleCreated)
         {
             pendingLogEntries.Enqueue(entry);
             if (Interlocked.Exchange(ref logFlushScheduled, 1) == 0)
@@ -213,14 +213,23 @@ public sealed partial class MainForm
     void FlushPendingLogs()
     {
         if (IsDisposed || Disposing) return;
-        for (var count = 0; count < 256 && pendingLogEntries.TryDequeue(out var entry); count++)
-            AppendLog(entry);
+        var firstVisibleLine = log.Visible && !logAutoScroll.Checked ? log.FirstVisibleLine : 0;
+        var flushed = 0;
+        log.RunWithoutRedraw(() =>
+        {
+            for (; flushed < 256 && pendingLogEntries.TryDequeue(out var entry); flushed++)
+                AppendLog(entry, deferViewUpdate: true);
+            if (flushed == 0 || !log.Visible) return;
+            if (logAutoScroll.Checked) ScrollLogToEnd();
+            else log.ScrollToLine(firstVisibleLine);
+            UpdateLogFilterStatus();
+        });
         Interlocked.Exchange(ref logFlushScheduled, 0);
         if (!pendingLogEntries.IsEmpty && Interlocked.Exchange(ref logFlushScheduled, 1) == 0)
             BeginInvoke(FlushPendingLogs);
     }
 
-    void AppendLog(LogEntry entry)
+    void AppendLog(LogEntry entry, bool deferViewUpdate = false)
     {
         logEntries.Enqueue(entry);
         if (!log.Visible)
@@ -234,9 +243,19 @@ public sealed partial class MainForm
             var oldest = logEntries.Dequeue();
             if (logFilter.Matches(oldest) && visibleLogEntries > 0)
             {
-                var nextLine = log.GetFirstCharIndexFromLine(1);
-                log.Select(0, nextLine >= 0 ? nextLine : log.TextLength);
-                log.SelectedText = string.Empty;
+                // RichEdit's line index counts wrapped display lines, not log entries.
+                // Verify the full entry before deleting so a changed view is rebuilt safely.
+                var expected = oldest.DisplayText.Replace("\r\n", "\n").Replace('\r', '\n') + "\n";
+                log.Select(0, expected.Length);
+                if (log.SelectedText != expected)
+                {
+                    RenderLogs();
+                    return;
+                }
+                // Clearing a selection in a read-only RichEdit calls MessageBeep.
+                log.ReadOnly = false;
+                try { log.SelectedText = string.Empty; }
+                finally { log.ReadOnly = true; }
                 visibleLogEntries--;
             }
         }
@@ -245,15 +264,18 @@ public sealed partial class MainForm
             var firstVisibleLine = log.FirstVisibleLine;
             AppendLogEntry(entry);
             visibleLogEntries++;
-            if (logAutoScroll.Checked) ScrollLogToEnd();
-            else log.ScrollToLine(firstVisibleLine);
+            if (!deferViewUpdate)
+            {
+                if (logAutoScroll.Checked) ScrollLogToEnd();
+                else log.ScrollToLine(firstVisibleLine);
+            }
         }
         else if (logFilter.Error != null && visibleLogEntries > 0)
         {
             log.Clear();
             visibleLogEntries = 0;
         }
-        UpdateLogFilterStatus();
+        if (!deferViewUpdate) UpdateLogFilterStatus();
     }
 
     void Warn(string text) => Log(text, LogLevel.Warning);

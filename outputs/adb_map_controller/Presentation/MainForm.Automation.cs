@@ -419,6 +419,22 @@ public sealed partial class MainForm
                         await Task.Delay(10, owner);
                         continue;
                     }
+                    if (LockedTreasurePolicy.IsTreasureKind(plannedTask.Target.Kind))
+                    {
+                        await RefreshMap(false, waitForLock: true);
+                        if (dungeon.Map is null || !dungeon.Map.ByCell.TryGetValue(plannedTask.Target.Cell, out var treasureTile) ||
+                            !treasureTile.Roles.Any(role => role.Kind == plannedTask.Target.Kind &&
+                                LockedTreasurePolicy.IsTreasure(role) && !role.Locked))
+                        {
+                            Log($"{plannedTask.Target.Kind} {plannedTask.Target.Cell} 已锁定或消失，刷新路线后再处理");
+                            route = [];
+                            plannedInteractions = [];
+                            plannedTargetUniverse.Clear();
+                            EnsureRoute(true);
+                            await Task.Delay(80, owner);
+                            continue;
+                        }
+                    }
                     var delta = new Cell(plannedTask.Target.Cell.X - currentCell.X, plannedTask.Target.Cell.Y - currentCell.Y);
                     State($"任务交互 {plannedTask.Target.Kind}，方向 {delta.X},{delta.Y}");
                     var isRoomPortal = IsRoomPortalTarget(plannedTask.Target);

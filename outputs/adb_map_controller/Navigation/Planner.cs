@@ -223,12 +223,22 @@ public static class Planner
 
         var targets = tiles.Values
             .SelectMany(tile => tile.Roles.Where(role => TargetPolicy.IsSelected(role, options) &&
+                LockedTreasurePolicy.IsAvailable(role) &&
                 (role.Kind != "机关" || MechanismChamberPolicy.IsPendingTrigger(role)) &&
                 (role.Kind != "机关密室" || MechanismChamberPolicy.IsAvailableEntrance(role)) &&
                 (role.Kind is not ("Boss" or "小Boss") || IsBossAttackable(map, role)))
                 .Select(role => new TargetKey(new Cell(tile.X, tile.Y), role.Kind)))
             .Where(target => !(options.IgnoredTargets?.Contains(target) ?? false))
             .Distinct().ToList();
+        // 已选宝物处于封印状态时，先处理当前可见的精英，再等地图报告解锁。
+        if (tiles.Values.SelectMany(tile => tile.Roles).Any(role =>
+                TargetPolicy.IsSelected(role, options) && LockedTreasurePolicy.IsTreasure(role) && role.Locked))
+        {
+            targets.AddRange(tiles.Values.SelectMany(tile => tile.Roles
+                .Where(role => role.ClassName == "MonsterData" && role.Kind == "精英")
+                .Select(role => new TargetKey(new Cell(tile.X, tile.Y), role.Kind)))
+                .Where(target => !(options.IgnoredTargets?.Contains(target) ?? false) && !targets.Contains(target)));
+        }
         // 禁用 Boss 攻击时，在所有探索/已选任务完成后仍前往 Boss 区域，
         // 但将 Boss 排除在可执行目标集合之外，避免协调逻辑把有意不交互的 Boss
         // 误认为已完成任务。

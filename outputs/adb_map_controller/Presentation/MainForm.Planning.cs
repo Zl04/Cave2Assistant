@@ -163,7 +163,8 @@ public sealed partial class MainForm
             Monsters = includeAll || monsters.Checked ||
                 (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
             Elites = includeAll || elites.Checked || (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
-            Chests = includeAll || chests.Checked,
+            WoodChests = includeAll || woodChests.Checked,
+            OtherChests = includeAll || otherChests.Checked,
             Pots = includeAll || pots.Checked,
             Bones = includeAll || bones.Checked,
             Gold = includeAll || gold.Checked,
@@ -176,7 +177,7 @@ public sealed partial class MainForm
     Dictionary<Cell, bool> WalkabilitySnapshot(MapDump map) => map.Tiles.SelectMany(row => row)
         .ToDictionary(tile => new Cell(tile.X, tile.Y), tile => tile.Walkable && !dungeon.Blocked.Contains(new Cell(tile.X, tile.Y)));
     static int OptionsSignature(PlanOptions o) => HashCode.Combine(
-        HashCode.Combine(o.AttackBoss, o.Monsters, o.Elites, o.Chests, o.Pots, o.Bones, o.Gold),
+        HashCode.Combine(o.AttackBoss, o.Monsters, o.Elites, o.WoodChests, o.OtherChests, o.Pots, o.Bones, o.Gold),
         HashCode.Combine(o.Runes, o.Altars, o.Chambers, o.DirectBossNpc, o.VisionRadius));
     HashSet<TargetKey> SelectedTargets(MapDump map, PlanOptions options, bool includeLockedBoss = false) => map.Tiles.SelectMany(row => row)
         .SelectMany(tile => tile.Roles.Where(role => TargetPolicy.IsSelected(role, options) &&

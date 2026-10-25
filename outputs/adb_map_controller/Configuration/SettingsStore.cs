@@ -25,7 +25,7 @@ public sealed class JsonSettingsStore : ISettingsStore
     static readonly string[] TargetFields =
     [
         nameof(ControllerSettings.AttackBoss), nameof(ControllerSettings.DirectBossNpc), nameof(ControllerSettings.Monsters),
-        nameof(ControllerSettings.Elites), nameof(ControllerSettings.Chests),
+        nameof(ControllerSettings.Elites), nameof(ControllerSettings.WoodChests), nameof(ControllerSettings.OtherChests),
         nameof(ControllerSettings.Pots), nameof(ControllerSettings.Bones),
         nameof(ControllerSettings.Gold), nameof(ControllerSettings.Runes), nameof(ControllerSettings.Altars),
         nameof(ControllerSettings.Chambers)
@@ -64,14 +64,15 @@ public sealed class JsonSettingsStore : ISettingsStore
             var document = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
             // 旧版“符文/点金台”由 Runes 同时控制；迁移时保留两者原有选择。
             MigrateAltars(document);
+            MigrateChests(document);
             if (document[nameof(ControllerSettings.ExecutionTasks)] is JsonArray tasks)
-                foreach (var task in tasks.OfType<JsonObject>()) MigrateAltars(task);
+                foreach (var task in tasks.OfType<JsonObject>()) { MigrateAltars(task); MigrateChests(task); }
             if (document[nameof(ControllerSettings.TaskTemplates)] is JsonArray templates)
                 foreach (var template in templates.OfType<JsonObject>())
                 {
-                    if (template[nameof(TaskTemplate.Task)] is JsonObject oldTask) MigrateAltars(oldTask);
+                    if (template[nameof(TaskTemplate.Task)] is JsonObject oldTask) { MigrateAltars(oldTask); MigrateChests(oldTask); }
                     if (template[nameof(TaskTemplate.Tasks)] is JsonArray templateTasks)
-                        foreach (var task in templateTasks.OfType<JsonObject>()) MigrateAltars(task);
+                        foreach (var task in templateTasks.OfType<JsonObject>()) { MigrateAltars(task); MigrateChests(task); }
                 }
             return document.Deserialize<ControllerSettings>();
         }
@@ -82,6 +83,19 @@ public sealed class JsonSettingsStore : ISettingsStore
     {
         if (!settings.ContainsKey(nameof(ControllerSettings.Altars)))
             settings[nameof(ControllerSettings.Altars)] = settings[nameof(ControllerSettings.Runes)]?.GetValue<bool>() ?? false;
+    }
+
+    static void MigrateChests(JsonObject settings)
+    {
+        if (settings.TryGetPropertyValue("Chests", out var oldValue))
+        {
+            var selected = oldValue?.GetValue<bool>() ?? false;
+            if (!settings.ContainsKey(nameof(ControllerSettings.WoodChests)))
+                settings[nameof(ControllerSettings.WoodChests)] = selected;
+            if (!settings.ContainsKey(nameof(ControllerSettings.OtherChests)))
+                settings[nameof(ControllerSettings.OtherChests)] = selected;
+            settings.Remove("Chests");
+        }
     }
 
     public void Save(ControllerSettings settings)

@@ -31,7 +31,8 @@ public sealed class ControllerSettings
     public bool DirectBossNpc { get; set; }
     public bool Monsters { get; set; }
     public bool Elites { get; set; }
-    public bool Chests { get; set; }
+    public bool WoodChests { get; set; }
+    public bool OtherChests { get; set; }
     public bool Pots { get; set; }
     public bool Bones { get; set; }
     public bool Gold { get; set; }

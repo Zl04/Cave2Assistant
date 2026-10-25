@@ -25,7 +25,8 @@ public sealed partial class MainForm
         config.AttackBoss = true;
         config.Monsters = false;
         config.Elites = false;
-        config.Chests = false;
+        config.WoodChests = false;
+        config.OtherChests = false;
         config.Pots = false;
         config.Bones = false;
         config.Gold = false;

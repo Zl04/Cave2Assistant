@@ -222,6 +222,8 @@ public sealed partial class MainForm
                         if (singleTaskIndex is int target ? i != target : !task.TaskEnabled) continue;
                         var config = ResolveTaskSettings(original, task);
                         activeTaskNumber = i + 1;
+                        ClearStoppedAutomation();
+                        State($"任务列表：正在启动第 {i + 1} 项");
                         taskList.ActiveRunIndex = i;
                         UpdateTaskExecutionProgress(1, GetInitialTaskExecutionCount(config));
                         ApplySettings(config, applyEquipmentSale: false); RefreshTaskList(i);

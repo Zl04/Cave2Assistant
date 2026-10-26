@@ -37,6 +37,8 @@ public sealed partial class MainForm
     async Task StartRunCore(CancellationToken owner)
     {
         lastMapRunSucceeded = false;
+        ClearStoppedAutomation();
+        State("跑图任务启动中");
         MaaPipelineCatalog catalog;
         try
         {

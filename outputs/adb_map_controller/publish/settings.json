@@ -145,7 +145,7 @@
           "EntryDifficulty": "Elite",
           "EntryRunCount": 0,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": true,
+          "TaskEnabled": false,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 2
         },
@@ -173,7 +173,7 @@
           "EntryDifficulty": "Elite",
           "EntryRunCount": 0,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": true,
+          "TaskEnabled": false,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 2
         },
@@ -201,7 +201,7 @@
           "EntryDifficulty": "Elite",
           "EntryRunCount": 0,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": true,
+          "TaskEnabled": false,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 2
         },
@@ -229,7 +229,7 @@
           "EntryDifficulty": "Elite",
           "EntryRunCount": 0,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": true,
+          "TaskEnabled": false,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 2
         },
@@ -264,7 +264,7 @@
           "EntryDifficulty": "Normal",
           "EntryRunCount": 1,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": false,
+          "TaskEnabled": true,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 1
         },
@@ -292,7 +292,7 @@
           "EntryDifficulty": "Normal",
           "EntryRunCount": 1,
           "TaskKind": "EntryAndRun",
-          "TaskEnabled": true,
+          "TaskEnabled": false,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 1
         },
@@ -541,29 +541,11 @@
           "Runes": false,
           "Altars": false,
           "Chambers": false,
-          "TaskKind": "AbyssSweep",
-          "TaskEnabled": false,
-          "SwitchEquipmentSet": false,
-          "EquipmentSet": 1
-        },
-        {
-          "AttackBoss": true,
-          "DirectBossNpc": false,
-          "Monsters": false,
-          "Elites": false,
-          "WoodChests": false,
-          "OtherChests": false,
-          "Pots": false,
-          "Bones": false,
-          "Gold": false,
-          "Runes": false,
-          "Altars": false,
-          "Chambers": false,
           "TaskKind": "GhostAbyss",
           "TaskEnabled": true,
           "SwitchEquipmentSet": true,
           "EquipmentSet": 1,
-          "GhostAbyssFloor": 25,
+          "GhostAbyssFloor": 22,
           "GhostAbyssDouble": false
         },
         {
@@ -587,6 +569,24 @@
           "GuildCrystalShop": true,
           "GuildDungeon": true,
           "GuildBoss": 1
+        },
+        {
+          "AttackBoss": true,
+          "DirectBossNpc": false,
+          "Monsters": false,
+          "Elites": false,
+          "WoodChests": false,
+          "OtherChests": false,
+          "Pots": false,
+          "Bones": false,
+          "Gold": false,
+          "Runes": false,
+          "Altars": false,
+          "Chambers": false,
+          "TaskKind": "AbyssSweep",
+          "TaskEnabled": false,
+          "SwitchEquipmentSet": false,
+          "EquipmentSet": 1
         }
       ]
     },
@@ -642,11 +642,11 @@
           "Elites": false,
           "WoodChests": false,
           "OtherChests": true,
-          "Pots": true,
+          "Pots": false,
           "Bones": false,
           "Gold": false,
           "Runes": false,
-          "Altars": true,
+          "Altars": false,
           "Chambers": true,
           "Mining": false,
           "CardMining": false,
@@ -657,7 +657,7 @@
           "EntryMapId": 0,
           "EntryId": 1,
           "EntryDifficulty": "Normal",
-          "EntryRunCount": 0,
+          "EntryRunCount": 1,
           "TaskKind": "EntryAndRun",
           "TaskEnabled": true,
           "SwitchEquipmentSet": false,
@@ -666,5 +666,5 @@
       ]
     }
   ],
-  "SelectedTaskTemplateName": "\u8DD1\u56FE\u4EFB\u52A1\u6A21\u677F"
+  "SelectedTaskTemplateName": "\u4E34\u65F6\u6A21\u677F"
 }

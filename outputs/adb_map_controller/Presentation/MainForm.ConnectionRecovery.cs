@@ -119,6 +119,7 @@ public sealed partial class MainForm
             var waitingForLoginUntil = Environment.TickCount64 + 1500;
             var deadline = Environment.TickCount64 + 120000;
             var readyFrames = 0;
+            var startGameSeen = false;
             (int SceneType, int TownMapId, int Level)? lastScene = null;
             long lastWaitingLogAt = 0;
             void ReportWaiting(string message)
@@ -140,7 +141,18 @@ public sealed partial class MainForm
                     await Task.Delay((int)(2000 - elapsed), token);
 
                 ReportWaiting("正在识别登录按钮及当前画面");
-                var button = await pipeline.ClickVisibleButtonAsync(token);
+                // 城镇活动文字也可能包含“登录”。先处理回城弹窗，
+                // 游戏设置按钮可见时直接检查地图，不再点击登录入口。
+                var townPopup = await TryCloseReturnTownPopupAsync(token, "断线恢复：");
+                if (townPopup is not false)
+                {
+                    readyFrames = 0;
+                    await Task.Delay(500, token);
+                    continue;
+                }
+                var button = await pipeline.IsGameReadyAsync(token)
+                    ? null
+                    : await pipeline.ClickVisibleButtonAsync(!startGameSeen, token);
                 if (button is null)
                 {
                     if (Environment.TickCount64 >= waitingForLoginUntil)
@@ -205,6 +217,7 @@ public sealed partial class MainForm
                 lastScene = null;
                 if (button == "StartGameButton")
                 {
+                    startGameSeen = true;
                     try { previousMapTimestamp = Math.Max(previousMapTimestamp, (await adb.ReadMap()).Timestamp); }
                     catch (Exception ex) { Log($"断线恢复：等待新地图快照：{ex.Message}"); }
                 }

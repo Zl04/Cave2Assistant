@@ -5,7 +5,7 @@
   },
   "LoginButton": {
     "algorithm": "OcrDetect", "handler": "ConnectionAdb", "action": "ClickRect",
-    "text": ["登录"], "roi": [505, 535, 270, 70],
+    "text": ["登录"], "fullMatch": true, "roi": [505, 535, 270, 70],
     "specificRect": [585, 548, 110, 46]
   },
   "StartGameButton": {

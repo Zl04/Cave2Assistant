@@ -481,7 +481,8 @@ public static class Planner
     /// 因此 MainForm 会刷新，并从跳转后的权威坐标规划下一段。
     /// </summary>
     public static RoutePlan PlanToRoomPortal(MapDump map, IReadOnlySet<Cell>? blocked = null,
-        bool avoidMonsters = false, IReadOnlySet<Cell>? attempted = null)
+        bool avoidMonsters = false, IReadOnlySet<Cell>? attempted = null, PortalJumpGraph? jumps = null,
+        IReadOnlyCollection<TargetKey>? desiredTargets = null)
     {
         var tiles = map.ByCell;
         var start = new Cell(map.Player.X, map.Player.Y);
@@ -489,18 +490,67 @@ public static class Planner
         if (!tiles.TryGetValue(start, out var startTile) || !startTile.Walkable)
             return new RoutePlan { WalkableCells = walkableCount, FailureReason = "起点不可走" };
 
-        var portals = PortalRouting.Enumerate(map)
-            .Where(item => PortalRouting.IsRoomToRoom(item.Role) && !item.Role.Locked && item.Cell != start &&
-                (attempted?.Contains(item.Cell) != true))
-            .Select(item => new TargetKey(item.Cell, item.Role.Kind)).Distinct().ToList();
-        if (portals.Count == 0) return new RoutePlan { WalkableCells = walkableCount, FailureReason = "没有未尝试的层内传送门" };
-
+        var available = PortalRouting.Enumerate(map)
+            .Where(item => PortalRouting.IsRoomToRoom(item.Role) && !item.Role.Locked && item.Cell != start)
+            .ToList();
         var (distance, previous, encounters) = Search(start, tiles, blocked, avoidMonsters, allowPortalStops: true);
-        TargetKey? chosen = null; Cell? stop = null; var best = (Encounters: int.MaxValue, Distance: int.MaxValue);
+        var targetStops = (desiredTargets ?? Array.Empty<TargetKey>()).SelectMany(target => TaskStops(target, tiles)).ToHashSet();
+        var roomPortals = available.Select(item => item.Cell).ToHashSet();
+        var destinationProgress = new Dictionary<Cell, (bool Target, bool Unexplored, bool NewPortal)>();
+        (bool Target, bool Unexplored, bool NewPortal) ProgressFrom(Cell destination)
+        {
+            if (destinationProgress.TryGetValue(destination, out var known)) return known;
+            var origin = TaskStops(new TargetKey(destination, "秘境传送门"), tiles).FirstOrDefault();
+            if (!tiles.TryGetValue(origin, out var tile) || !tile.Walkable)
+                return destinationProgress[destination] = (false, false, false);
+            var (reachable, _, _) = Search(origin, tiles, blocked, allowPortalStops: true);
+            return destinationProgress[destination] = (
+                targetStops.Any(reachable.ContainsKey),
+                reachable.Keys.Any(cell => tiles.TryGetValue(cell, out var floor) && !floor.Explored),
+                reachable.Keys.Any(cell => cell != destination && roomPortals.Contains(cell) &&
+                    attempted?.Contains(cell) != true));
+        }
+        // 已观察到的回程边如果只能抵达走过的区域，就不再反复激活。
+        // 只要目的地有目标、未探索格或尚未尝试的门，走过的入口仍可参与规划。
+        if (jumps is not null && attempted is not null)
+            available = available.Where(item =>
+            {
+                var observed = jumps.ObservedTargets(map, item.Cell);
+                return observed.Count == 0 || observed.Any(destination =>
+                {
+                    var progress = ProgressFrom(destination);
+                    return progress.Target || progress.Unexplored || progress.NewPortal;
+                });
+            }).ToList();
+        var portals = available.Select(item => new TargetKey(item.Cell, item.Role.Kind)).Distinct().ToList();
+        if (portals.Count == 0) return new RoutePlan { WalkableCells = walkableCount, FailureReason = "已知层内传送门无法带来新的目标或区域" };
+        var portalPriority = available.GroupBy(item => item.Cell).ToDictionary(group => group.Key, group =>
+            targetStops.Count > 0 && jumps is not null && group.Any(item =>
+                jumps.CandidateTargets(map, item.Cell, item.Role).Any(destination => ProgressFrom(destination).Target)) ? 0 : 1);
+        // 已走过的入口和落点仍可再次使用，但要付出相当于绕行若干格的代价。
+        // 这样附近有新门时优先探索新门，只有新门明显更远或不可达时才回走。
+        var revisitCost = available.GroupBy(item => item.Cell).ToDictionary(group => group.Key, group =>
+        {
+            var sourceCost = attempted?.Contains(group.Key) == true ? 10 : 0;
+            var destinationCost = jumps is not null && attempted is not null && group.Any(item =>
+            {
+                var targets = jumps.CandidateTargets(map, item.Cell, item.Role);
+                return targets.Count > 0 && targets.All(attempted.Contains);
+            }) ? 6 : 0;
+            return sourceCost + destinationCost;
+        });
+        TargetKey? chosen = null; Cell? stop = null;
+        var best = (Priority: int.MaxValue, Cost: int.MaxValue, Distance: int.MaxValue);
         foreach (var portal in portals)
             foreach (var candidate in TaskStops(portal, tiles))
-                if (distance.TryGetValue(candidate, out var d) && (encounters[candidate], d).CompareTo(best) < 0)
-                { best = (encounters[candidate], d); chosen = portal; stop = candidate; }
+                if (distance.TryGetValue(candidate, out var d) &&
+                    (portalPriority[portal.Cell], d + encounters[candidate] * MonsterAvoidanceDetourLimit +
+                        revisitCost[portal.Cell], d).CompareTo(best) < 0)
+                {
+                    best = (portalPriority[portal.Cell], d + encounters[candidate] * MonsterAvoidanceDetourLimit +
+                        revisitCost[portal.Cell], d);
+                    chosen = portal; stop = candidate;
+                }
         if (chosen is null || stop is null)
             return new RoutePlan { WalkableCells = walkableCount, FailureReason = "层内传送门不可达" };
         return new RoutePlan

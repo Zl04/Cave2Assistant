@@ -27,7 +27,8 @@ public sealed class DungeonSnapshotUseCase(DungeonSession dungeon, IGameSnapshot
             map.Level == previousMap.Level && PortalJumpGraph.KeyOf(map) == PortalJumpGraph.KeyOf(previousMap))
         {
             var now = new Cell(map.Player.X, map.Player.Y);
-            if (dungeon.PortalJumps.Observe(previousMap, roomPortal.Cell, map, out var destination, dungeon.RoomPortalOrigin))
+            if (dungeon.RoomPortalInteractionAt != 0 &&
+                dungeon.PortalJumps.Observe(previousMap, roomPortal.Cell, map, out var destination, dungeon.RoomPortalOrigin))
             {
                 // 将落地传送门视为本楼层自动探索流程中已消耗。
                 // 这样可以防止下一次规划立即激活双传送门循环的反向边。
@@ -37,13 +38,17 @@ public sealed class DungeonSnapshotUseCase(DungeonSession dungeon, IGameSnapshot
                     : null;
                 var description = sourceRole is null ? "层内传送门" : PortalRouting.Describe(sourceRole);
                 messages.Add($"层内传送已确认：{roomPortal.Cell} -> {destination}（{description}，已记录 {dungeon.PortalJumps.EdgeCount(map)} 条边）");
+                dungeon.RoomPortalSettlingCell = now;
+                dungeon.RoomPortalResumeAt = Environment.TickCount64 + 1500;
                 dungeon.PendingRoomPortal = null; dungeon.RoomPortalOrigin = null; dungeon.RoomPortalInteractionAt = 0;
             }
-            else if (now != origin && now != roomPortal.Cell)
+            else if (dungeon.RoomPortalInteractionAt != 0 && now != origin && now != roomPortal.Cell)
             {
                 if (PortalRouting.NearestRoomPortal(map, now) is { } landingPortal)
                     dungeon.AttemptedRoomPortals.Add(landingPortal);
                 messages.Add($"层内传送已发生：{roomPortal.Cell} -> {now}，落点附近没有可确认的传送门，保留当前位置重新寻路");
+                dungeon.RoomPortalSettlingCell = now;
+                dungeon.RoomPortalResumeAt = Environment.TickCount64 + 1500;
                 dungeon.PendingRoomPortal = null; dungeon.RoomPortalOrigin = null; dungeon.RoomPortalInteractionAt = 0;
             }
         }

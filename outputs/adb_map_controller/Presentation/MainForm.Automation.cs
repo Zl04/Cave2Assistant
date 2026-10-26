@@ -313,19 +313,49 @@ public sealed partial class MainForm
                     await Task.Delay(120, owner);
                     continue;
                 }
+                if (dungeon.RoomPortalResumeAt != 0)
+                {
+                    var settlingCell = new Cell(dungeon.Map.Player.X, dungeon.Map.Player.Y);
+                    if (dungeon.RoomPortalSettlingCell != settlingCell)
+                    {
+                        dungeon.RoomPortalSettlingCell = settlingCell;
+                        dungeon.RoomPortalResumeAt = Environment.TickCount64 + 1500;
+                    }
+                    if (Environment.TickCount64 < dungeon.RoomPortalResumeAt)
+                    {
+                        State($"等待层内传送落点稳定 {settlingCell}");
+                        await Task.Delay(100, owner);
+                        continue;
+                    }
+                    dungeon.RoomPortalResumeAt = 0;
+                    dungeon.RoomPortalSettlingCell = null;
+                    route = []; plannedInteractions = []; plannedTargetUniverse.Clear();
+                    mapPanel.Route = route; mapPanel.Invalidate();
+                    Log($"层内传送落点已稳定：{settlingCell}，重新规划后续路线");
+                    continue;
+                }
                 UpdateFloorPhase();
                 if (dungeon.PendingRoomPortal is { } waitingRoomPortal && dungeon.RoomPortalOrigin is { } roomOrigin)
                 {
                     var now = new Cell(dungeon.Map.Player.X, dungeon.Map.Player.Y);
-                    if (now == roomOrigin && Environment.TickCount64 - dungeon.RoomPortalInteractionAt < 5000)
+                    // 预先记录入口门只是为了识别自动传送；到达门格或发送交互后才开始计时。
+                    if (dungeon.RoomPortalInteractionAt == 0 && now == waitingRoomPortal.Cell)
+                    {
+                        dungeon.RoomPortalInteractionAt = Environment.TickCount64;
+                        dungeon.AttemptedRoomPortals.Add(waitingRoomPortal.Cell);
+                    }
+                    var approaching = dungeon.RoomPortalInteractionAt == 0 &&
+                        (route.Contains(now) || plannedInteractions.Any(task => task.Stop == now && task.Target == waitingRoomPortal));
+                    var waiting = dungeon.RoomPortalInteractionAt != 0 &&
+                        Environment.TickCount64 - dungeon.RoomPortalInteractionAt < 5000;
+                    if (waiting && (now == roomOrigin || now == waitingRoomPortal.Cell))
                     {
                         State($"等待层内传送门跳转 {waitingRoomPortal.Cell}");
                         await Task.Delay(80, owner);
                         continue;
                     }
-                    // 到达传送门格但没有自动跳转，仍是有效的中间状态：
-                    // 保留规划的交互，以便下一个分支触发它。
-                    if (now != waitingRoomPortal.Cell)
+                    // 尚未触发门时，沿原路线继续移动或在交互停靠点执行点击。
+                    if (!approaching && now != waitingRoomPortal.Cell)
                     {
                         if (now == roomOrigin)
                             Warn($"层内传送门 {waitingRoomPortal.Cell} 超时未改变坐标，按当前位置恢复寻路");
@@ -596,6 +626,11 @@ public sealed partial class MainForm
                             await Task.Delay(20, owner);
                             continue;
                         }
+                        if (TryPlanRoomPortalRoute())
+                        {
+                            await Task.Delay(20, owner);
+                            continue;
+                        }
                         if (await TryExploreWithoutTarget(owner)) continue;
                     }
                     // 探索规划失败时，不能在右侧下一层快捷入口出现前终止运行。
@@ -655,6 +690,12 @@ public sealed partial class MainForm
                     // 执行器已经采样了玩家实际所在格，但替换失败路线前也要刷新格子表。
                     // 这样可以防止超调/偏离后在紧循环中重试过期路线。
                     await RefreshMap(false, waitForLock: true);
+                    if (dungeon.PendingRoomPortal is not null || dungeon.RoomPortalResumeAt != 0)
+                    {
+                        // 传送期间坐标跳变不是普通路线偏离；交给传送等待状态确认。
+                        await Task.Delay(80, owner);
+                        continue;
+                    }
                     if (floorPhase == FloorPhase.GoToPortal) EnsurePortalRoute();
                     else if (floorPhase is not (FloorPhase.InteractPortal or FloorPhase.SelectBonus or FloorPhase.VerifyTransition)) EnsureRoute(true);
                 }

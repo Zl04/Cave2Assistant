@@ -272,11 +272,10 @@ public sealed partial class MainForm
         var task = plannedInteractions.FirstOrDefault(value => value.Target.Kind == "秘境传送门" &&
             value.Stop != current && route.Contains(value.Stop));
         if (task == default) return;
-        dungeon.AttemptedRoomPortals.Add(task.Target.Cell);
         dungeon.PendingRoomPortal = task.Target;
         dungeon.RoomPortalOrigin = current;
-        dungeon.RoomPortalInteractionAt = Environment.TickCount64;
-        Log($"已挂起层内传送等待：{task.Target.Cell}，从 {current} 进入后再确认跳转");
+        dungeon.RoomPortalInteractionAt = 0;
+        Log($"已记录即将进入的层内传送门：{task.Target.Cell}，从 {current} 出发");
     }
     bool IsRoomPortalTarget(TargetKey target)
         => dungeon.Map is not null && dungeon.Map.ByCell.TryGetValue(target.Cell, out var tile) &&
@@ -342,6 +341,7 @@ public sealed partial class MainForm
             dungeon.TargetFloorStopped = false;
             dungeon.PortalCandidate = null; dungeon.PortalConfirmCount = 0; dungeon.Route.Clear();
             dungeon.AttemptedRoomPortals.Clear(); dungeon.PendingRoomPortal = null; dungeon.RoomPortalOrigin = null; dungeon.RoomPortalInteractionAt = 0;
+            dungeon.RoomPortalResumeAt = 0; dungeon.RoomPortalSettlingCell = null;
             dungeon.ConfirmedCompletedTargets.Clear(); dungeon.ExpectedTaskRoadChanges.Clear();
             Log($"检测到进入新层：{map.Level}，重置本层路线和目标");
             return true;
@@ -455,12 +455,28 @@ public sealed partial class MainForm
     {
         if (dungeon.Map is null || floorPhase != FloorPhase.Explore || HasMapDownstairsEntrance(dungeon.Map) ||
             dungeon.PendingRoomPortal is not null) return false;
-        var plan = Planner.PlanToRoomPortal(dungeon.Map, dungeon.Blocked, !Options().Monsters, dungeon.AttemptedRoomPortals);
+        var targets = ActiveTargets(dungeon.Map, Options());
+        var plan = Planner.PlanToRoomPortal(dungeon.Map, dungeon.Blocked, !Options().Monsters,
+            dungeon.AttemptedRoomPortals, dungeon.PortalJumps, targets);
+        if (plan.Interactions.Count == 0 && dungeon.Blocked.Count > 0)
+        {
+            var unblocked = Planner.PlanToRoomPortal(dungeon.Map, null, !Options().Monsters,
+                dungeon.AttemptedRoomPortals, dungeon.PortalJumps, targets);
+            if (unblocked.Interactions.Count > 0)
+            {
+                Log($"临时封锁切断层内传送门路线，撤销 {dungeon.Blocked.Count} 个封锁并重新规划");
+                dungeon.Blocked.Clear();
+                plan = unblocked;
+            }
+        }
         if (plan.Interactions.Count == 0)
         {
             var unlockPlan = Planner.PlanToPortalUnlockMonster(dungeon.Map, dungeon.Blocked, dungeon.PortalUnlocks);
             if (unlockPlan.Route.Count < 2 && unlockPlan.Interactions.Count == 0) return false;
             route = unlockPlan.Route; plannedInteractions = unlockPlan.Interactions; plannedTargetUniverse = unlockPlan.TargetUniverse;
+            plannedWalkability = WalkabilitySnapshot(dungeon.Map);
+            plannedOptionsSignature = OptionsSignature(Options());
+            dungeon.Route.PlannedNavigationHash = dungeon.Route.Snapshot?.NavigationHash;
             dungeon.Route.PlannedRoadMonsters = [.. dungeon.Map.ByCell.Where(pair => Planner.HasRoadMonster(pair.Value)).Select(pair => pair.Key)];
             mapPanel.Route = route; mapPanel.Invalidate();
             var unlockTarget = unlockPlan.Interactions.FirstOrDefault().Target;
@@ -470,9 +486,15 @@ public sealed partial class MainForm
             return true;
         }
         route = plan.Route; plannedInteractions = plan.Interactions; plannedTargetUniverse = plan.TargetUniverse;
+        plannedWalkability = WalkabilitySnapshot(dungeon.Map);
+        plannedOptionsSignature = OptionsSignature(Options());
+        dungeon.Route.PlannedNavigationHash = dungeon.Route.Snapshot?.NavigationHash;
         dungeon.Route.PlannedRoadMonsters = [.. dungeon.Map.ByCell.Where(pair => Planner.HasRoadMonster(pair.Value)).Select(pair => pair.Key)];
         mapPanel.Route = route; mapPanel.Invalidate();
-        Log($"层内传送寻路：前往 {plan.Interactions[0].Target.Cell}，路线 {Math.Max(0, route.Count - 1)} 步，等待记录跳转边");
+        var portalCell = plan.Interactions[0].Target.Cell;
+        var portalRole = PortalRouting.Enumerate(dungeon.Map).FirstOrDefault(item => item.Cell == portalCell).Role;
+        var predicted = portalRole is null ? Array.Empty<Cell>() : dungeon.PortalJumps.CandidateTargets(dungeon.Map, portalCell, portalRole);
+        Log($"层内传送寻路：前往 {portalCell}，推断目标 {string.Join("、", predicted)}，路线 {Math.Max(0, route.Count - 1)} 步");
         State("前往层内传送门");
         return true;
     }
@@ -483,6 +505,7 @@ public sealed partial class MainForm
         // 只有 Explore 符合条件，因此活动中的传送门/转场阶段绝不会被随机移动替代。
         if (dungeon.Map is null || floorPhase != FloorPhase.Explore ||
             FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)) return false;
+        if (!Planner.HasReachableUnexplored(dungeon.Map, dungeon.Blocked)) return false;
         var origin = new Cell(dungeon.Map.Player.X, dungeon.Map.Player.Y);
         var candidates = new[] { new Cell(0, -1), new Cell(1, 0), new Cell(0, 1), new Cell(-1, 0) }
             .Select(delta => new Cell(origin.X + delta.X, origin.Y + delta.Y))
@@ -678,7 +701,8 @@ public sealed partial class MainForm
         var roadChanged = (changedRoadCells.Count > 0 || navigationChanged) && !expectedRoadUpdate || HasNewRoadMonsters(dungeon.Map);
         dungeon.ExpectedTaskRoadChanges.Clear();
         var optionsChanged = plannedOptionsSignature is not null && plannedOptionsSignature != optionSignature;
-        var newTargets = activeTargets.Where(target => !plannedTargetUniverse.Contains(target)).ToList();
+        var newTargets = Planner.ReachableTargets(dungeon.Map,
+            activeTargets.Where(target => !plannedTargetUniverse.Contains(target)).ToHashSet(), dungeon.Blocked);
         var canContinue = Planner.CanContinueRoute(dungeon.Map, route, player, dungeon.Blocked);
         if (!force && !roadChanged && !optionsChanged && newTargets.Count == 0 && canContinue)
         {

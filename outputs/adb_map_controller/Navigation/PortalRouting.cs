@@ -83,7 +83,65 @@ public static class PortalRouting
     public static IEnumerable<Cell> RoomPortalCells(MapDump map)
         => Enumerate(map).Where(item => IsRoomToRoom(item.Role) && !item.Role.Locked).Select(item => item.Cell).Distinct();
 
-    public static Cell? NearestRoomPortal(MapDump map, Cell origin, int maxDistance = 1)
+    /// <summary>
+    /// 不穿过传送门，对可行走格划分房间。门旁属于同一连通区域的门在同一个房间。
+    /// </summary>
+    public static IReadOnlyDictionary<Cell, HashSet<int>> RoomRegionsOfPortals(MapDump map)
+    {
+        var tiles = map.ByCell;
+        var portalCells = Enumerate(map).Where(item => IsRoomToRoom(item.Role))
+            .Select(item => item.Cell).ToHashSet();
+        var regions = new Dictionary<Cell, int>();
+        var directions = new[] { new Cell(1, 0), new Cell(-1, 0), new Cell(0, 1), new Cell(0, -1) };
+        var region = 0;
+        foreach (var (cell, tile) in tiles)
+        {
+            if (!tile.Walkable || portalCells.Contains(cell) || regions.ContainsKey(cell)) continue;
+            var pending = new Queue<Cell>();
+            pending.Enqueue(cell);
+            regions[cell] = region;
+            while (pending.TryDequeue(out var current))
+                foreach (var direction in directions)
+                {
+                    var next = new Cell(current.X + direction.X, current.Y + direction.Y);
+                    if (regions.ContainsKey(next) || portalCells.Contains(next) ||
+                        !tiles.TryGetValue(next, out var neighbour) || !neighbour.Walkable) continue;
+                    regions[next] = region;
+                    pending.Enqueue(next);
+                }
+            region++;
+        }
+        return portalCells.ToDictionary(portal => portal, portal => directions
+            .Select(direction => new Cell(portal.X + direction.X, portal.Y + direction.Y))
+            .Where(regions.ContainsKey).Select(cell => regions[cell]).ToHashSet());
+    }
+
+    /// <summary>只在不同房间的门之间按距离配对；每扇门最多属于一对。</summary>
+    public static IReadOnlyDictionary<Cell, Cell> NearestRoomPortalPairs(MapDump map)
+    {
+        var portals = Enumerate(map).Where(item => IsRoomToRoom(item.Role)).Select(item => item.Cell)
+            .Distinct().OrderBy(cell => cell.X).ThenBy(cell => cell.Y).ToArray();
+        var portalRegions = RoomRegionsOfPortals(map);
+        var pairs = new Dictionary<Cell, Cell>();
+        var candidates = (from first in Enumerable.Range(0, portals.Length)
+                          from second in Enumerable.Range(first + 1, portals.Length - first - 1)
+                          where portalRegions[portals[first]].Count > 0 && portalRegions[portals[second]].Count > 0 &&
+                                !portalRegions[portals[first]].Overlaps(portalRegions[portals[second]])
+                          select (First: portals[first], Second: portals[second],
+                              Distance: Math.Abs(portals[first].X - portals[second].X) +
+                                        Math.Abs(portals[first].Y - portals[second].Y)))
+            .OrderBy(pair => pair.Distance).ThenBy(pair => pair.First.X).ThenBy(pair => pair.First.Y)
+            .ThenBy(pair => pair.Second.X).ThenBy(pair => pair.Second.Y);
+        foreach (var pair in candidates)
+        {
+            if (pairs.ContainsKey(pair.First) || pairs.ContainsKey(pair.Second)) continue;
+            pairs[pair.First] = pair.Second;
+            pairs[pair.Second] = pair.First;
+        }
+        return pairs;
+    }
+
+    public static Cell? NearestRoomPortal(MapDump map, Cell origin, int maxDistance = 2)
     {
         var candidates = RoomPortalCells(map)
             .Select(cell => (Cell: cell, Distance: Math.Abs(cell.X - origin.X) + Math.Abs(cell.Y - origin.Y)))
@@ -150,16 +208,15 @@ public sealed class PortalJumpGraph
             ? targets.ToArray() : Array.Empty<Cell>();
 
     /// <summary>
-    /// 对随机房间传送门，在服务器响应让我们得知更小的边集合前，
-    /// 其它每个房间传送门都是有效的静态候选。
-    /// 固定房间传送门没有客户端可见的目标，因此只返回观察到的目的地。
+    /// 已观测的目标优先；未观测时采用距离最近的互斥配对作为推断目标。
     /// </summary>
     public IReadOnlyCollection<Cell> CandidateTargets(MapDump map, Cell source, RoleInfo role)
     {
         var observed = ObservedTargets(map, source);
         if (observed.Count > 0) return observed;
-        if (!PortalRouting.IsRandomRoomPortal(role)) return Array.Empty<Cell>();
-        return PortalRouting.RoomPortalCells(map).Where(cell => cell != source).ToArray();
+        if (!PortalRouting.IsRoomToRoom(role)) return Array.Empty<Cell>();
+        var pairs = PortalRouting.NearestRoomPortalPairs(map);
+        return pairs.TryGetValue(source, out var target) ? [target] : Array.Empty<Cell>();
     }
 
     public int EdgeCount(MapDump map)

@@ -34,6 +34,8 @@ public sealed class DungeonSession
     public long RoomPortalInteractionAt { get; set; }
     public TargetKey? PendingRoomPortal { get; set; }
     public Cell? RoomPortalOrigin { get; set; }
+    public long RoomPortalResumeAt { get; set; }
+    public Cell? RoomPortalSettlingCell { get; set; }
     public bool ShortcutDeferredByTargets { get; set; }
     public bool TargetFloorStopped { get; set; }
     public int FloorMiningCompletedLevel { get; set; } = -1;
@@ -69,6 +71,8 @@ public sealed class DungeonSession
         RoomPortalInteractionAt = 0;
         PendingRoomPortal = null;
         RoomPortalOrigin = null;
+        RoomPortalResumeAt = 0;
+        RoomPortalSettlingCell = null;
         ShortcutDeferredByTargets = false;
         TargetFloorStopped = false;
         FloorMiningCompletedLevel = -1;
@@ -98,6 +102,8 @@ public sealed class DungeonSession
         PendingRoomPortal = null;
         RoomPortalOrigin = null;
         RoomPortalInteractionAt = 0;
+        RoomPortalResumeAt = 0;
+        RoomPortalSettlingCell = null;
         PortalJumps.Clear();
         PortalUnlocks.Clear();
         MotionInterrupt.Clear();

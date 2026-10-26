@@ -6,21 +6,25 @@ namespace AdbMapController;
 
 public static class ConnectionPopupRecognition
 {
-    const double MinimumButtonScore = .80;
-
     public static bool IsCandidate(Bitmap frame)
     {
-        var templatePath = Path.Combine(AppContext.BaseDirectory, "templates", "ui", "connection-disconnect-confirm.png");
+        return MatchesButton(frame, "connection-idle-disconnect-x.png", 57, 37, .82) ||
+            MatchesButton(frame, "connection-disconnect-confirm.png", 134, 47, .80);
+    }
+
+    static bool MatchesButton(Bitmap frame, string filename, int designWidth, int designHeight, double minimumScore)
+    {
+        var templatePath = Path.Combine(AppContext.BaseDirectory, "templates", "ui", filename);
         if (!File.Exists(templatePath)) return false;
 
         using var scene = OpenCvImage.ToMat(frame);
         using var template = Cv2.ImRead(templatePath, ImreadModes.Color);
         if (scene.Empty() || template.Empty()) return false;
 
-        // The button is 134 x 47 in a 1280 x 720 capture.
+        // Both template dimensions are normalized to a 1280 x 720 capture.
         var scale = frame.Height / 720.0;
-        var width = Math.Max(4, (int)Math.Round(134 * scale));
-        var height = Math.Max(4, (int)Math.Round(47 * scale));
+        var width = Math.Max(4, (int)Math.Round(designWidth * scale));
+        var height = Math.Max(4, (int)Math.Round(designHeight * scale));
         var bounds = Rectangle.FromLTRB(
             (int)Math.Round(frame.Width * .40), (int)Math.Round(frame.Height * .55),
             (int)Math.Round(frame.Width * .60), (int)Math.Round(frame.Height * .72));
@@ -31,7 +35,7 @@ public static class ConnectionPopupRecognition
         using var roi = new Mat(scene, new Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height));
         using var response = roi.MatchTemplate(resized, TemplateMatchModes.CCoeffNormed);
         response.MinMaxLoc(out _, out var score, out _, out _);
-        return score >= MinimumButtonScore;
+        return score >= minimumScore;
     }
 
     public static bool IsDisconnectText(string? text)

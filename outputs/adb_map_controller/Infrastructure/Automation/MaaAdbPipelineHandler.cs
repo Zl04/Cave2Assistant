@@ -68,7 +68,11 @@ public sealed class MaaAdbPipelineHandler<TState> : IMaaPipelineHandler<TState>
             _ = PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, state.Log);
             throw;
         }
-        var evidencePath = state.SaveEvidence && task.SaveScreenshot
+        // A failed template/OCR recognition needs the exact frame that was inspected,
+        // even when routine evidence capture is disabled for this task or workflow.
+        var saveRecognitionFailure = !result.Hit && task.Algorithm is
+            MaaPipelineAlgorithm.MatchTemplate or MaaPipelineAlgorithm.OcrDetect;
+        var evidencePath = saveRecognitionFailure || state.SaveEvidence && task.SaveScreenshot
             ? PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, state.Log)
             : null;
         MaaRect? box = result.Box.IsEmpty

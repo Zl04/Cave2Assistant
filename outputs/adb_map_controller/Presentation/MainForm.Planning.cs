@@ -219,7 +219,7 @@ public sealed partial class MainForm
         => IsEscapeReturnFloor(map) || IsTargetStopFloor(map);
 
     bool ShouldReturnFromGreedySelection(MapDump map)
-        => !cardMiningTaskRunning && IsTargetStopFloor(map);
+        => !cardMiningTaskRunning && (IsEscapeReturnFloor(map) || IsTargetStopFloor(map));
 
     bool TargetFloorStopReady(MapDump map)
     {

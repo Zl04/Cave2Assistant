@@ -125,6 +125,7 @@ public sealed class MaaPipeline<TState>
                                 nextRateLimitMs = 0;
                                 break;
                             }
+                            lastFailureEvidencePath = outcome.EvidencePath;
                             var noMatch = "入口候选任务在重试后仍未命中";
                             EmitFailure(noMatch);
                             return new(MaaPipelineExecutionStatus.Failed, runId, lastTask, taskId, transitions, noMatch);
@@ -158,6 +159,7 @@ public sealed class MaaPipeline<TState>
         {
             var overall = System.Diagnostics.Stopwatch.StartNew();
             var retry = 0;
+            string? lastMissEvidencePath = null;
             while (true)
             {
                 foreach (var name in candidates)
@@ -189,7 +191,12 @@ public sealed class MaaPipeline<TState>
                         parentTask, retry, context.ExecutionCount, stopwatch.Elapsed, recognition.Matched, recognition.Score,
                         recognition.Box ?? task.Roi, recognition.Text, task.Action.ToString(), recognition.Detail, null,
                         recognition.EvidencePath, recognition.FrameId, candidates));
-                    if (!recognition.Matched) continue;
+                    if (!recognition.Matched)
+                    {
+                        if (!string.IsNullOrWhiteSpace(recognition.EvidencePath))
+                            lastMissEvidencePath = recognition.EvidencePath;
+                        continue;
+                    }
 
                     if (GetCount(task.Name) >= task.MaxTimes)
                     {
@@ -204,7 +211,7 @@ public sealed class MaaPipeline<TState>
                 }
 
                 if (timeoutMs >= 0 && overall.ElapsedMilliseconds >= timeoutMs)
-                    return new(MaaTaskRunKind.NoMatch, null, null);
+                    return new(MaaTaskRunKind.NoMatch, null, null, lastMissEvidencePath);
 
                 retry++;
                 Emit(new(MaaPipelineTraceKind.Retrying, runId, options.TaskChain, taskId, parentTask, null, retry, 0,
@@ -266,7 +273,8 @@ public sealed class MaaPipeline<TState>
                     if (child.Kind is MaaTaskRunKind.Failed or MaaTaskRunKind.NoMatch or MaaTaskRunKind.Interrupted)
                     {
                         if (!task.SubErrorIgnored)
-                            return FailNode(task, context, recognition, stopwatch.Elapsed, child.Error ?? $"子任务失败：{sub}");
+                            return FailNode(task, context, recognition, stopwatch.Elapsed,
+                                child.Error ?? $"子任务失败：{sub}", child.EvidencePath);
                     }
                 }
 
@@ -365,7 +373,8 @@ public sealed class MaaPipeline<TState>
             Interrupted
         }
 
-        sealed record MaaTaskRunOutcome(MaaTaskRunKind Kind, MaaPipelineTask? Task, string? Error);
+        sealed record MaaTaskRunOutcome(MaaTaskRunKind Kind, MaaPipelineTask? Task, string? Error,
+            string? EvidencePath = null);
 
     }
 }

@@ -215,11 +215,13 @@ public sealed partial class MainForm
             {
                 await operations.RunAsync(ControllerOperationKind.Entry, async token =>
                 {
+                    var completedTask = false;
                     for (var i = 0; i < scheduledTasks.Count; i++)
                     {
                         token.ThrowIfCancellationRequested();
                         var task = scheduledTasks[i];
                         if (singleTaskIndex is int target ? i != target : !task.TaskEnabled) continue;
+                        if (completedTask) await Task.Delay(TimeSpan.FromSeconds(3), token);
                         var config = ResolveTaskSettings(original, task);
                         activeTaskNumber = i + 1;
                         ClearStoppedAutomation();
@@ -232,6 +234,7 @@ public sealed partial class MainForm
                         {
                             await RunScheduledConnectionRecoveryAsync(config.ScheduledRecoveryStartAt, token);
                             lastEntryRunSucceeded = true;
+                            completedTask = true;
                             continue;
                         }
                         var retries = 0;
@@ -291,6 +294,7 @@ public sealed partial class MainForm
                             if (!lastEntryRunSucceeded) { State($"任务列表停止：第 {i + 1} 项未完成"); return; }
                             break;
                         }
+                        completedTask = true;
                     }
                     State("已启用的任务全部完成");
                 });

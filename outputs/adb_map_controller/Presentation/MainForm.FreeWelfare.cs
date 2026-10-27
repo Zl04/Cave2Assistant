@@ -36,7 +36,8 @@ public sealed partial class MainForm
                         case "MonthlyClaimGone": Log("福利活动：已确认月卡领取按钮消失"); break;
                         case "ClaimLifetimeCard": Log("福利活动：已点击终身卡领取按钮"); break;
                         case "LifetimeClaimGone": Log("福利活动：已确认终身卡领取按钮消失"); break;
-                        case "CloseWelfare": Log("福利活动：已点击右侧空白区域关闭界面"); break;
+                        case "CloseWelfare": Log($"福利活动：第 {value.ExecutionCount} 次点击右侧空白区域关闭界面"); break;
+                        case "WelfareClosed": Log("福利活动：已确认标题消失，界面关闭完成"); break;
                     }
                 }
                 else if (value.Kind is MaaPipelineTraceKind.NodeFailed or MaaPipelineTraceKind.TaskChainFailed)
@@ -57,6 +58,7 @@ public sealed partial class MainForm
                     "FreeGiftLimit" => "连续领取达到 8 次上限，未确认免费礼包结束",
                     "ValueTabLimit" => "连续点击后仍未确认超值礼包页签打开",
                     "PrivilegeTabLimit" => "连续点击后仍未确认特权礼包页签打开",
+                    "CloseWelfareLimit" => "多次点击关闭区域后仍能识别到福利活动标题",
                     _ => result.Error ?? $"Pipeline 状态：{result.Status}"
                 });
             var completed = trace.Events.Where(item => item.Kind == MaaPipelineTraceKind.NodeCompleted).ToArray();

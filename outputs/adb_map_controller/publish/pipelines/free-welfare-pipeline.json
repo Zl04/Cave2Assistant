@@ -80,6 +80,16 @@
   },
   "CloseWelfare": {
     "algorithm": "JustReturn", "handler": "WelfareAdb", "action": "ClickRect",
-    "specificRect": [1224, 342, 30, 30]
+    "specificRect": [1224, 342, 30, 30], "postDelay": 350,
+    "timeout": 1200, "rateLimit": 250, "maxTimes": 3,
+    "onErrorNext": ["CloseWelfare"], "exceededNext": ["CloseWelfareLimit"],
+    "next": ["WelfareClosed"]
+  },
+  "WelfareClosed": {
+    "algorithm": "Custom", "handler": "WelfareClaimStatus", "action": "DoNothing",
+    "roi": [159, 38, 261, 70]
+  },
+  "CloseWelfareLimit": {
+    "algorithm": "JustReturn", "handler": "WelfareAdb", "action": "Stop"
   }
 }

@@ -20,12 +20,18 @@ internal sealed class ConnectionRecoveryPipeline
             new MaaPipelineExecutionOptions { TaskChain = "ConnectionRecovery", RetryTimes = 0 });
     }
 
+    public async Task<bool> ClickDisconnectConfirmAsync(CancellationToken token)
+    {
+        var result = await pipeline.RunAsync(device, ["DisconnectConfirm"], token);
+        return result.Succeeded && result.LastTask == "DisconnectConfirm";
+    }
+
     public async Task<string?> ClickVisibleButtonAsync(bool includeLoginButton, CancellationToken token)
     {
         var result = await pipeline.RunAsync(device,
             includeLoginButton
-                ? ["DisconnectConfirm", "LoginButton", "StartGameButton"]
-                : ["DisconnectConfirm", "StartGameButton"], token);
+                ? ["LoginButton", "StartGameButton"]
+                : ["StartGameButton"], token);
         return result.Succeeded ? result.LastTask : null;
     }
 

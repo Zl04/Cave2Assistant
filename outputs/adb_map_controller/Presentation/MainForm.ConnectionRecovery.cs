@@ -120,6 +120,7 @@ public sealed partial class MainForm
             var deadline = Environment.TickCount64 + 120000;
             var readyFrames = 0;
             var startGameSeen = false;
+            var loginFlowSeen = false;
             (int SceneType, int TownMapId, int Level)? lastScene = null;
             long lastWaitingLogAt = 0;
             void ReportWaiting(string message)
@@ -150,9 +151,13 @@ public sealed partial class MainForm
                     await Task.Delay(500, token);
                     continue;
                 }
-                var button = await pipeline.IsGameReadyAsync(token)
-                    ? null
-                    : await pipeline.ClickVisibleButtonAsync(!startGameSeen, token);
+                // The settings icon remains visible behind the disconnect modal.
+                // Close the modal before treating that icon as proof the game is ready.
+                var button = !loginFlowSeen && await pipeline.ClickDisconnectConfirmAsync(token)
+                    ? "DisconnectConfirm"
+                    : null;
+                if (button is null && (!startGameSeen || !await pipeline.IsGameReadyAsync(token)))
+                    button = await pipeline.ClickVisibleButtonAsync(!startGameSeen, token);
                 if (button is null)
                 {
                     if (Environment.TickCount64 >= waitingForLoginUntil)
@@ -181,7 +186,7 @@ public sealed partial class MainForm
                                     readyFrames = 0;
                                     ReportWaiting($"等待新地图数据，旧时间戳={previousMapTimestamp}，当前={map.Timestamp}");
                                 }
-                                else if (await pipeline.IsGameReadyAsync(token))
+                                else if (startGameSeen && await pipeline.IsGameReadyAsync(token))
                                 {
                                     if (++readyFrames >= 2)
                                     {
@@ -215,6 +220,7 @@ public sealed partial class MainForm
                 waitingForLoginUntil = lastClickAt + (button == "DisconnectConfirm" ? 15000 : 3000);
                 readyFrames = 0;
                 lastScene = null;
+                if (button is "LoginButton" or "StartGameButton") loginFlowSeen = true;
                 if (button == "StartGameButton")
                 {
                     startGameSeen = true;

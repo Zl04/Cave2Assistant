@@ -221,7 +221,7 @@ public sealed partial class MainForm
                         token.ThrowIfCancellationRequested();
                         var task = scheduledTasks[i];
                         if (singleTaskIndex is int target ? i != target : !task.TaskEnabled) continue;
-                        if (completedTask) await Task.Delay(TimeSpan.FromSeconds(3), token);
+                        if (completedTask) await Task.Delay(TimeSpan.FromSeconds(1), token);
                         var config = ResolveTaskSettings(original, task);
                         activeTaskNumber = i + 1;
                         ClearStoppedAutomation();

@@ -200,7 +200,7 @@ public sealed partial class MainForm
                             context.State.Log($"已完成设定的{completedRuns}轮跑图，任务结束");
                             return MaaPipelineActionResult.Stop();
                         }
-                        if (completedRuns > 0) await Task.Delay(TimeSpan.FromSeconds(3), token);
+                        if (completedRuns > 0) await Task.Delay(TimeSpan.FromSeconds(1), token);
                         return MaaPipelineActionResult.Success();
                     }
                     return MaaPipelineActionResult.Failure($"未知的进图跑图任务：{context.TaskName}");

@@ -44,12 +44,16 @@ public sealed partial class MainForm
             }
             set = Math.Clamp(set, 1, 3);
             await adb.TapScreen((set == 1 ? 222d : set == 2 ? 287d : 353d) / 1004, 422d / 565);
-            await Task.Delay(450, token);
-            using (var dialog = await CaptureEquipmentFrameAsync(token))
+            var confirmVisible = false;
+            for (var check = 0; check < 6; check++)
             {
-                if (!IsEquipmentSwitchConfirmVisible(dialog))
-                    throw new InvalidOperationException("未检测到切换装备确认弹窗");
+                await Task.Delay(check == 0 ? 450 : 300, token);
+                using var dialog = await CaptureEquipmentFrameAsync(token);
+                if (!IsEquipmentSwitchConfirmVisible(dialog)) continue;
+                confirmVisible = true;
+                break;
             }
+            if (!confirmVisible) throw new InvalidOperationException("重试 6 次仍未检测到切换装备确认弹窗");
             await adb.TapScreen(592d / 1004, 361d / 565);
             await ConfirmEquipmentSwitchDialogClosedAsync(token);
             Log($"已确认切换装备方案{set}");

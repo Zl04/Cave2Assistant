@@ -15,6 +15,7 @@ internal sealed record TouchBackendInfo(string Name, int MaxX, int MaxY, int Max
 internal interface IAndroidTouchBackend : IDisposable
 {
     string Name { get; }
+    Action<string>? TimingLog { get; set; }
     Task<TouchBackendInfo> StartAsync(int screenWidth, int screenHeight, int orientation);
     Task TouchDownAsync((int X, int Y) point);
     Task TouchUpAsync();
@@ -30,6 +31,7 @@ internal interface IAndroidTouchBackend : IDisposable
 /// </summary>
 internal abstract class LineTouchBackend : IAndroidTouchBackend
 {
+    public Action<string>? TimingLog { get; set; }
     protected readonly Func<string[], Task<string>> RunAdb;
     protected readonly string Serial;
     protected readonly SemaphoreSlim WriteLock = new(1, 1);
@@ -56,13 +58,13 @@ internal abstract class LineTouchBackend : IAndroidTouchBackend
 
     protected async Task SendBatchAsync(params string[] commands)
     {
-        await WriteLock.WaitAsync();
+        await WriteLock.WaitAsync().ConfigureAwait(false);
         try
         {
             if (Writer is null) throw new IOException($"{Name} 触控进程未连接");
             foreach (var command in commands)
-                await Writer.WriteLineAsync(command);
-            await Writer.FlushAsync();
+                await Writer.WriteLineAsync(command).ConfigureAwait(false);
+            await Writer.FlushAsync().ConfigureAwait(false);
         }
         finally { WriteLock.Release(); }
     }
@@ -90,34 +92,40 @@ internal abstract class LineTouchBackend : IAndroidTouchBackend
 
     public async Task SwipeAsync((int X, int Y) from, (int X, int Y) to, int durationMs)
     {
+        var startedAt = Stopwatch.GetTimestamp();
+        long ElapsedMs() => (long)Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
         durationMs = Math.Clamp(durationMs, 1, 5000);
         var steps = Math.Clamp((int)Math.Ceiling(durationMs / 16d), 1, 320);
         var fromMapped = MapPoint(from);
 
-        await WriteLock.WaitAsync();
+        await WriteLock.WaitAsync().ConfigureAwait(false);
         try
         {
+            TimingLog?.Invoke($"脉冲后端：写入锁等待={ElapsedMs()}ms，设定按住={durationMs}ms，步数={steps}");
             if (Writer is null) throw new IOException($"{Name} 触控进程未连接");
-            await Writer.WriteLineAsync($"d 0 {fromMapped.X} {fromMapped.Y} 255");
-            await Writer.WriteLineAsync("c");
-            await Writer.FlushAsync();
+            await Writer.WriteLineAsync($"d 0 {fromMapped.X} {fromMapped.Y} 255").ConfigureAwait(false);
+            await Writer.WriteLineAsync("c").ConfigureAwait(false);
+            await Writer.FlushAsync().ConfigureAwait(false);
+            var downAt = ElapsedMs();
+            TimingLog?.Invoke($"脉冲后端：按下写入完成=+{downAt}ms");
 
             for (var step = 1; step <= steps; step++)
             {
-                await Task.Delay(Math.Max(1, durationMs / steps));
+                await Task.Delay(Math.Max(1, durationMs / steps)).ConfigureAwait(false);
                 var progress = step / (double)steps;
                 var point = (
                     X: (int)Math.Round(from.X + (to.X - from.X) * progress),
                     Y: (int)Math.Round(from.Y + (to.Y - from.Y) * progress));
                 var mapped = MapPoint(point);
-                await Writer.WriteLineAsync($"m 0 {mapped.X} {mapped.Y} 255");
-                await Writer.WriteLineAsync("c");
-                await Writer.FlushAsync();
+                await Writer.WriteLineAsync($"m 0 {mapped.X} {mapped.Y} 255").ConfigureAwait(false);
+                await Writer.WriteLineAsync("c").ConfigureAwait(false);
+                await Writer.FlushAsync().ConfigureAwait(false);
             }
 
-            await Writer.WriteLineAsync("u 0");
-            await Writer.WriteLineAsync("c");
-            await Writer.FlushAsync();
+            await Writer.WriteLineAsync("u 0").ConfigureAwait(false);
+            await Writer.WriteLineAsync("c").ConfigureAwait(false);
+            await Writer.FlushAsync().ConfigureAwait(false);
+            TimingLog?.Invoke($"脉冲后端：松开写入完成=+{ElapsedMs()}ms，写入后按住={ElapsedMs() - downAt}ms");
         }
         finally { WriteLock.Release(); }
     }

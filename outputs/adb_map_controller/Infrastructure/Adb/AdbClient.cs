@@ -31,6 +31,11 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
         get => screenAnalyzer.OcrTimingLog;
         set => screenAnalyzer.OcrTimingLog = value;
     }
+    internal Action<string>? TouchTimingLog
+    {
+        get => touchSession.TimingLog;
+        set => touchSession.TimingLog = value;
+    }
     int disposed;
 
     public string TouchDescription => touchSession.Description;

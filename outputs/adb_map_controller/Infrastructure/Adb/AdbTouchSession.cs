@@ -26,6 +26,17 @@ internal sealed class AdbTouchSession : IDisposable
     int maxContacts;
     string? backendDescription;
     int disposed;
+    Action<string>? timingLog;
+
+    public Action<string>? TimingLog
+    {
+        get => timingLog;
+        set
+        {
+            timingLog = value;
+            if (backend is not null) backend.TimingLog = value;
+        }
+    }
 
     public AdbTouchSession(AdbCommandTransport transport, Action serialChanged)
     {
@@ -116,6 +127,7 @@ internal sealed class AdbTouchSession : IDisposable
                 {
                     var info = await candidate.StartAsync(screenWidth, screenHeight, orientation).ConfigureAwait(false);
                     backend = candidate;
+                    backend.TimingLog = timingLog;
                     maxContacts = info.MaxContacts;
                     backendDescription = $"{info.Name} ({screenWidth}x{screenHeight}, Android API {androidSdk}, 触点 {info.MaxContacts})";
                     payloadsReady = true;

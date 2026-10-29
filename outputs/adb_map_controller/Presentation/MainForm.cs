@@ -147,6 +147,8 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         this.settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
         adb = runtime.Adb;
         touch = runtime.Touch;
+        touch.TimingLog = message => Log($"移动诊断：{message}");
+        adb.TouchTimingLog = message => Log($"移动诊断：{message}");
         movementExecution = new MovementExecution(dungeon.MotionInterrupt);
         routeExecutor = new RouteExecutor(adb, touch);
         pipelineWebServer = runtime.PipelineMonitor;

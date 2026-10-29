@@ -17,6 +17,7 @@ public sealed class TouchController(ITouchTransport transport) : IMovementInput,
     bool contactMayBeDown;
     int disposed;
     public event Action<Exception>? InputFailed;
+    public Action<string>? TimingLog { get; set; }
 
 
     public async Task TouchDown(Cell delta, CancellationToken cancellationToken = default)
@@ -62,16 +63,20 @@ public sealed class TouchController(ITouchTransport transport) : IMovementInput,
 
     public async Task PulseOneCell(Cell delta, int milliseconds, CancellationToken cancellationToken = default)
     {
+        var startedAt = Environment.TickCount64;
         await lifecycle.WaitAsync().ConfigureAwait(false);
         try
         {
+            TimingLog?.Invoke($"单格触摸：生命周期锁等待={Environment.TickCount64 - startedAt}ms，方向={delta}，设定按住={milliseconds}ms");
             ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
             await transport.EnsureTouchReady().ConfigureAwait(false);
             await ReleaseCore().ConfigureAwait(false);
+            TimingLog?.Invoke($"单格触摸：后端调用开始=+{Environment.TickCount64 - startedAt}ms");
             cancellationToken.ThrowIfCancellationRequested();
             var point = transport.TouchPoint(delta);
             contactMayBeDown = true;
             await transport.SendTouchPulse(point, Math.Max(1, milliseconds)).ConfigureAwait(false);
+            TimingLog?.Invoke($"单格触摸：后端调用完成=+{Environment.TickCount64 - startedAt}ms");
             contactMayBeDown = false;
             cancellationToken.ThrowIfCancellationRequested();
         }

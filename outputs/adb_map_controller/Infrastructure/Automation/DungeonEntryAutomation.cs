@@ -525,10 +525,19 @@ public sealed class DungeonEntryAutomation
 
             if (attempt == 3) break;
             state($"入口图标被角色遮挡，移动角色 ({attempt + 1}/3)");
-            await MoveTownPlayerSeveralCells(token);
+            try
+            {
+                await MoveTownPlayerSeveralCells(token);
+            }
+            catch (InvalidOperationException ex) when (!token.IsCancellationRequested)
+            {
+                log($"城镇角色移动已停止：{ex.Message}；继续查找入口");
+                await EnsureBastanMapOpen(token);
+                return;
+            }
             await EnsureBastanMapOpen(token);
         }
-        throw new InvalidOperationException("角色移动后仍未识别到共享入口图标，请检查地图页面或入口模板");
+        log("移动后仍未以高阈值识别到共享入口图标，继续搜索入口候选");
     }
 
     async Task MoveTownPlayerSeveralCells(CancellationToken token)
@@ -536,41 +545,66 @@ public sealed class DungeonEntryAutomation
         var map = await adb.ReadMap();
         if (map.SceneType != 1 || map.InBattle)
             throw new InvalidOperationException("当前不是可移动的巴萨坦主城状态，未执行角色移动");
-        var current = new Cell(map.Player.X, map.Player.Y);
+        // 城镇的普通洞窟入口（时光之门）使用 minimapType=13。
+        // 使用地图导出的入口格，而不是屏幕像素，避免不同分辨率下落点变化。
+        var entrances = map.ByCell
+            .Where(pair => pair.Value.Roles.Any(role => role.ClassName == "TriggerNpcData" && role.MinimapType == 13))
+            .Select(pair => pair.Key).ToArray();
+        if (entrances.Length != 1)
+            throw new InvalidOperationException($"无法唯一确定时光之门入口格（找到 {entrances.Length} 个），未执行角色移动");
+        var entrance = entrances[0];
+        var start = new Cell(map.Player.X, map.Player.Y);
+        var tiles = map.ByCell;
+        var directions = new[] { new Cell(1, 0), new Cell(0, 1), new Cell(-1, 0), new Cell(0, -1) };
+        var queue = new Queue<Cell>();
+        var previous = new Dictionary<Cell, Cell>();
+        queue.Enqueue(start);
+        previous[start] = start;
+        Cell? destination = null;
+        while (queue.Count > 0)
+        {
+            var cell = queue.Dequeue();
+            if (Math.Abs(cell.X - entrance.X) + Math.Abs(cell.Y - entrance.Y) == 4)
+            {
+                destination = cell;
+                break;
+            }
+            foreach (var direction in directions)
+            {
+                var next = new Cell(cell.X + direction.X, cell.Y + direction.Y);
+                if (previous.ContainsKey(next) || !tiles.TryGetValue(next, out var tile) || !tile.Walkable) continue;
+                previous[next] = cell;
+                queue.Enqueue(next);
+            }
+        }
+        if (destination is null)
+            throw new InvalidOperationException("时光之门入口周围没有可到达的四格落点，未执行角色移动");
+        var route = new List<Cell>();
+        for (var cursor = destination.Value; cursor != start; cursor = previous[cursor]) route.Add(cursor);
+        route.Reverse();
         await adb.PressBack();
         await Delay(token, 250);
-        // 与跑图相同：方向键单格脉冲，按游戏导出的坐标确认累计移动。
-        // 只要求下一格可走，不限制目的地周围的建筑。
-        var directions = new[] { new Cell(1, 0), new Cell(0, 1), new Cell(-1, 0), new Cell(0, -1) };
-        foreach (var direction in directions)
+        foreach (var next in route)
         {
-            var last = current;
-            for (var step = 0; step < 8; step++)
-            {
-                token.ThrowIfCancellationRequested();
-                var liveMap = await adb.ReadMap();
-                if (liveMap.SceneType != 1 || liveMap.InBattle)
-                    throw new InvalidOperationException("移动中已离开巴萨坦主城或进入战斗，已停止入口识别");
-                var position = new Cell(liveMap.Player.X, liveMap.Player.Y);
-                var next = new Cell(position.X + direction.X, position.Y + direction.Y);
-                if (!liveMap.ByCell.TryGetValue(next, out var tile) || !tile.Walkable) break;
-                var button = DirectionMapper.ButtonPosition(direction,
-                    liveMap.Confused, liveMap.Reversed, liveMap.ConfuseDirections);
-                var input = TouchCoordinateMapper.ButtonPositionToDelta(button);
-                await movement.PulseOneCell(input, pulseHoldMs, token);
-                await Delay(token, 100);
-                var status = await adb.ReadPlayer();
-                last = new Cell(status.Player.X, status.Player.Y);
-                var moved = Math.Abs(last.X - current.X) + Math.Abs(last.Y - current.Y);
-                if (moved >= 3)
-                {
-                    log($"巴萨坦角色移动结果：{current} -> {last}，位移 {moved} 格");
-                    return;
-                }
-            }
-            log($"巴萨坦方向 ({direction.X},{direction.Y}) 尝试后角色位于 {last}");
+            token.ThrowIfCancellationRequested();
+            var liveMap = await adb.ReadMap();
+            if (liveMap.SceneType != 1 || liveMap.InBattle)
+                throw new InvalidOperationException("移动中已离开巴萨坦主城或进入战斗，已停止入口识别");
+            var position = new Cell(liveMap.Player.X, liveMap.Player.Y);
+            var direction = new Cell(next.X - position.X, next.Y - position.Y);
+            if (Math.Abs(direction.X) + Math.Abs(direction.Y) != 1 ||
+                !liveMap.ByCell.TryGetValue(next, out var tile) || !tile.Walkable)
+                throw new InvalidOperationException("角色偏离时光之门四格落点路线，已停止移动");
+            var button = DirectionMapper.ButtonPosition(direction,
+                liveMap.Confused, liveMap.Reversed, liveMap.ConfuseDirections);
+            var input = TouchCoordinateMapper.ButtonPositionToDelta(button);
+            await movement.PulseOneCell(input, pulseHoldMs, token);
+            await Delay(token, 100);
+            var status = await adb.ReadPlayer();
+            if (new Cell(status.Player.X, status.Player.Y) != next)
+                throw new InvalidOperationException("角色未到达预期格子，已停止移动");
         }
-        throw new InvalidOperationException("方向键尝试四个方向后角色仍未移动三格，已停止入口识别");
+        log($"巴萨坦角色移动结果：{start} -> {destination.Value}，距时光之门入口 {entrance} 四格");
     }
 
     async Task SelectOriginalTrialOption(CancellationToken token)

@@ -315,10 +315,16 @@ public sealed partial class MainForm
             if (tab.Contains("水晶商店") && (goods.Contains("下次进货时间") || goods.Contains("级符文石礼包")))
             {
                 crystalReady = true;
-                var button = await GuildTextAsync(frame, 120, 470, 200, 70, token);
-                if (button.Contains("售罄")) { Log("公会水晶商店：免费商品已售罄，视为任务完成"); break; }
-                if (!button.Contains('0')) { Log($"公会水晶商店：免费按钮未识别，OCR={button}", LogLevel.Error); return false; }
-                await GuildClickTargetAsync("shop-free-button", token);
+                var freeButton = GuildFind(frame, "shop-free-button");
+                if (freeButton is null)
+                {
+                    var button = await GuildTextAsync(frame, 120, 470, 200, 70, token);
+                    if (button.Contains("售罄")) { Log("公会水晶商店：免费商品已售罄，视为任务完成"); break; }
+                    Log($"公会水晶商店：免费按钮和售罄文字均未识别，OCR={button}", LogLevel.Error);
+                    return false;
+                }
+                Log($"公会定位点击：shop-free-button，模板分数 {freeButton.Score:F3}，位置 ({freeButton.Center.X},{freeButton.Center.Y})");
+                await adb.TapScreen(freeButton.Center.X / (double)frame.Width, freeButton.Center.Y / (double)frame.Height);
                 var confirmClock = Stopwatch.StartNew();
                 var confirmedFree = false;
                 var dialog = string.Empty;

@@ -132,6 +132,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         "增益效果",
         "魔法材料",
         "回复药剂",
+        "逃脱卷轴",
         "道具",
         "物资",
         "锻造材料",

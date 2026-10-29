@@ -113,25 +113,22 @@ public static class PopupRecognition
         return hasReturn && !hasContinue;
     }
 
-    /// <summary>
-    /// Return-event cards use the red title ribbon, while a continue-event card
-    /// uses the plain title style. The three card regions are stable in the
-    /// game's greedy-selection layout, so this gives the caller the displayed
-    /// card indexes instead of assuming a return card has a fixed position.
-    /// </summary>
-    public static IReadOnlyList<int> FindGreedySelectionReturnCards(Bitmap source)
+    public static bool IsGreedySelectionReturnButton(string? text)
     {
-        if (source is null) throw new ArgumentNullException(nameof(source));
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        var normalized = NormalizeText(text);
+        return normalized.Contains("安全回城", StringComparison.Ordinal) ||
+            normalized.Contains("返回城镇", StringComparison.Ordinal) ||
+            normalized.Contains("特殊回城", StringComparison.Ordinal);
+    }
 
-        var cards = new List<int>();
-        foreach (var (center, index) in new[] { (.313, 0), (.500, 1), (.687, 2) })
-        {
-            var redTitleRatio = OpenCvPopupColorAnalysis.Ratio(source,
-                (center - .075, center + .075, .245, .330), PopupColorKind.RedWarning);
-            if (redTitleRatio >= .15) cards.Add(index);
-        }
-
-        return cards;
+    public static bool IsGreedySelectionContinueButton(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        var normalized = NormalizeText(text);
+        return normalized.Contains("前往下一层", StringComparison.Ordinal) ||
+            normalized.Contains("进入下一层", StringComparison.Ordinal) ||
+            normalized.Contains("继续探险", StringComparison.Ordinal);
     }
 
     public static bool IsNextFloorDialogText(string? text)

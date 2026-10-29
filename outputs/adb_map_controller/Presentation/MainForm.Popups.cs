@@ -14,26 +14,27 @@ namespace AdbMapController;
 public sealed partial class MainForm
 {
     async Task<(int Index, string Reward)> FindPreferredGreedyCardAsync(
-        IReadOnlyList<int> returnCards, bool chooseReturnCard, CancellationToken token)
+        IReadOnlyList<int> returnCards, IReadOnlyList<int> continueCards,
+        bool chooseReturnCard, CancellationToken token)
     {
         var cardTexts = await adb.ReadGreedyCardTextsAsync(token);
         Log($"贪婪抉择卡片识别：{string.Join("；", cardTexts.Select((value, index) => $"第 {index + 1} 张={PopupUiPipelineResult.SummarizeText(value)}"))}");
+        var candidates = (chooseReturnCard ? returnCards : continueCards).ToArray();
+        if (candidates.Length == 0)
+            candidates = (chooseReturnCard ? continueCards : returnCards).ToArray();
+        if (candidates.Length == 0)
+            candidates = Enumerable.Range(0, cardTexts.Count).ToArray();
+        Log($"贪婪抉择按钮识别：回城卡={string.Join(",", returnCards.Select(index => index + 1))}；下一层卡={string.Join(",", continueCards.Select(index => index + 1))}；本次候选={string.Join(",", candidates.Select(index => index + 1))}");
         foreach (var item in bonusPriority.Items)
         {
             var reward = item?.ToString();
             if (string.IsNullOrWhiteSpace(reward)) continue;
-            for (var index = 0; index < cardTexts.Count; index++)
+            foreach (var index in candidates)
             {
-                if (returnCards.Contains(index) != chooseReturnCard) continue;
                 if (cardTexts[index]?.Contains(reward, StringComparison.Ordinal) == true)
                     return (index, reward);
             }
         }
-        var candidates = Enumerable.Range(0, cardTexts.Count)
-            .Where(index => returnCards.Contains(index) == chooseReturnCard)
-            .ToArray();
-        if (candidates.Length == 0)
-            candidates = Enumerable.Range(0, cardTexts.Count).ToArray();
         var chosen = candidates[Random.Shared.Next(candidates.Length)];
         Log($"贪婪抉择未匹配到优先奖励，随机选择第 {chosen + 1} 张卡");
         return (chosen, "随机选择");
@@ -115,8 +116,10 @@ public sealed partial class MainForm
             // 3) 无红字提醒的“是否进入下一层？”。
             // 后两类虽然外观文本不同，但动作都是点击绿色对勾。
             var dialog = pendingNextFloorDialog;
+            var dialogFromPending = dialog != NextFloorDialogKind.None;
             var greedySelectionReturnOnly = pendingGreedySelectionReturnOnly;
             var greedySelectionReturnCards = pendingGreedySelectionReturnCards;
+            IReadOnlyList<int> greedySelectionContinueCards = Array.Empty<int>();
             pendingNextFloorDialog = NextFloorDialogKind.None;
             pendingGreedySelectionReturnOnly = false;
             pendingGreedySelectionReturnCards = Array.Empty<int>();
@@ -148,6 +151,7 @@ public sealed partial class MainForm
                     : NextFloorDialogKind.None;
                 greedySelectionReturnOnly = probe.GreedySelectionReturnOnly;
                 greedySelectionReturnCards = probe.GreedySelectionReturnCards;
+                greedySelectionContinueCards = probe.GreedySelectionContinueCards;
             }
             if (dialog is NextFloorDialogKind.WarningConfirm or NextFloorDialogKind.PlainConfirm)
             {
@@ -180,10 +184,10 @@ public sealed partial class MainForm
             if (dialog == NextFloorDialogKind.GreedySelection)
             {
                 var returnAtTargetFloor = dungeon.Map is not null && ShouldReturnFromGreedySelection(dungeon.Map);
-                if (returnAtTargetFloor && greedySelectionReturnCards.Count == 0)
+                if (dialogFromPending || returnAtTargetFloor && greedySelectionReturnCards.Count == 0)
                 {
                     // 看门狗锁存的帧可能正好处于入场动画；重新取一帧只为补充
-                    // 三张卡片中哪些是红色“回城”卡，不改变选择流程。
+                    // 三张卡片按钮属于回城还是下一层，不改变选择流程。
                     var cardProbeTask = adb.ProbeMovementPopupAsync(token,
                         message => Log($"换层弹窗诊断：第 {probeCount} 轮补充卡片识别，{message}"));
                     yield return cardProbeTask;
@@ -192,6 +196,7 @@ public sealed partial class MainForm
                     {
                         greedySelectionReturnOnly = cardProbe.GreedySelectionReturnOnly;
                         greedySelectionReturnCards = cardProbe.GreedySelectionReturnCards;
+                        greedySelectionContinueCards = cardProbe.GreedySelectionContinueCards;
                     }
                 }
                 if (returnAtTargetFloor && greedySelectionReturnCards.Count == 0)
@@ -202,7 +207,8 @@ public sealed partial class MainForm
                     selection = (greedySelectionReturnCards[0], "回城");
                 else
                 {
-                    var selectionTask = FindPreferredGreedyCardAsync(greedySelectionReturnCards, returnAtTargetFloor, token);
+                    var selectionTask = FindPreferredGreedyCardAsync(greedySelectionReturnCards,
+                        greedySelectionContinueCards, returnAtTargetFloor, token);
                     yield return selectionTask;
                     selection = selectionTask.GetAwaiter().GetResult();
                 }
@@ -212,8 +218,8 @@ public sealed partial class MainForm
                 var selectTask = adb.TapScreen(cardIndex switch { 1 => 0.50, 2 => 0.6875, _ => 0.3125 }, 0.657);
                 yield return selectTask;
                 Log($"换层弹窗诊断：卡片点击={actionTimer.ElapsedMilliseconds}ms，距入口点击/交互={(portalInteractionAt > 0 ? Environment.TickCount64 - portalInteractionAt : -1)}ms");
-                var selectedReturnCard = greedySelectionReturnOnly ||
-                    (returnAtTargetFloor && greedySelectionReturnCards.Contains(cardIndex));
+                var selectedReturnCard = greedySelectionReturnCards.Contains(cardIndex) ||
+                    greedySelectionReturnOnly;
                 if (selectedReturnCard)
                 {
                     Log(returnAtTargetFloor

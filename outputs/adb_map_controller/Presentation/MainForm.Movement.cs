@@ -338,13 +338,14 @@ public sealed partial class MainForm
                     Log("指定层未识别到回城卡，随机选择一张卡继续");
                 var selection = returnAtTargetFloor && probe.GreedySelectionReturnCards.Count == 1
                     ? (Index: probe.GreedySelectionReturnCards[0], Reward: "回城")
-                    : await FindPreferredGreedyCardAsync(probe.GreedySelectionReturnCards, returnAtTargetFloor, token);
+                    : await FindPreferredGreedyCardAsync(probe.GreedySelectionReturnCards,
+                        probe.GreedySelectionContinueCards, returnAtTargetFloor, token);
                 var cardIndex = selection.Index;
                 var preferred = selection.Reward;
                 await adb.TapScreenSecondary(cardIndex switch { 1 => 0.50, 2 => 0.6875, _ => 0.3125 }, 0.657);
                 Log($"独立弹窗监控：已点击第 {cardIndex + 1} 张贪婪卡（{preferred}），移动路线未修改");
                 if (probe.GreedySelectionReturnOnly ||
-                    (returnAtTargetFloor && probe.GreedySelectionReturnCards.Contains(cardIndex)))
+                    probe.GreedySelectionReturnCards.Contains(cardIndex))
                     floorPhase = FloorPhase.WaitingReturnTown;
                 return true;
             }

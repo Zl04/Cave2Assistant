@@ -176,6 +176,22 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
         return result;
     }
 
+    async Task<(IReadOnlyList<int> ReturnCards, IReadOnlyList<int> ContinueCards)> ReadGreedySelectionButtonsAsync(Bitmap frame, CancellationToken token)
+    {
+        var returnCards = new List<int>();
+        var continueCards = new List<int>();
+        var centers = new[] { .3125, .5, .6875 };
+        for (var index = 0; index < centers.Length; index++)
+        {
+            var buttonText = await screenAnalyzer.ReadScreenTextAsync(frame,
+                (centers[index] - .075, centers[index] + .075, .60, .72),
+                $"贪婪抉择第 {index + 1} 张卡片按钮", token);
+            if (PopupRecognition.IsGreedySelectionReturnButton(buttonText)) returnCards.Add(index);
+            else if (PopupRecognition.IsGreedySelectionContinueButton(buttonText)) continueCards.Add(index);
+        }
+        return (returnCards, continueCards);
+    }
+
     public async Task<bool> HasNextFloorButton()
     {
         using var bitmap = await CaptureScreenAsync("无法截取设备屏幕");
@@ -289,9 +305,12 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
                 prioritizeNextFloor: prioritizeNextFloor)
             .RunAsync(frame, frameId, token);
         var isGreedySelection = nextFloorDialog == NextFloorDialogKind.GreedySelection;
+        var buttons = isGreedySelection
+            ? await ReadGreedySelectionButtonsAsync(frame, token)
+            : (ReturnCards: (IReadOnlyList<int>)Array.Empty<int>(), ContinueCards: (IReadOnlyList<int>)Array.Empty<int>());
         return new PopupUiPipelineResult(pipeline, nextFloorDialog, nextFloorDialogBody,
             isGreedySelection && PopupRecognition.IsGreedySelectionReturnOnly(nextFloorDialogBody),
-            isGreedySelection ? PopupRecognition.FindGreedySelectionReturnCards(frame) : Array.Empty<int>(),
+            buttons.ReturnCards, buttons.ContinueCards,
             riftGemTitle, nextFloorDialogTitle);
     }
 

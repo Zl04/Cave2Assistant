@@ -18,6 +18,7 @@ internal sealed record PopupUiPipelineResult(
     string? NextFloorDialogBodyText,
     bool GreedySelectionReturnOnly,
     IReadOnlyList<int> GreedySelectionReturnCards,
+    IReadOnlyList<int> GreedySelectionContinueCards,
     string? RiftGemTitleText,
     string? NextFloorDialogTitleText)
 {

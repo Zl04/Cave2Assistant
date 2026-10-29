@@ -25,8 +25,7 @@ public sealed partial class MainForm
                 new MaaPipelineTraceMultiplexer([trace, pipelineWebServer]));
             var result = await pipeline.RunAsync(state, ["OpenSignIn"], token);
             var tracePath = runtime.Paths.Trace($"daily-sign-in-{result.RunId}.json");
-            trace.SaveJson(tracePath);
-            Log($"每日签到：Pipeline 跟踪日志已保存至 {tracePath}");
+            if (trace.SaveJson(tracePath)) Log($"每日签到：Pipeline 跟踪日志已保存至 {tracePath}");
             token.ThrowIfCancellationRequested();
 
             foreach (var completed in trace.Events.Where(item => item.Kind == MaaPipelineTraceKind.NodeCompleted))
@@ -50,8 +49,13 @@ public sealed partial class MainForm
                 };
                 if (message is not null) Log($"每日签到：{message}");
             }
-            if (!result.Succeeded)
+            var closeAttempted = trace.Events.Any(item =>
+                item.Kind == MaaPipelineTraceKind.NodeCompleted && item.TaskName == "CloseSignIn");
+            var closeVerificationFailed = !result.Succeeded && closeAttempted && result.LastTask == "CloseSignIn";
+            if (!result.Succeeded && !closeVerificationFailed)
                 throw new InvalidOperationException($"Pipeline 状态：{result.Status}，最后节点：{result.LastTask}，原因：{result.Error ?? "未知"}");
+            if (closeVerificationFailed)
+                Log($"每日签到：奖励检查已完成，但未能确认签到页关闭（{result.Error ?? "未知"}）；继续执行后续任务", LogLevel.Warning);
 
             var claimed = trace.Events.Any(item =>
                 item.Kind == MaaPipelineTraceKind.NodeCompleted && item.TaskName == "FindClaimableReward");
@@ -60,7 +64,7 @@ public sealed partial class MainForm
             if (!claimed) Log("每日签到：采样期间未发现可领取的高亮奖励");
             Log($"每日签到：累计奖励已领取 {cumulativeCount} 项");
             lastEntryRunSucceeded = true;
-            State(claimed || cumulativeCount > 0
+            State(closeVerificationFailed ? "每日签到奖励检查完成：关闭状态待确认，继续后续任务" : claimed || cumulativeCount > 0
                 ? $"每日签到完成：每日奖励 {(claimed ? "已领取" : "无需领取")}，累计奖励 {cumulativeCount} 项"
                 : "每日签到完成：当前没有可领取奖励");
         }

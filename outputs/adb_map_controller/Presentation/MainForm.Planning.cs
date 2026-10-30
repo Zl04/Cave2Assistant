@@ -150,19 +150,23 @@ public sealed partial class MainForm
     {
         if (dungeon.Map?.MapName != "神秘商人") ignoredDirectBossTargets.Clear();
         var includeAll = dungeon.Map is not null && FloorPlanningPolicy.IncludeAllInteractions(dungeon.Map);
+        var abyss = dungeon.Map is not null && AbyssRoutePlanner.IsAbyss(dungeon.Map);
         return new PlanOptions
         {
             // 6101 是纯战斗房间。该楼型不依赖用户的“全清小怪/清除精英”勾选，
             // 进入后统一交给怪物追猎规划器；普通楼层仍完全遵循 UI 选项。
             AttackBoss = (dungeon.Map is not null && IsEscapeReturnFloor(dungeon.Map)
                     ? escapeReturnAttackBoss.Checked : includeAll || attackBoss.Checked) ||
-                (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
+                (dungeon.Map is not null && (FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map) ||
+                    AbyssRoutePlanner.IsAbyss(dungeon.Map))),
             DirectBossNpc = directBossNpc.Checked,
             IgnoredTargets = ignoredDirectBossTargets.Concat(dungeon.StalledMechanisms.Concat(dungeon.PendingMechanismPasses.Keys)
                 .Select(cell => new TargetKey(cell, "机关"))).ToHashSet(),
-            Monsters = includeAll || monsters.Checked ||
-                (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
-            Elites = includeAll || elites.Checked || (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
+            Monsters = !abyss && (includeAll || monsters.Checked ||
+                (dungeon.Map is not null && FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map))),
+            Elites = abyss ? AbyssRoutePlanner.ShouldSelectElite(dungeon.Map!) :
+                includeAll || elites.Checked || (dungeon.Map is not null &&
+                    FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)),
             WoodChests = includeAll || woodChests.Checked,
             OtherChests = includeAll || otherChests.Checked,
             Pots = includeAll || pots.Checked,
@@ -191,6 +195,10 @@ public sealed partial class MainForm
 
     HashSet<TargetKey> ReachableActiveTargets(MapDump map, PlanOptions options)
         => Planner.ReachableTargets(map, ActiveTargets(map, options), dungeon.Blocked);
+
+    bool HasUntriedRoomPortal(MapDump map)
+        => PortalRouting.RoomPortalCells(map).Any(cell =>
+            !dungeon.AttemptedRoomPortals.Contains(cell) && !dungeon.PortalJumps.IsObservedLandingPortal(map, cell));
 
     bool IsTargetStopFloor(MapDump map)
     {
@@ -267,7 +275,7 @@ public sealed partial class MainForm
             (HasTarget(task.Target) || PortalRouting.IsPortalKind(task.Target.Kind)));
     void ArmRoomPortalTransition()
     {
-        if (dungeon.Map is null || dungeon.PendingRoomPortal is not null || route.Count < 2) return;
+        if (dungeon.Map is null || !AbyssRoutePlanner.IsAbyss(dungeon.Map) || dungeon.PendingRoomPortal is not null || route.Count < 2) return;
         var current = new Cell(dungeon.Map.Player.X, dungeon.Map.Player.Y);
         var task = plannedInteractions.FirstOrDefault(value => value.Target.Kind == "秘境传送门" &&
             value.Stop != current && route.Contains(value.Stop));
@@ -278,7 +286,7 @@ public sealed partial class MainForm
         Log($"已记录即将进入的层内传送门：{task.Target.Cell}，从 {current} 出发");
     }
     bool IsRoomPortalTarget(TargetKey target)
-        => dungeon.Map is not null && dungeon.Map.ByCell.TryGetValue(target.Cell, out var tile) &&
+        => dungeon.Map is not null && AbyssRoutePlanner.IsAbyss(dungeon.Map) && dungeon.Map.ByCell.TryGetValue(target.Cell, out var tile) &&
            tile.Roles.Any(role => role.Kind == target.Kind && PortalRouting.IsRoomToRoom(role));
     void ReconcileCompletedTasks()
     {
@@ -310,7 +318,9 @@ public sealed partial class MainForm
         // 即使仍有未发现的可通行格，也可以使用楼层入口。
         // 导出的地图中可能仍存在过期或被阻塞的角色；当不存在可到达的交互停靠点时，
         // 它不是真正的前置条件。
-        if (ReachableActiveTargets(map, Options()).Count > 0) return false;
+        if (ReachableActiveTargets(map, Options()).Any(target =>
+            !AbyssRoutePlanner.IsAbyss(map) || target.Kind != "精英")) return false;
+        // 深渊当前房间已有可达楼梯时立即下楼；层内传送与巡查只用于寻找尚不可达的楼梯。
         return true;
     }
 
@@ -380,7 +390,8 @@ public sealed partial class MainForm
         }
 
         var portal = map.Tiles.SelectMany(r => r)
-            .SelectMany(t => t.Roles.Where(PortalRouting.IsFloorTransition)
+            .SelectMany(t => t.Roles.Where(r => PortalRouting.IsFloorTransition(r) &&
+                (!AbyssRoutePlanner.IsAbyss(map) || !r.Locked))
                 .Select(r => new TargetKey(new Cell(t.X, t.Y), r.Kind)))
             .OrderBy(t => Math.Abs(t.Cell.X - map.Player.X) + Math.Abs(t.Cell.Y - map.Player.Y))
             .FirstOrDefault();
@@ -395,6 +406,29 @@ public sealed partial class MainForm
         {
             floorPhase = BossSealPolicy.IsActive(map) && !map.BossSeal.Ready ? FloorPhase.CollectWarning : FloorPhase.Explore;
             return false;
+        }
+        if (AbyssRoutePlanner.IsAbyss(map))
+        {
+            var directExit = Planner.PlanToPortal(map, dungeon.Blocked, !Options().Monsters);
+            if (directExit.Interactions.Count == 0 && dungeon.Blocked.Count > 0)
+            {
+                var withoutTemporaryBlocks = Planner.PlanToPortal(map, avoidMonsters: !Options().Monsters);
+                if (withoutTemporaryBlocks.Interactions.Count > 0)
+                {
+                    Log($"临时封锁切断下层出口路线，撤销 {dungeon.Blocked.Count} 个封锁");
+                    dungeon.Blocked.Clear();
+                    directExit = withoutTemporaryBlocks;
+                }
+            }
+            if (directExit.Interactions.Count == 0)
+            {
+                // 深渊的出口可出现在另一个房间；先通过层内门返回出口所在房间。
+                if (floorPhase is FloorPhase.GoToPortal or FloorPhase.ConfirmPortal)
+                    Log("下层出口位于其他房间，改走层内传送门返回出口所在房间");
+                dungeon.PortalCandidate = null; dungeon.PortalConfirmCount = 0;
+                floorPhase = FloorPhase.Explore;
+                return false;
+            }
         }
         if (dungeon.PortalConfirmCount < 2) { floorPhase = FloorPhase.ConfirmPortal; return false; }
         if (floorPhase is not (FloorPhase.GoToPortal or FloorPhase.InteractPortal or FloorPhase.SelectBonus or FloorPhase.VerifyTransition))
@@ -420,48 +454,125 @@ public sealed partial class MainForm
             (BossSealPolicy.IsActive(map) && !map.BossSeal.Ready && !options.Monsters && map.BossSeal.WakeScore > map.BossSeal.CurScore);
     }
 
-    static bool HasMapDownstairsEntrance(MapDump map)
-        => map.Tiles.SelectMany(row => row).SelectMany(tile => tile.Roles)
-            .Any(PortalRouting.IsFloorTransition);
-
-    bool TryPlanExplorationRoute()
+    bool TryPlanAbyssFallbackRoute()
     {
-        if (dungeon.Map is null || floorPhase != FloorPhase.Explore ||
-            FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)) return false;
-        var map = dungeon.Map;
-        var options = Options();
-        var plan = Planner.PlanExploration(map, options.VisionRadius, dungeon.Blocked, !options.Monsters);
-        if (plan.Route.Count < 2) return false;
+        if (dungeon.Map is null || !AbyssRoutePlanner.IsAbyss(dungeon.Map)) return false;
+        // 巡查由主循环在所有正常路线及下层快捷入口均不可用后单独尝试。
+        var hasUntriedPortal = HasUntriedRoomPortal(dungeon.Map);
+        return hasUntriedPortal && TryPlanRoomPortalRoute() ||
+            TryPlanExplorationRoute() ||
+            !hasUntriedPortal && TryPlanRoomPortalRoute();
+    }
 
+    void ApplyAbyssRoutePlan(MapDump map, PlanOptions options, RoutePlan plan, bool clearExpectedRoadChanges = false)
+    {
         route = plan.Route;
-        plannedInteractions = [];
-        // 当这条路线只用于揭示地图时，保持目标集合为空。
-        // 新出现且已勾选的目标必须在下一次刷新时触发正常的完整规划，
-        // 而不能被探索流程隐藏。
-        plannedTargetUniverse = [];
+        plannedInteractions = plan.Interactions;
+        plannedTargetUniverse = plan.TargetUniverse;
         plannedWalkability = WalkabilitySnapshot(map);
         plannedOptionsSignature = OptionsSignature(options);
         dungeon.Route.PlannedNavigationHash = dungeon.Route.Snapshot?.NavigationHash;
         dungeon.Route.PlannedRoadMonsters = [.. map.ByCell.Where(pair => Planner.HasRoadMonster(pair.Value)).Select(pair => pair.Key)];
-        dungeon.ExpectedTaskRoadChanges.Clear();
+        if (clearExpectedRoadChanges) dungeon.ExpectedTaskRoadChanges.Clear();
         mapPanel.Route = route;
         mapPanel.Invalidate();
+    }
+
+    bool TryPlanExplorationRoute()
+    {
+        if (dungeon.Map is null || floorPhase is not (FloorPhase.Explore or FloorPhase.CollectWarning) ||
+            !AbyssRoutePlanner.IsAbyss(dungeon.Map)) return false;
+        var map = dungeon.Map;
+        var options = Options();
+        var plan = AbyssRoutePlanner.PlanExploration(map, dungeon.Blocked, !options.Monsters);
+        if (plan.Route.Count < 2) return false;
+
+        // 当这条路线只用于揭示地图时，保持目标集合为空。
+        // 新出现且已勾选的目标必须在下一次刷新时触发正常的完整规划，
+        // 而不能被探索流程隐藏。
+        ApplyAbyssRoutePlan(map, options, plan, clearExpectedRoadChanges: true);
         Log($"无可达勾选目标且没有下楼入口，直接探索地图：{route.Count - 1} 步，寻找勾选目标");
         State("探索地图，寻找勾选目标");
         return true;
     }
 
-    bool TryPlanRoomPortalRoute()
+    bool TryPlanRoomSurveyRoute()
     {
-        if (dungeon.Map is null || floorPhase != FloorPhase.Explore || HasMapDownstairsEntrance(dungeon.Map) ||
-            dungeon.PendingRoomPortal is not null) return false;
-        var targets = ActiveTargets(dungeon.Map, Options());
-        var plan = Planner.PlanToRoomPortal(dungeon.Map, dungeon.Blocked, !Options().Monsters,
-            dungeon.AttemptedRoomPortals, dungeon.PortalJumps, targets);
+        if (dungeon.Map is null || floorPhase is not (FloorPhase.Explore or FloorPhase.CollectWarning) ||
+            !AbyssRoutePlanner.IsAbyss(dungeon.Map)) return false;
+        var map = dungeon.Map;
+        var options = Options();
+        var plan = AbyssRoutePlanner.PlanRoomSurvey(map, dungeon.RoomSurveyCoverage, dungeon.Blocked, !options.Monsters);
+        if (plan.Route.Count < 2) return false;
+        ApplyAbyssRoutePlan(map, options, plan);
+        Log($"巡查已探索房间的偏僻位置：{route.Count - 1} 步，靠近后刷新隐藏内容");
+        State("巡查房间，等待隐藏内容出现");
+        return true;
+    }
+
+    bool TryPlanRoomSurveyPortalRoute()
+    {
+        if (dungeon.Map is null || floorPhase is not (FloorPhase.Explore or FloorPhase.CollectWarning) ||
+            !AbyssRoutePlanner.IsAbyss(dungeon.Map) || dungeon.PendingRoomPortal is not null)
+            return false;
+        var map = dungeon.Map;
+        var options = Options();
+        var plan = AbyssRoutePlanner.PlanToSurveyRoomPortal(map, dungeon.RoomSurveyCoverage,
+            dungeon.Blocked, dungeon.AttemptedRoomPortals, dungeon.PortalJumps, !options.Monsters);
         if (plan.Interactions.Count == 0 && dungeon.Blocked.Count > 0)
         {
-            var unblocked = Planner.PlanToRoomPortal(dungeon.Map, null, !Options().Monsters,
-                dungeon.AttemptedRoomPortals, dungeon.PortalJumps, targets);
+            var unblocked = AbyssRoutePlanner.PlanToSurveyRoomPortal(map, dungeon.RoomSurveyCoverage,
+                null, dungeon.AttemptedRoomPortals, dungeon.PortalJumps, !options.Monsters);
+            if (unblocked.Interactions.Count > 0)
+            {
+                Log($"临时封锁切断跨房间巡查路线，撤销 {dungeon.Blocked.Count} 个封锁");
+                dungeon.Blocked.Clear();
+                plan = unblocked;
+            }
+        }
+        if (plan.Interactions.Count == 0) return false;
+        ApplyAbyssRoutePlan(map, options, plan);
+        Log($"跨房间巡查：前往层内传送门 {plan.Interactions[0].Target.Cell}，路线 {Math.Max(0, route.Count - 1)} 步");
+        State("前往尚未巡查的房间");
+        return true;
+    }
+
+    bool TryPlanRoomPortalRoute()
+    {
+        if (dungeon.Map is null || floorPhase is not (FloorPhase.Explore or FloorPhase.CollectWarning) ||
+            !AbyssRoutePlanner.IsAbyss(dungeon.Map)) return false;
+        if (dungeon.PendingRoomPortal is { } pendingPortal && dungeon.RoomPortalInteractionAt == 0 &&
+            !route.Contains(pendingPortal.Cell) &&
+            !plannedInteractions.Any(task => task.Target == pendingPortal))
+        {
+            // 入口尚未触发且原路线已被重新规划覆盖，允许重新选择该门。
+            dungeon.PendingRoomPortal = null;
+            dungeon.RoomPortalOrigin = null;
+            Log($"层内传送门 {pendingPortal.Cell} 尚未触发，恢复传送门规划");
+        }
+        if (dungeon.PendingRoomPortal is not null) return false;
+        var options = Options();
+        var targets = ActiveTargets(dungeon.Map, options);
+        // 已知的小 Boss 和楼梯决定跨房间方向，避免普通收集目标抢占传送门。
+        var priorityTargets = dungeon.Map.Tiles.SelectMany(row => row)
+            .SelectMany(tile => tile.Roles.Where(role =>
+                role.Kind == "小Boss" && Planner.IsBossAttackable(dungeon.Map, role) ||
+                PortalRouting.IsFloorTransition(role) && !role.Locked)
+                .Select(role => new TargetKey(new Cell(tile.X, tile.Y), role.Kind)))
+            .ToHashSet();
+        if (priorityTargets.Count > 0) targets = priorityTargets;
+        if (targets.Count == 0 && !HasUntriedRoomPortal(dungeon.Map))
+            foreach (var tile in dungeon.Map.Tiles.SelectMany(row => row))
+                foreach (var role in tile.Roles.Where(role => PortalRouting.IsFloorTransition(role) && !role.Locked))
+                    targets.Add(new TargetKey(new Cell(tile.X, tile.Y), role.Kind));
+        var plan = AbyssRoutePlanner.PlanToRoomPortal(dungeon.Map, dungeon.Blocked, !options.Monsters,
+            dungeon.AttemptedRoomPortals, dungeon.PortalJumps, targets,
+            requireTargetProgress: targets.Count > 0);
+        if (plan.Interactions.Count == 0 && dungeon.Blocked.Count > 0)
+        {
+            var unblocked = AbyssRoutePlanner.PlanToRoomPortal(dungeon.Map, null, !options.Monsters,
+                dungeon.AttemptedRoomPortals, dungeon.PortalJumps, targets,
+                requireTargetProgress: targets.Count > 0);
             if (unblocked.Interactions.Count > 0)
             {
                 Log($"临时封锁切断层内传送门路线，撤销 {dungeon.Blocked.Count} 个封锁并重新规划");
@@ -471,30 +582,28 @@ public sealed partial class MainForm
         }
         if (plan.Interactions.Count == 0)
         {
-            var unlockPlan = Planner.PlanToPortalUnlockMonster(dungeon.Map, dungeon.Blocked, dungeon.PortalUnlocks);
+            var unlockPlan = AbyssRoutePlanner.PlanToUnlockMonster(dungeon.Map, dungeon.Blocked, dungeon.PortalUnlocks);
             if (unlockPlan.Route.Count < 2 && unlockPlan.Interactions.Count == 0) return false;
-            route = unlockPlan.Route; plannedInteractions = unlockPlan.Interactions; plannedTargetUniverse = unlockPlan.TargetUniverse;
-            plannedWalkability = WalkabilitySnapshot(dungeon.Map);
-            plannedOptionsSignature = OptionsSignature(Options());
-            dungeon.Route.PlannedNavigationHash = dungeon.Route.Snapshot?.NavigationHash;
-            dungeon.Route.PlannedRoadMonsters = [.. dungeon.Map.ByCell.Where(pair => Planner.HasRoadMonster(pair.Value)).Select(pair => pair.Key)];
-            mapPanel.Route = route; mapPanel.Invalidate();
+            ApplyAbyssRoutePlan(dungeon.Map, options, unlockPlan);
             var unlockTarget = unlockPlan.Interactions.FirstOrDefault().Target;
             var unlockKind = string.IsNullOrWhiteSpace(unlockTarget.Kind) ? "小怪" : unlockTarget.Kind;
             Log($"层内传送门仍锁定，先规划击败 {unlockKind} {unlockTarget.Cell}");
             State("前往小怪解锁传送门");
             return true;
         }
-        route = plan.Route; plannedInteractions = plan.Interactions; plannedTargetUniverse = plan.TargetUniverse;
-        plannedWalkability = WalkabilitySnapshot(dungeon.Map);
-        plannedOptionsSignature = OptionsSignature(Options());
-        dungeon.Route.PlannedNavigationHash = dungeon.Route.Snapshot?.NavigationHash;
-        dungeon.Route.PlannedRoadMonsters = [.. dungeon.Map.ByCell.Where(pair => Planner.HasRoadMonster(pair.Value)).Select(pair => pair.Key)];
-        mapPanel.Route = route; mapPanel.Invalidate();
+        ApplyAbyssRoutePlan(dungeon.Map, options, plan);
         var portalCell = plan.Interactions[0].Target.Cell;
         var portalRole = PortalRouting.Enumerate(dungeon.Map).FirstOrDefault(item => item.Cell == portalCell).Role;
         var predicted = portalRole is null ? Array.Empty<Cell>() : dungeon.PortalJumps.CandidateTargets(dungeon.Map, portalCell, portalRole);
-        Log($"层内传送寻路：前往 {portalCell}，推断目标 {string.Join("、", predicted)}，路线 {Math.Max(0, route.Count - 1)} 步");
+        var connection = predicted.Count == 0 ? "目标尚未显现" :
+            portalRole?.IsRandomTransfer == true ? $"随机门历史落点 {string.Join("、", predicted)}" :
+            dungeon.PortalJumps.IsConfirmedConnection(dungeon.Map, portalCell, predicted.First())
+                ? $"实际确认目标 {string.Join("、", predicted)}"
+                : dungeon.Map.ByCell.TryGetValue(predicted.First(), out var targetTile) &&
+                  targetTile.Roles.Any(PortalRouting.IsRoomToRoom)
+                    ? $"距离推断配对门 {string.Join("、", predicted)}"
+                    : $"距离推断房间 {string.Join("、", predicted)}";
+        Log($"层内传送寻路：前往 {portalCell}，{connection}，路线 {Math.Max(0, route.Count - 1)} 步");
         State("前往层内传送门");
         return true;
     }
@@ -505,7 +614,8 @@ public sealed partial class MainForm
         // 只有 Explore 符合条件，因此活动中的传送门/转场阶段绝不会被随机移动替代。
         if (dungeon.Map is null || floorPhase != FloorPhase.Explore ||
             FloorPlanningPolicy.IsMonsterHuntRoom(dungeon.Map)) return false;
-        if (!Planner.HasReachableUnexplored(dungeon.Map, dungeon.Blocked)) return false;
+        if (AbyssRoutePlanner.IsAbyss(dungeon.Map) &&
+            !Planner.HasReachableUnexplored(dungeon.Map, dungeon.Blocked)) return false;
         var origin = new Cell(dungeon.Map.Player.X, dungeon.Map.Player.Y);
         var candidates = new[] { new Cell(0, -1), new Cell(1, 0), new Cell(0, 1), new Cell(-1, 0) }
             .Select(delta => new Cell(origin.X + delta.X, origin.Y + delta.Y))
@@ -584,7 +694,10 @@ public sealed partial class MainForm
         var hasRequiredBoss = options.AttackBoss && map.Tiles.SelectMany(row => row).SelectMany(tile => tile.Roles)
             .Any(role => role.Kind is "Boss" or "小Boss");
         var lockedChamber = options.Chambers && MechanismChamberPolicy.HasLockedEntrance(map);
-        var pendingCount = pending.Count + (hasRequiredBoss ? 1 : 0) + (lockedChamber ? 1 : 0);
+        var pendingSeal = AbyssRoutePlanner.IsAbyss(map) && BossSealPolicy.IsActive(map) && !map.BossSeal.Ready;
+        var pendingCount = pending.Count(target => !AbyssRoutePlanner.IsAbyss(map) || target.Kind != "精英") +
+            (hasRequiredBoss ? 1 : 0) + (lockedChamber ? 1 : 0) +
+            (pendingSeal && !hasRequiredBoss ? 1 : 0);
         if (pendingCount > 0)
         {
             if (!dungeon.ShortcutDeferredByTargets)

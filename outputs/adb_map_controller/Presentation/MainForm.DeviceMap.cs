@@ -144,7 +144,8 @@ public sealed partial class MainForm
                 var pipelineTimer = Stopwatch.StartNew();
                 var previousTimingLog = adb.OcrTimingLog;
                 if (writeLog) adb.OcrTimingLog = message => Log($"导航启动计时：帧={frameId}，{message}");
-                try { popupPipeline = await adb.RunPopupUiPipelineAsync(screen, frameId); }
+                try { popupPipeline = await adb.RunPopupUiPipelineAsync(screen, frameId,
+                    profile: CurrentPopupProfile); }
                 finally
                 {
                     adb.OcrTimingLog = previousTimingLog;

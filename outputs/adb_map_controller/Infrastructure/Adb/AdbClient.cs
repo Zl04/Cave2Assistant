@@ -229,8 +229,9 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
         Bitmap bitmap,
         CancellationToken token,
         Action<string?>? bodyObserved,
-        Action<string?>? titleObserved = null)
-        => screenAnalyzer.DetectNextFloorDialogAsync(bitmap, token, bodyObserved, titleObserved);
+        Action<string?>? titleObserved = null,
+        bool includeGreedySelection = true)
+        => screenAnalyzer.DetectNextFloorDialogAsync(bitmap, token, bodyObserved, titleObserved, includeGreedySelection);
 
     internal NextFloorDialogKind DetectNextFloorDialog(Bitmap bitmap, string? ocrText)
         => screenAnalyzer.DetectNextFloorDialog(bitmap, ocrText);
@@ -265,14 +266,15 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
     /// <summary>Runs the popup UI pipeline against one captured logical frame.</summary>
     internal async Task<PopupUiPipelineResult> ProbeMovementPopupAsync(
         CancellationToken token = default, Action<string>? timingLog = null,
-        bool prioritizeNextFloor = false)
+        bool prioritizeNextFloor = false,
+        PopupRecognitionProfile profile = PopupRecognitionProfile.Normal)
     {
         var frameId = NextPopupFrameId();
         var timer = Stopwatch.StartNew();
         using var bitmap = await CaptureMovementPopupFrameAsync(frameId, token);
         var captureMs = timer.ElapsedMilliseconds;
         timingLog?.Invoke($"帧={frameId}，截图={captureMs}ms");
-        var result = await RunPopupUiPipelineCoreAsync(bitmap, frameId, token, prioritizeNextFloor);
+        var result = await RunPopupUiPipelineCoreAsync(bitmap, frameId, token, prioritizeNextFloor, profile);
         timingLog?.Invoke($"帧={frameId}，识别={timer.ElapsedMilliseconds - captureMs}ms，总计={timer.ElapsedMilliseconds}ms，结果={result.Value}，节点={result.AttemptSummary}");
         return result;
     }
@@ -280,15 +282,16 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
     internal long NextPopupFrameId() => Interlocked.Increment(ref popupFrameSequence);
 
     internal Task<PopupUiPipelineResult> RunPopupUiPipelineAsync(
-        Bitmap frame, CancellationToken token = default)
-        => RunPopupUiPipelineCoreAsync(frame, null, token, prioritizeNextFloor: false);
+        Bitmap frame, CancellationToken token = default, PopupRecognitionProfile profile = PopupRecognitionProfile.Normal)
+        => RunPopupUiPipelineCoreAsync(frame, null, token, prioritizeNextFloor: false, profile);
 
     internal Task<PopupUiPipelineResult> RunPopupUiPipelineAsync(
-        Bitmap frame, long frameId, CancellationToken token = default)
-        => RunPopupUiPipelineCoreAsync(frame, frameId, token, prioritizeNextFloor: false);
+        Bitmap frame, long frameId, CancellationToken token = default, PopupRecognitionProfile profile = PopupRecognitionProfile.Normal)
+        => RunPopupUiPipelineCoreAsync(frame, frameId, token, prioritizeNextFloor: false, profile);
 
     async Task<PopupUiPipelineResult> RunPopupUiPipelineCoreAsync(
-        Bitmap frame, long? frameId, CancellationToken token, bool prioritizeNextFloor)
+        Bitmap frame, long? frameId, CancellationToken token, bool prioritizeNextFloor,
+        PopupRecognitionProfile profile)
     {
         NextFloorDialogKind nextFloorDialog = NextFloorDialogKind.None;
         string? nextFloorDialogBody = null;
@@ -302,7 +305,8 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
                 },
                 nextFloorDialogTitleObserved: text => nextFloorDialogTitle = text,
                 riftGemTitleObserved: text => riftGemTitle = text,
-                prioritizeNextFloor: prioritizeNextFloor)
+                prioritizeNextFloor: prioritizeNextFloor,
+                profile: profile)
             .RunAsync(frame, frameId, token);
         var isGreedySelection = nextFloorDialog == NextFloorDialogKind.GreedySelection;
         var buttons = isGreedySelection
@@ -316,6 +320,9 @@ public sealed class AdbClient : IGameSnapshotSource, ITouchTransport, IDisposabl
 
     internal Task<string> ReadPopupFrameTextAsync(Bitmap frame, CancellationToken token = default)
         => screenAnalyzer.ReadPopupFrameTextAsync(frame, token);
+
+    internal Task<string?> ReadReturnTownConfirmTextAsync(Bitmap frame, CancellationToken token)
+        => screenAnalyzer.ReadScreenTextAsync(frame, (.34, .66, .36, .53), "回城确认提示", token);
 
     internal Task<Bitmap> CaptureMovementPopupFrameAsync(CancellationToken token)
         => CaptureMovementPopupFrameAsync(NextPopupFrameId(), token);

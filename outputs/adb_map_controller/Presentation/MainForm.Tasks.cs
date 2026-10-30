@@ -42,7 +42,7 @@ public sealed partial class MainForm
         var taskBar = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, Margin = Padding.Empty, Tag = ThemeRole.Surface };
         var itemBar = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, Margin = Padding.Empty, Tag = ThemeRole.Surface };
         var taskType = new ThemedComboBox { Width = 135, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "添加任务类型" };
-        taskType.Items.AddRange(["进图并跑图", "当前地图跑图", "卡矿任务", "梦境试炼", "培养魂器", "免费祈祷", "福利活动", "领取深渊钥匙", "扫荡永冬裂缝", "扫荡深渊秘境", "每日签到", "幽灵深渊", "冒险家公会", "首领挑战", "定时启动"]); taskType.SelectedIndex = 0;
+        taskType.Items.AddRange(["进图并跑图", "当前地图跑图", "卡矿任务", "梦境试炼", "培养魂器", "免费祈祷", "福利活动", "领取深渊钥匙", "扫荡永冬裂缝", "扫荡深渊秘境", "每日签到", "幽灵深渊", "冒险家公会", "首领挑战", "定时启动", "深渊跑图"]); taskType.SelectedIndex = 0;
         var templateChoice = new ThemedComboBox { Width = 160, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "任务模板" };
         taskTemplateChoice = templateChoice;
         var newTemplate = Btn("新建模板", ThemeRole.SecondaryButton);
@@ -166,6 +166,7 @@ public sealed partial class MainForm
             var index = templateChoice.SelectedIndex;
             if (index < 0) { MessageBox.Show(this, "请先选择或新建一个模板。", "添加任务", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
             var config = CaptureSettings(); config.TaskKind = (ExecutionTaskKind)taskType.SelectedIndex;
+            if (config.TaskKind == ExecutionTaskKind.AbyssRun) EnforceAbyssRunOptions(config);
             if (config.TaskKind == ExecutionTaskKind.DreamTrial) EnforceDreamTrialOptions(config);
             if (config.TaskKind == ExecutionTaskKind.CardMining) EnforceCardMiningOptions(config);
             if (!ShowTaskEditor(config, "添加任务")) return;
@@ -265,6 +266,23 @@ public sealed partial class MainForm
                                 else if (config.TaskKind == ExecutionTaskKind.DreamTrial) await RunDreamTrialTaskAsync(config, attemptToken);
                                 else if (config.TaskKind == ExecutionTaskKind.BossChallenge) await RunBossChallengeAsync(attemptToken);
                                 else if (config.TaskKind == ExecutionTaskKind.EntryAndRun) await RunEntryRunPipelineAsync(attemptToken);
+                                else if (config.TaskKind == ExecutionTaskKind.AbyssRun)
+                                {
+                                    for (var runIndex = 1; runIndex <= config.AbyssRunCount; runIndex++)
+                                    {
+                                        attemptToken.ThrowIfCancellationRequested();
+                                        UpdateTaskExecutionProgress(runIndex, config.AbyssRunCount.ToString());
+                                        entryRunMovementScope = true;
+                                        try
+                                        {
+                                            await RunMovementScope(attemptToken, ct => StartAbyssRunCore(ct, config.AbyssTeamMode), startupProbePaused: true,
+                                                popupProfile: PopupRecognitionProfile.Abyss);
+                                        }
+                                        finally { entryRunMovementScope = false; }
+                                        if (!lastMapRunSucceeded) break;
+                                    }
+                                    lastEntryRunSucceeded = lastMapRunSucceeded;
+                                }
                                 else if (config.TaskKind == ExecutionTaskKind.CurrentMapRun)
                                 {
                                     await RunMovementScope(attemptToken, StartRunCore, startupProbePaused: true);
@@ -330,6 +348,7 @@ public sealed partial class MainForm
         ExecutionTaskKind.EntryAndRun when config.EntryDifficulty == DungeonDifficulty.Normal => "∞",
         ExecutionTaskKind.EntryAndRun => "读取中",
         ExecutionTaskKind.EternalWinterSweep => config.EternalWinterSweepCount.ToString(),
+        ExecutionTaskKind.AbyssRun => config.AbyssRunCount.ToString(),
         _ => "1"
     };
 
@@ -411,6 +430,8 @@ public sealed partial class MainForm
         result.EquipmentSet = task.EquipmentSet;
         result.EternalWinterFloor = task.EternalWinterFloor;
         result.EternalWinterSweepCount = task.EternalWinterSweepCount;
+        result.AbyssRunCount = task.AbyssRunCount;
+        result.AbyssTeamMode = task.AbyssTeamMode;
         result.GhostAbyssFloor = task.GhostAbyssFloor;
         result.GhostAbyssDouble = task.GhostAbyssDouble;
         result.GuildWish = task.GuildWish;
@@ -425,7 +446,7 @@ public sealed partial class MainForm
         }
         if (task.TaskKind == ExecutionTaskKind.EntryAndRun)
             result.EntryRunCount = task.EntryRunCount;
-        if (task.TaskKind is ExecutionTaskKind.EntryAndRun or ExecutionTaskKind.CurrentMapRun)
+        if (task.TaskKind is ExecutionTaskKind.EntryAndRun or ExecutionTaskKind.CurrentMapRun or ExecutionTaskKind.AbyssRun)
         {
             result.TargetStopFloor = task.TargetStopFloor;
             result.EscapeReturnFloor = task.EscapeReturnFloor;
@@ -463,11 +484,35 @@ public sealed partial class MainForm
             result.DreamTrialBossMask = task.DreamTrialBossMask;
             EnforceDreamTrialOptions(result);
         }
+        if (task.TaskKind == ExecutionTaskKind.AbyssRun) EnforceAbyssRunOptions(result);
         return result;
+    }
+
+    static void EnforceAbyssRunOptions(ControllerSettings config)
+    {
+        config.TargetStopFloor = 0;
+        config.EscapeReturnFloor = 0;
+        config.EscapeReturnAttackBoss = false;
+        config.AttackBoss = true;
+        config.DirectBossNpc = false;
+        config.Monsters = false;
+        config.Elites = false;
+        config.WoodChests = false;
+        config.OtherChests = false;
+        config.Pots = false;
+        config.Bones = false;
+        config.Gold = false;
+        config.Runes = false;
+        config.Altars = false;
+        config.Chambers = false;
+        config.Mining = false;
+        config.CardMining = false;
+        config.CardLayer = false;
     }
 
     bool ShowTaskEditor(ControllerSettings config, string title)
     {
+        if (config.TaskKind == ExecutionTaskKind.AbyssRun) EnforceAbyssRunOptions(config);
         using var dialog = new Form { Text = title, ClientSize = new(740, 280), MinimumSize = new(640, 320),
             StartPosition = FormStartPosition.CenterParent, ShowInTaskbar = false, MinimizeBox = false, MaximizeBox = false,
             AutoScaleMode = AutoScaleMode.Dpi, Font = Font };
@@ -697,9 +742,39 @@ public sealed partial class MainForm
             return dialog.ShowDialog(this) == DialogResult.OK;
         }
         EquipmentSelection();
+        if (config.TaskKind == ExecutionTaskKind.AbyssRun)
+        {
+            Number(nameof(config.AbyssRunCount), "深渊跑图次数", 1, 9999);
+            var modes = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new(0) };
+            var options = new List<RadioButton>();
+            void RefreshModeAppearance()
+            {
+                foreach (var option in options)
+                {
+                    var selected = option.Checked;
+                    option.Text = $"{(selected ? "✓ " : "")}{option.Tag}";
+                    option.BackColor = selected ? currentPalette.ButtonAccent : currentPalette.InputBackground;
+                    option.ForeColor = selected ? currentPalette.ButtonText : currentPalette.Text;
+                    option.FlatAppearance.BorderColor = selected ? currentPalette.FocusBorder : currentPalette.Border;
+                    option.FlatAppearance.BorderSize = selected ? 2 : 1;
+                }
+            }
+            foreach (var (label, teamMode) in new[] { ("单人", false), ("组队", true) })
+            {
+                var option = new RadioButton { Tag = label, Appearance = Appearance.Button,
+                    FlatStyle = FlatStyle.Flat, TextAlign = ContentAlignment.MiddleCenter, AutoSize = false,
+                    Width = 88, Height = 28, Margin = new(2, 0, 2, 0), AccessibleName = $"冒险模式{label}",
+                    Checked = config.AbyssTeamMode == teamMode };
+                option.CheckedChanged += (_, _) => { if (option.Checked) config.AbyssTeamMode = teamMode; RefreshModeAppearance(); };
+                options.Add(option);
+                modes.Controls.Add(option);
+            }
+            Row("冒险模式", modes);
+            dialog.Shown += (_, _) => RefreshModeAppearance();
+        }
         if (config.TaskKind == ExecutionTaskKind.EntryAndRun) Number(nameof(config.EntryRunCount), "跑图次数（0=自动，普通无限）", 0, 9999);
-        if (config.TaskKind is not (ExecutionTaskKind.CardMining or ExecutionTaskKind.DreamTrial)) Number(nameof(config.TargetStopFloor), "停住楼层（0=关闭）", 0, 999);
-        if (config.TaskKind is not (ExecutionTaskKind.CardMining or ExecutionTaskKind.DreamTrial)) Number(nameof(config.EscapeReturnFloor), "卷轴主动回城楼层（0=关闭）", 0, 999);
+        if (config.TaskKind is not (ExecutionTaskKind.CardMining or ExecutionTaskKind.DreamTrial or ExecutionTaskKind.AbyssRun)) Number(nameof(config.TargetStopFloor), "停住楼层（0=关闭）", 0, 999);
+        if (config.TaskKind is not (ExecutionTaskKind.CardMining or ExecutionTaskKind.DreamTrial or ExecutionTaskKind.AbyssRun)) Number(nameof(config.EscapeReturnFloor), "卷轴主动回城楼层（0=关闭）", 0, 999);
         if (config.TaskKind == ExecutionTaskKind.CardMining)
         {
             config.CardMiningStartAt = DateTime.Today.AddDays(1);
@@ -739,22 +814,23 @@ public sealed partial class MainForm
         }
         var returnBoss = Box("卷轴回城前攻击Boss"); returnBoss.Checked = config.EscapeReturnAttackBoss;
         returnBoss.CheckedChanged += (_, _) => config.EscapeReturnAttackBoss = returnBoss.Checked;
-        if (config.TaskKind is not (ExecutionTaskKind.CardMining or ExecutionTaskKind.DreamTrial)) Row("主动回城", returnBoss);
+        if (config.TaskKind is not (ExecutionTaskKind.CardMining or ExecutionTaskKind.DreamTrial or ExecutionTaskKind.AbyssRun)) Row("主动回城", returnBoss);
         var checks = new List<Control>();
-        foreach (var field in config.TaskKind == ExecutionTaskKind.DreamTrial ? Array.Empty<(string, string)>() : new[] { ("AttackBoss", "Boss"), ("DirectBossNpc", "直接挑战Boss"), ("Monsters", "小怪"), ("Elites", "精英"), ("WoodChests", "木箱子"), ("OtherChests", "金箱子"), ("Pots", "罐子"), ("Bones", "石堆"), ("Gold", "金币"), ("Runes", "符文"), ("Altars", "点金台"), ("Chambers", "密室"), ("Mining", "挖矿"), ("CardMining", "卡矿"), ("CardLayer", "卡层") })
+        foreach (var field in config.TaskKind is ExecutionTaskKind.DreamTrial or ExecutionTaskKind.AbyssRun ? Array.Empty<(string, string)>() : new[] { ("AttackBoss", "Boss"), ("DirectBossNpc", "直接挑战Boss"), ("Monsters", "小怪"), ("Elites", "精英"), ("WoodChests", "木箱子"), ("OtherChests", "金箱子"), ("Pots", "罐子"), ("Bones", "石堆"), ("Gold", "金币"), ("Runes", "符文"), ("Altars", "点金台"), ("Chambers", "密室"), ("Mining", "挖矿"), ("CardMining", "卡矿"), ("CardLayer", "卡层") })
         {
             if (config.TaskKind == ExecutionTaskKind.CardMining && field.Item1 is "Mining" or "CardMining" or "CardLayer") continue;
             var property = typeof(ControllerSettings).GetProperty(field.Item1)!;
             var check = Box(field.Item2); check.Checked = (bool)property.GetValue(config)!;
             check.CheckedChanged += (_, _) => { property.SetValue(config, check.Checked); }; checks.Add(check);
         }
-        if (config.TaskKind != ExecutionTaskKind.DreamTrial) Row("目标（钥匙必选）", checks.ToArray());
+        if (config.TaskKind is not (ExecutionTaskKind.DreamTrial or ExecutionTaskKind.AbyssRun)) Row("目标（钥匙必选）", checks.ToArray());
         if (config.TaskKind == ExecutionTaskKind.CardMining) Row("固定规则", new Label { Text = "卡矿、常规挖矿、指定层停住、卷轴回城关闭", AutoSize = true });
         ThemeManager.Apply(dialog, currentPalette);
         if (dialog.ShowDialog(this) != DialogResult.OK) return false;
         dialog.ValidateChildren();
         if (config.TaskKind == ExecutionTaskKind.CardMining) EnforceCardMiningOptions(config);
         if (config.TaskKind == ExecutionTaskKind.DreamTrial) EnforceDreamTrialOptions(config);
+        if (config.TaskKind == ExecutionTaskKind.AbyssRun) EnforceAbyssRunOptions(config);
         return true;
     }
 
@@ -886,15 +962,16 @@ public sealed partial class MainForm
             var taskName = s.TaskKind switch
             {
                 ExecutionTaskKind.CurrentMapRun => "当前地图跑图",
+                ExecutionTaskKind.AbyssRun => "深渊跑图",
                 ExecutionTaskKind.EntryAndRun => map?.IsHeroVariant == true
                     ? entry?.Name ?? s.EntryId.ToString()
                     : $"{map?.Name ?? s.EntryMapId.ToString()} {entry?.Name ?? s.EntryId.ToString()}",
                 _ => "卡矿任务"
             };
             var item = new ListViewItem(new[] { (i + 1).ToString(), taskName,
-                s.TaskKind == ExecutionTaskKind.CurrentMapRun ? "—" : new[] { "普通", "精英", "噩梦" }[Math.Clamp((int)s.EntryDifficulty, 0, 2)], s.TaskKind == ExecutionTaskKind.CurrentMapRun ? "1 次" : s.TaskKind == ExecutionTaskKind.CardMining ? $"{s.CardMiningStartAt:MM-dd HH:mm} / ≥{s.CardMiningMinimumTools}镐" : count,
-                s.TaskKind == ExecutionTaskKind.CardMining ? "条件满足即挖 · 最迟目标层" : $"{(s.TargetStopFloor > 0 ? s.TargetStopFloor + "层停" : "不停层")}{(s.EscapeReturnFloor > 0 ? $" · {s.EscapeReturnFloor}层卷轴回城" : "")}{(s.Mining ? " · 挖矿" : "")}{(s.CardMining ? " · 卡矿" : "")}{(s.CardLayer ? " · 卡层" : "")}",
-                "钥匙、" + string.Join("、", targets.Where(x => x.Item1).Select(x => x.Item2)) });
+                s.TaskKind == ExecutionTaskKind.AbyssRun ? (s.AbyssTeamMode ? "组队" : "单人") : s.TaskKind == ExecutionTaskKind.CurrentMapRun ? "—" : new[] { "普通", "精英", "噩梦" }[Math.Clamp((int)s.EntryDifficulty, 0, 2)], s.TaskKind == ExecutionTaskKind.CurrentMapRun ? "1 次" : s.TaskKind == ExecutionTaskKind.AbyssRun ? $"{s.AbyssRunCount} 次" : s.TaskKind == ExecutionTaskKind.CardMining ? $"{s.CardMiningStartAt:MM-dd HH:mm} / ≥{s.CardMiningMinimumTools}镐" : count,
+                s.TaskKind == ExecutionTaskKind.AbyssRun ? "Boss 后继续" : s.TaskKind == ExecutionTaskKind.CardMining ? "条件满足即挖 · 最迟目标层" : $"{(s.TargetStopFloor > 0 ? s.TargetStopFloor + "层停" : "不停层")}{(s.EscapeReturnFloor > 0 ? $" · {s.EscapeReturnFloor}层卷轴回城" : "")}{(s.Mining ? " · 挖矿" : "")}{(s.CardMining ? " · 卡矿" : "")}{(s.CardLayer ? " · 卡层" : "")}",
+                s.TaskKind == ExecutionTaskKind.AbyssRun ? "钥匙、Boss" : "钥匙、" + string.Join("、", targets.Where(x => x.Item1).Select(x => x.Item2)) });
             item.Checked = s.TaskEnabled;
             AddTaskRow(item);
             if (i == selected) { item.Selected = true; item.EnsureVisible(); }

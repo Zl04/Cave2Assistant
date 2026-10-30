@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
@@ -63,6 +64,7 @@ public sealed class MapPanel : Panel
         }
     }
     public IReadOnlyList<Cell> Route { get; set; } = [];
+    public PortalJumpGraph? PortalJumps { get; set; }
     public string StatusText { get; set; } = "未连接";
     public string InfoText { get; set; } = "";
     public MapPanel()
@@ -227,6 +229,7 @@ public sealed class MapPanel : Panel
             DrawTownRole(e.Graphics, positioned.TownIcon!, positioned.Role,
                 P(new Cell(positioned.Icon.X, positioned.Icon.Y)), Math.Max(10, scale * 1.15f), index);
         }
+        DrawPortalConnections(e.Graphics, P, scale);
         if (Route.Count > 1)
         {
             using var pen = new Pen(theme.MapRoute, Math.Max(2, scale * .18f));
@@ -247,6 +250,46 @@ public sealed class MapPanel : Panel
         DrawInfoOverlay(e.Graphics);
         DrawTownSummary(e.Graphics);
         DrawStatusOverlay(e.Graphics);
+    }
+
+    void DrawPortalConnections(Graphics graphics, Func<Cell, PointF> pointAt, float scale)
+    {
+        if (Map is null || PortalJumps is null || !AbyssRoutePlanner.IsAbyss(Map)) return;
+        var connections = PortalJumps.ConnectedRooms(Map);
+        foreach (var (source, destination) in connections)
+        {
+            if (connections.TryGetValue(destination, out var reverse) && reverse == source &&
+                (source.X > destination.X || source.X == destination.X && source.Y >= destination.Y)) continue;
+            var confirmed = PortalJumps.IsConfirmedConnection(Map, source, destination);
+            using var pen = new Pen(confirmed ? Color.FromArgb(225, 51, 213, 184) :
+                Color.FromArgb(205, 255, 190, 66), Math.Max(2f, scale * .12f))
+            {
+                DashStyle = confirmed ? DashStyle.Solid : DashStyle.Dash,
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round
+            };
+            var from = pointAt(source);
+            var to = pointAt(destination);
+            graphics.DrawLine(pen, from, to);
+            using var endpoint = new SolidBrush(pen.Color);
+            var radius = Math.Max(2.5f, scale * .15f);
+            graphics.FillEllipse(endpoint, from.X - radius, from.Y - radius, radius * 2, radius * 2);
+            graphics.FillEllipse(endpoint, to.X - radius, to.Y - radius, radius * 2, radius * 2);
+        }
+        var roomPredictions = PortalJumps.PredictedRoomConnections(Map);
+        foreach (var (source, destination) in roomPredictions)
+        {
+            using var pen = new Pen(Color.FromArgb(215, 190, 130, 255), Math.Max(2f, scale * .12f))
+            {
+                DashStyle = DashStyle.Dot,
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round
+            };
+            graphics.DrawLine(pen, pointAt(source), pointAt(destination));
+        }
+        if (connections.Count == 0 && roomPredictions.Count == 0 || CompactMode) return;
+        using var labelBrush = new SolidBrush(Color.FromArgb(220, theme.MapOverlayText));
+        graphics.DrawString("传送连接：实线 已确认 · 黄虚线 配对推断 · 紫点线 房间预测", Font, labelBrush, 10f, 10f);
     }
 
     void ClampPanOffset()

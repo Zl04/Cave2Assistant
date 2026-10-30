@@ -11,7 +11,7 @@ public enum ThemeMode
     System,
 }
 
-public enum ExecutionTaskKind { EntryAndRun, CurrentMapRun, CardMining, DreamTrial, SoulArtifactCultivation, FreePrayer, FreeWelfare, AbyssKey, EternalWinterSweep, AbyssSweep, DailySignIn, GhostAbyss, GuildTasks, BossChallenge, ScheduledConnectionRecovery }
+public enum ExecutionTaskKind { EntryAndRun, CurrentMapRun, CardMining, DreamTrial, SoulArtifactCultivation, FreePrayer, FreeWelfare, AbyssKey, EternalWinterSweep, AbyssSweep, DailySignIn, GhostAbyss, GuildTasks, BossChallenge, ScheduledConnectionRecovery, AbyssRun }
 
 public sealed class TaskTemplate
 {
@@ -27,6 +27,8 @@ public sealed class ControllerSettings
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public ThemeMode Theme { get; set; } = ThemeMode.Light;
     public bool AlwaysOnTop { get; set; }
+    public bool SavePipelineScreenshots { get; set; } = true;
+    public bool SavePipelineRecords { get; set; } = true;
     public bool AttackBoss { get; set; } = true;
     public bool DirectBossNpc { get; set; }
     public bool Monsters { get; set; }
@@ -71,6 +73,8 @@ public sealed class ControllerSettings
     public DungeonDifficulty EntryDifficulty { get; set; } = DungeonDifficulty.Normal;
     // 0 表示自动次数：普通难度无限，其它难度使用剩余次数。
     public int EntryRunCount { get; set; }
+    public int AbyssRunCount { get; set; } = 1;
+    public bool AbyssTeamMode { get; set; }
     public List<string> BonusPriority { get; set; } = [];
     public string Device { get; set; } = "";
     [JsonConverter(typeof(JsonStringEnumConverter))]

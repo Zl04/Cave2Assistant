@@ -1,6 +1,7 @@
 # MAA Pipeline
 
-任务节点可设置 `"saveScreenshot": false`，关闭该节点正常识别过程中的截图保存；省略时默认为 `true`。运行出错时的现场截图不受此字段影响，仍会尝试保存到 `publish/pipeline-traces/evidence/`。例如：`"识别节点": { "saveScreenshot": false, "recognition": "OCR", ... }`。
+控制器“测试”页的“保存 Pipeline 运行截图”是全局开关，默认开启；关闭后所有 Pipeline 的正常运行截图不再保存。任务节点仍可设置 `"saveScreenshot": false`，单独关闭该节点的正常截图；省略时默认为 `true`。运行出错时的现场截图不受这两个开关影响，仍会尝试保存到 `publish/pipeline-traces/evidence/`。例如：`"识别节点": { "saveScreenshot": false, "recognition": "OCR", ... }`。
+“测试”页的“保存 Pipeline 运行记录”独立控制运行轨迹 JSON，默认开启；关闭后正常运行不再写入 JSON，但包含节点失败、任务失败或执行错误的运行记录仍会保存。
 
 项目现在使用 `Infrastructure/Automation/MaaPipeline.cs` 提供 MAA v1 风格的任务编译和运行时。
 

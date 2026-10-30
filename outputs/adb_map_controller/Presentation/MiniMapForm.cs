@@ -26,12 +26,14 @@ public sealed class MiniMapForm : Form
     public MiniMapForm(
         Func<MapDump?> mapProvider,
         Func<IReadOnlyList<Cell>> routeProvider,
+        PortalJumpGraph portalJumps,
         Func<bool> alwaysOnTopProvider,
         Action<bool> alwaysOnTopChanged,
         Action returnToController)
     {
         this.mapProvider = mapProvider;
         this.routeProvider = routeProvider;
+        mapPanel.PortalJumps = portalJumps;
         this.alwaysOnTopProvider = alwaysOnTopProvider;
         this.alwaysOnTopChanged = alwaysOnTopChanged;
         this.returnToController = returnToController;

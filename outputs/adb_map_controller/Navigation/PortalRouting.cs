@@ -83,20 +83,19 @@ public static class PortalRouting
     public static IEnumerable<Cell> RoomPortalCells(MapDump map)
         => Enumerate(map).Where(item => IsRoomToRoom(item.Role) && !item.Role.Locked).Select(item => item.Cell).Distinct();
 
-    /// <summary>
-    /// 不穿过传送门，对可行走格划分房间。门旁属于同一连通区域的门在同一个房间。
-    /// </summary>
-    public static IReadOnlyDictionary<Cell, HashSet<int>> RoomRegionsOfPortals(MapDump map)
+    // 将传送门格从步行图中移除，再按相邻道路划分房间。
+    public static (Dictionary<int, List<Cell>> Rooms, Dictionary<Cell, HashSet<int>> PortalRooms,
+        Dictionary<Cell, int> Regions) RoomLayout(MapDump map)
     {
         var tiles = map.ByCell;
-        var portalCells = Enumerate(map).Where(item => IsRoomToRoom(item.Role))
+        var portals = Enumerate(map).Where(item => IsRoomToRoom(item.Role))
             .Select(item => item.Cell).ToHashSet();
         var regions = new Dictionary<Cell, int>();
         var directions = new[] { new Cell(1, 0), new Cell(-1, 0), new Cell(0, 1), new Cell(0, -1) };
         var region = 0;
         foreach (var (cell, tile) in tiles)
         {
-            if (!tile.Walkable || portalCells.Contains(cell) || regions.ContainsKey(cell)) continue;
+            if (!tile.Walkable || portals.Contains(cell) || regions.ContainsKey(cell)) continue;
             var pending = new Queue<Cell>();
             pending.Enqueue(cell);
             regions[cell] = region;
@@ -104,46 +103,27 @@ public static class PortalRouting
                 foreach (var direction in directions)
                 {
                     var next = new Cell(current.X + direction.X, current.Y + direction.Y);
-                    if (regions.ContainsKey(next) || portalCells.Contains(next) ||
+                    if (regions.ContainsKey(next) || portals.Contains(next) ||
                         !tiles.TryGetValue(next, out var neighbour) || !neighbour.Walkable) continue;
                     regions[next] = region;
                     pending.Enqueue(next);
                 }
             region++;
         }
-        return portalCells.ToDictionary(portal => portal, portal => directions
+        var portalRooms = portals.ToDictionary(portal => portal, portal => directions
             .Select(direction => new Cell(portal.X + direction.X, portal.Y + direction.Y))
             .Where(regions.ContainsKey).Select(cell => regions[cell]).ToHashSet());
+        var rooms = regions.GroupBy(pair => pair.Value)
+            .ToDictionary(group => group.Key, group => group.Select(pair => pair.Key).ToList());
+        return (rooms, portalRooms, regions);
     }
 
-    /// <summary>只在不同房间的门之间按距离配对；每扇门最多属于一对。</summary>
-    public static IReadOnlyDictionary<Cell, Cell> NearestRoomPortalPairs(MapDump map)
+    public static Cell? NearestRoomPortal(MapDump map, Cell origin, int maxDistance = 2, bool includeLocked = false)
     {
-        var portals = Enumerate(map).Where(item => IsRoomToRoom(item.Role)).Select(item => item.Cell)
-            .Distinct().OrderBy(cell => cell.X).ThenBy(cell => cell.Y).ToArray();
-        var portalRegions = RoomRegionsOfPortals(map);
-        var pairs = new Dictionary<Cell, Cell>();
-        var candidates = (from first in Enumerable.Range(0, portals.Length)
-                          from second in Enumerable.Range(first + 1, portals.Length - first - 1)
-                          where portalRegions[portals[first]].Count > 0 && portalRegions[portals[second]].Count > 0 &&
-                                !portalRegions[portals[first]].Overlaps(portalRegions[portals[second]])
-                          select (First: portals[first], Second: portals[second],
-                              Distance: Math.Abs(portals[first].X - portals[second].X) +
-                                        Math.Abs(portals[first].Y - portals[second].Y)))
-            .OrderBy(pair => pair.Distance).ThenBy(pair => pair.First.X).ThenBy(pair => pair.First.Y)
-            .ThenBy(pair => pair.Second.X).ThenBy(pair => pair.Second.Y);
-        foreach (var pair in candidates)
-        {
-            if (pairs.ContainsKey(pair.First) || pairs.ContainsKey(pair.Second)) continue;
-            pairs[pair.First] = pair.Second;
-            pairs[pair.Second] = pair.First;
-        }
-        return pairs;
-    }
-
-    public static Cell? NearestRoomPortal(MapDump map, Cell origin, int maxDistance = 2)
-    {
-        var candidates = RoomPortalCells(map)
+        var cells = includeLocked
+            ? Enumerate(map).Where(item => IsRoomToRoom(item.Role)).Select(item => item.Cell).Distinct()
+            : RoomPortalCells(map);
+        var candidates = cells
             .Select(cell => (Cell: cell, Distance: Math.Abs(cell.X - origin.X) + Math.Abs(cell.Y - origin.Y)))
             .OrderBy(item => item.Distance)
             .ToList();
@@ -175,8 +155,8 @@ public readonly record struct PortalMapKey(int Level, string MapName, int Width,
 public sealed class PortalJumpGraph
 {
     readonly Dictionary<PortalMapKey, Dictionary<Cell, HashSet<Cell>>> edges = [];
-
-    public void Clear() => edges.Clear();
+    readonly Dictionary<PortalMapKey, Dictionary<Cell, Cell>> confirmedFixedPairs = [];
+    public void Clear() { edges.Clear(); confirmedFixedPairs.Clear(); }
 
     public static PortalMapKey KeyOf(MapDump map)
         => new(map.Level, map.MapName ?? "", map.Width, map.Height, map.CaveMode);
@@ -191,32 +171,257 @@ public sealed class PortalJumpGraph
 
         // 游戏可能将玩家生成在目的地传送门旁边，而不是传送门格上。
         // 超过一个格子的距离后，端点就无法确定。
-        var candidate = PortalRouting.NearestRoomPortal(after, afterPlayer);
+        var candidate = PortalRouting.NearestRoomPortal(after, afterPlayer, includeLocked: true);
         if (candidate is null || candidate.Value == source) return false;
         destination = candidate.Value;
-        var mapKey = KeyOf(after);
+        AddEdge(after, source, destination);
+        if (FixedRole(before, source) is not null && FixedRole(after, destination) is not null)
+            AddConfirmedFixedPair(after, source, destination);
+        return true;
+    }
+
+    void AddConfirmedFixedPair(MapDump map, Cell first, Cell second)
+    {
+        var mapKey = KeyOf(map);
+        if (!confirmedFixedPairs.TryGetValue(mapKey, out var pairs))
+            confirmedFixedPairs[mapKey] = pairs = [];
+        void RemovePair(Cell portal)
+        {
+            if (!pairs.Remove(portal, out var previous)) return;
+            if (pairs.TryGetValue(previous, out var reciprocal) && reciprocal == portal)
+            {
+                pairs.Remove(previous);
+                if (edges.TryGetValue(mapKey, out var fromEdges)) fromEdges.Remove(previous);
+            }
+            if (edges.TryGetValue(mapKey, out var sources)) sources.Remove(portal);
+        }
+        RemovePair(first);
+        RemovePair(second);
+        pairs[first] = second;
+        pairs[second] = first;
+        AddEdge(map, first, second);
+        AddEdge(map, second, first);
+    }
+
+    // 落点门尚未下发时仍记录实际到达的房间位置，供后续规划识别已走过的房间。
+    public void ObserveArrival(MapDump map, Cell source, Cell arrival)
+    {
+        if (!map.ByCell.TryGetValue(arrival, out var tile) || !tile.Walkable || source == arrival) return;
+        AddEdge(map, source, arrival);
+    }
+
+    // 坐标更新可能早于目的地传送门下发；地图补齐后将落地格修正为真正的门。
+    public IReadOnlyCollection<Cell> ReconcileArrivals(MapDump map)
+    {
+        if (!edges.TryGetValue(KeyOf(map), out var fromEdges)) return Array.Empty<Cell>();
+        var resolved = new List<Cell>();
+        foreach (var (source, targets) in fromEdges.ToArray())
+        {
+            foreach (var arrival in targets.ToArray())
+            {
+                var isPortal = PortalRouting.Enumerate(map).Any(item => item.Cell == arrival && PortalRouting.IsRoomToRoom(item.Role));
+                if (isPortal && IsConfirmedConnection(map, source, arrival)) continue;
+                var portal = isPortal ? arrival : PortalRouting.NearestRoomPortal(map, arrival, includeLocked: true);
+                if (portal is null || portal.Value == source) continue;
+                if (!isPortal)
+                {
+                    targets.Remove(arrival);
+                    targets.Add(portal.Value);
+                }
+                if (FixedRole(map, source) is not null && FixedRole(map, portal.Value) is not null)
+                    AddConfirmedFixedPair(map, source, portal.Value);
+                if (!isPortal) resolved.Add(portal.Value);
+            }
+        }
+        return resolved;
+    }
+
+    void AddEdge(MapDump map, Cell source, Cell destination)
+    {
+        var mapKey = KeyOf(map);
         if (!edges.TryGetValue(mapKey, out var fromEdges))
             edges[mapKey] = fromEdges = [];
         if (!fromEdges.TryGetValue(source, out var targets))
             fromEdges[source] = targets = [];
+        if (FixedRole(map, source) is not null) targets.Clear();
         targets.Add(destination);
-        return true;
     }
 
     public IReadOnlyCollection<Cell> ObservedTargets(MapDump map, Cell source)
         => edges.TryGetValue(KeyOf(map), out var fromEdges) && fromEdges.TryGetValue(source, out var targets)
             ? targets.ToArray() : Array.Empty<Cell>();
 
-    /// <summary>
-    /// 已观测的目标优先；未观测时采用距离最近的互斥配对作为推断目标。
-    /// </summary>
+    public bool IsObservedLandingPortal(MapDump map, Cell portal)
+        => edges.TryGetValue(KeyOf(map), out var fromEdges) &&
+           fromEdges.Values.SelectMany(targets => targets).Any(arrival =>
+               PortalRouting.NearestRoomPortal(map, arrival, includeLocked: true) == portal);
+
+    static RoleInfo? FixedRole(MapDump map, Cell cell)
+        => map.ByCell.TryGetValue(cell, out var tile)
+            ? tile.Roles.FirstOrDefault(role => PortalRouting.IsRoomToRoom(role) && !role.IsRandomTransfer)
+            : null;
+
+    /// <summary>实际落点优先；完整连续的门生成序列用于推断尚未经过的固定门。</summary>
+    public IReadOnlyDictionary<Cell, Cell> ConnectedRooms(MapDump map)
+    {
+        var result = new Dictionary<Cell, Cell>();
+        var fixedPortals = PortalRouting.Enumerate(map)
+            .Where(item => PortalRouting.IsRoomToRoom(item.Role) && !item.Role.IsRandomTransfer)
+            .GroupBy(item => item.Cell).Select(group => group.First())
+            .OrderBy(item => item.Role.SpriteID).ToArray();
+        var fixedCells = fixedPortals.Select(item => item.Cell).ToHashSet();
+        var (_, portalRooms, regions) = PortalRouting.RoomLayout(map);
+        if (edges.TryGetValue(KeyOf(map), out var observed))
+        {
+            foreach (var (source, targets) in observed)
+            {
+                if (!fixedCells.Contains(source) || targets.Count == 0) continue;
+                result[source] = targets.Last();
+            }
+        }
+
+        var used = result.Keys.ToHashSet();
+        foreach (var destination in result.Values)
+            if (PortalRouting.NearestRoomPortal(map, destination, includeLocked: true) is { } landing && fixedCells.Contains(landing))
+                used.Add(landing);
+
+        // SpriteID 的高 16 位是本层角色的连续生成序号。只有序列完整时才按相邻
+        // 两门配对；缺门、重复序号或跨同一房间时退回房间几何推断。
+        var orderedIds = fixedPortals.Select(item => item.Role.SpriteID >> 16).ToArray();
+        var completeSequence = fixedPortals.Length > 0 && fixedPortals.Length % 2 == 0 &&
+            fixedPortals.All(item => item.Role.SpriteID > 0) &&
+            orderedIds.Zip(orderedIds.Skip(1), (first, second) => second - first).All(delta => delta == 1) &&
+            fixedPortals.Chunk(2).All(pair => portalRooms.TryGetValue(pair[0].Cell, out var first) &&
+                portalRooms.TryGetValue(pair[1].Cell, out var second) && first.Count > 0 &&
+                second.Count > 0 && !first.Overlaps(second));
+        if (completeSequence)
+        {
+            foreach (var pair in fixedPortals.Chunk(2))
+            {
+                var first = pair[0].Cell;
+                var second = pair[1].Cell;
+                if (used.Contains(first) || used.Contains(second)) continue;
+                result[first] = second;
+                result[second] = first;
+                used.Add(first);
+                used.Add(second);
+            }
+        }
+
+        // 无完整序号时保留原有朝向与距离推断，但只在两扇门互相指向对方房间时配对。
+        if (!completeSequence)
+        {
+            var rooms = regions.GroupBy(item => item.Value)
+                .ToDictionary(group => group.Key, group => group.Select(item => item.Key).ToArray());
+            var directions = new[] { new Cell(1, 0), new Cell(-1, 0), new Cell(0, 1), new Cell(0, -1) };
+            int? PreferredRoom(Cell portal)
+            {
+                if (!portalRooms.TryGetValue(portal, out var adjacent) || adjacent.Count == 0) return null;
+                var inward = directions.Where(step => regions.TryGetValue(
+                    new Cell(portal.X + step.X, portal.Y + step.Y), out var room) && adjacent.Contains(room)).ToArray();
+                var outwardX = -inward.Sum(step => step.X);
+                var outwardY = -inward.Sum(step => step.Y);
+                var choices = rooms.Where(room => !adjacent.Contains(room.Key)).Select(room =>
+                {
+                    var facing = room.Value.Where(cell =>
+                        (cell.X - portal.X) * outwardX + (cell.Y - portal.Y) * outwardY > 0).ToArray();
+                    var nearest = (facing.Length > 0 ? facing : room.Value).Min(cell =>
+                        Math.Abs(cell.X - portal.X) + Math.Abs(cell.Y - portal.Y));
+                    return (room.Key, Facing: facing.Length > 0, Distance: nearest);
+                }).OrderByDescending(choice => choice.Facing).ThenBy(choice => choice.Distance)
+                  .ThenBy(choice => choice.Key).ToArray();
+                return choices.Length > 0 ? choices[0].Key : null;
+            }
+            var free = fixedPortals.Select(item => item.Cell).Where(cell => !used.Contains(cell)).ToArray();
+            var preferred = free.ToDictionary(cell => cell, PreferredRoom);
+            var candidates = (from i in Enumerable.Range(0, free.Length)
+                              from j in Enumerable.Range(i + 1, free.Length - i - 1)
+                              let first = free[i]
+                              let second = free[j]
+                              where portalRooms[first].Count > 0 && portalRooms[second].Count > 0 &&
+                                  !portalRooms[first].Overlaps(portalRooms[second]) &&
+                                  preferred[first] == portalRooms[second].Min() &&
+                                  preferred[second] == portalRooms[first].Min()
+                              select (First: first, Second: second,
+                                  Distance: Math.Abs(first.X - second.X) + Math.Abs(first.Y - second.Y)))
+                .OrderBy(pair => pair.Distance).ToArray();
+            foreach (var pair in candidates)
+            {
+                if (used.Contains(pair.First) || used.Contains(pair.Second)) continue;
+                result[pair.First] = pair.Second;
+                result[pair.Second] = pair.First;
+                used.Add(pair.First);
+                used.Add(pair.Second);
+            }
+        }
+        // 单向的固定门连接也可作为反向配对线索。若目标门已有自己的落点，
+        // 或有多扇门同时指向它，则保留现状，避免覆盖或猜测冲突关系。
+        var incoming = result.Where(pair => fixedCells.Contains(pair.Value) && pair.Key != pair.Value)
+            .GroupBy(pair => pair.Value).ToArray();
+        foreach (var group in incoming)
+        {
+            if (group.Count() != 1 || result.ContainsKey(group.Key)) continue;
+            var source = group.Single().Key;
+            if (!portalRooms.TryGetValue(source, out var sourceRooms) ||
+                !portalRooms.TryGetValue(group.Key, out var targetRooms) ||
+                sourceRooms.Count == 0 || targetRooms.Count == 0 || sourceRooms.Overlaps(targetRooms)) continue;
+            result[group.Key] = source;
+        }
+        return result;
+    }
+
+    public bool IsConfirmedConnection(MapDump map, Cell source, Cell destination)
+        => confirmedFixedPairs.TryGetValue(KeyOf(map), out var pairs) &&
+           pairs.TryGetValue(source, out var paired) && paired == destination;
+
+    /// <summary>为尚未配对的固定门提供房间预测，供地图和寻路使用。</summary>
+    public IReadOnlyDictionary<Cell, Cell> PredictedRoomConnections(MapDump map)
+    {
+        var connected = ConnectedRooms(map);
+        var (rooms, portalRooms, regions) = PortalRouting.RoomLayout(map);
+        var portals = PortalRouting.Enumerate(map)
+            .Where(item => PortalRouting.IsRoomToRoom(item.Role) && !item.Role.IsRandomTransfer)
+            .Select(item => item.Cell).Distinct().ToArray();
+        var directions = new[] { new Cell(1, 0), new Cell(-1, 0), new Cell(0, 1), new Cell(0, -1) };
+        var result = new Dictionary<Cell, Cell>();
+        foreach (var source in portals)
+        {
+            if (connected.ContainsKey(source) || !portalRooms.TryGetValue(source, out var sourceRooms) || sourceRooms.Count == 0)
+                continue;
+            var inward = directions.Where(step => regions.TryGetValue(
+                new Cell(source.X + step.X, source.Y + step.Y), out var room) && sourceRooms.Contains(room)).ToArray();
+            var outwardX = -inward.Sum(step => step.X);
+            var outwardY = -inward.Sum(step => step.Y);
+            if (outwardX == 0 && outwardY == 0) continue;
+
+            var alreadyConnected = connected.Where(pair => portalRooms.TryGetValue(pair.Key, out var origin) &&
+                    origin.Overlaps(sourceRooms))
+                .SelectMany(pair => portalRooms.TryGetValue(pair.Value, out var target) ? target.AsEnumerable() :
+                    regions.TryGetValue(pair.Value, out var targetRoom) ? [targetRoom] : Enumerable.Empty<int>())
+                .ToHashSet();
+            var target = rooms.Where(room => !sourceRooms.Contains(room.Key) && !alreadyConnected.Contains(room.Key))
+                .Select(room => room.Value.Where(cell =>
+                    (cell.X - source.X) * outwardX + (cell.Y - source.Y) * outwardY > 0)
+                    .OrderBy(cell => Math.Abs(cell.X - source.X) + Math.Abs(cell.Y - source.Y))
+                    .ThenBy(cell => cell.X).ThenBy(cell => cell.Y).Select(cell => (Cell?)cell).FirstOrDefault())
+                .Where(cell => cell.HasValue).Select(cell => cell!.Value)
+                .OrderBy(cell => Math.Abs(cell.X - source.X) + Math.Abs(cell.Y - source.Y))
+                .ThenBy(cell => cell.X).ThenBy(cell => cell.Y).ToArray();
+            if (target.Length > 0) result[source] = target[0];
+        }
+        return result;
+    }
+
+    /// <summary>实际落点优先，其次配对门，最后使用朝向和距离预测目标房间。</summary>
     public IReadOnlyCollection<Cell> CandidateTargets(MapDump map, Cell source, RoleInfo role)
     {
+        if (!PortalRouting.IsRoomToRoom(role)) return Array.Empty<Cell>();
         var observed = ObservedTargets(map, source);
         if (observed.Count > 0) return observed;
-        if (!PortalRouting.IsRoomToRoom(role)) return Array.Empty<Cell>();
-        var pairs = PortalRouting.NearestRoomPortalPairs(map);
-        return pairs.TryGetValue(source, out var target) ? [target] : Array.Empty<Cell>();
+        if (role.IsRandomTransfer) return Array.Empty<Cell>();
+        if (ConnectedRooms(map).TryGetValue(source, out var roomCell)) return [roomCell];
+        return PredictedRoomConnections(map).TryGetValue(source, out var predictedRoom)
+            ? [predictedRoom] : Array.Empty<Cell>();
     }
 
     public int EdgeCount(MapDump map)

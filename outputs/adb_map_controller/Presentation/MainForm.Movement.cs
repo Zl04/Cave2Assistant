@@ -15,6 +15,95 @@ public sealed partial class MainForm
 {
     Task StartRun() => RunMovement(() => StartRunCore(operations.CurrentToken), startupProbePaused: true);
 
+    Task StartAbyssRun() => RunMovement(() => StartAbyssRunCore(operations.CurrentToken, false),
+        startupProbePaused: true, popupProfile: PopupRecognitionProfile.Abyss);
+
+    async Task StartAbyssRunCore(CancellationToken token, bool teamMode)
+    {
+        adb.Serial = devices.Text;
+        var currentMap = await adb.ReadMap();
+        token.ThrowIfCancellationRequested();
+        if (AbyssRoutePlanner.IsAbyss(currentMap))
+        {
+            Log("深渊：当前已在深渊地图，直接开始跑图");
+            await StartRunCore(token);
+            return;
+        }
+        var catalog = MaaPipelineCatalogLoader.Load(runtime.Paths.Pipeline("abyss-entry-pipeline.json"));
+        var entryHandler = new DelegateMaaPipelineHandler<MainForm>("AbyssEntry",
+            async (task, _, ct) =>
+            {
+                if (task.Name == "ChooseSolo") return teamMode ? MaaPipelineRecognitionResult.Miss("选择组队") : MaaPipelineRecognitionResult.Hit();
+                if (task.Name == "ChooseTeam") return teamMode ? MaaPipelineRecognitionResult.Hit() : MaaPipelineRecognitionResult.Miss("选择单人");
+                if (task.Name == "OpenMap")
+                {
+                    var map = await adb.ReadMap();
+                    if (!MapRunTask.IsReturnDestination(map))
+                        throw new InvalidOperationException("当前不在城镇");
+                    return MaaPipelineRecognitionResult.Hit();
+                }
+                using var frame = await adb.CaptureScreenForAutomationAsync(ct);
+                return BastanMapOpening.IsOpen(frame)
+                    ? MaaPipelineRecognitionResult.Hit()
+                    : MaaPipelineRecognitionResult.Miss("巴萨坦地图未打开");
+            },
+            async (task, _, _, ct) =>
+            {
+                if (task.Name == "OpenMap")
+                    await BastanMapOpening.EnsureOpenAsync(adb, Log, ct);
+                return MaaPipelineActionResult.Success();
+            });
+        static string EntryStepName(string name) => name switch
+        {
+            "OpenMap" => "确认角色在城镇并打开地图",
+            "MapReady" => "确认巴萨坦地图已打开",
+            "OpenMenu" => "打开地图菜单",
+            "MenuReady" => "识别深渊秘境入口",
+            "OpenAbyss" => "打开深渊模式界面",
+            "AbyssReady" => "识别深渊模式标题",
+            "ChooseSolo" or "ChooseTeam" => "读取任务选择的冒险模式",
+            "SoloSelected" or "TeamSelected" => "检查目标模式是否已亮起",
+            "ClickSolo" or "ClickTeam" => "匹配未亮起图标并切换模式",
+            "VerifySolo" or "VerifyTeam" => "确认切换后的模式已亮起",
+            "StartSolo" or "StartTeam" => "匹配并点击开始冒险",
+            "TeamStartNow" => "匹配并点击组队弹窗的立即开始",
+            _ => name
+        };
+        var trace = new MaaPipelineTraceCollector();
+        string? currentCheck = null;
+        string? lastMiss = null;
+        var progress = new DelegateMaaPipelineTraceSink(value =>
+        {
+            if (value.Kind == MaaPipelineTraceKind.CandidateRecognizing)
+            {
+                var check = string.Join("／", (value.Candidates ?? [value.TaskName ?? "未知节点"]).Select(EntryStepName).Distinct());
+                if (check != currentCheck)
+                {
+                    currentCheck = check;
+                    lastMiss = null;
+                    Log($"深渊进图：正在{check}");
+                    State($"深渊进图：正在{check}");
+                }
+            }
+            else if (value.Kind == MaaPipelineTraceKind.CandidateRecognized && value.Matched == false)
+                lastMiss = $"{EntryStepName(value.TaskName ?? "未知节点")}未命中{(string.IsNullOrWhiteSpace(value.Detail) ? "" : $"（{value.Detail}）")}";
+            else if (value.Kind == MaaPipelineTraceKind.NodeCompleted)
+                Log($"深渊进图：已完成{EntryStepName(value.TaskName ?? "未知节点")}");
+        });
+        var pipeline = new MaaPipeline<MainForm>(catalog,
+            [entryHandler, new MaaAdbPipelineHandler<MainForm>("MaaAdb", _ => new MaaAdbPipelineState(adb, log: Log, saveEvidence: false))],
+            new MaaPipelineExecutionOptions { TaskChain = "深渊进图", RetryTimes = 0 },
+            new MaaPipelineTraceMultiplexer([pipelineWebServer, trace, progress]));
+        State("深渊进图：正在检查入口");
+        var result = await pipeline.RunAsync(this, ["OpenMap"], token);
+        trace.SaveJson(runtime.Paths.Trace($"abyss-entry-{result.RunId}.json"));
+        token.ThrowIfCancellationRequested();
+        if (!result.Succeeded)
+            throw new InvalidOperationException($"深渊进图失败：正在{currentCheck ?? "检查入口"}；{lastMiss ?? result.Error ?? "原因未明"}");
+        Log("深渊：已点击开始冒险");
+        await StartRunCore(token);
+    }
+
     async Task NavigateToMapCell(Cell target)
     {
         // 拒绝无效点击，但不要干扰活动路线。有效点击采用最新请求优先：
@@ -89,7 +178,7 @@ public sealed partial class MainForm
             var ready = await RefreshMap(true, waitForLock: true, onMapReady: () =>
             {
                 var planning = Stopwatch.StartNew();
-                initialPlan = Planner.PlanToTarget(dungeon.Map!, target, Options().Monsters, dungeon.Blocked);
+                initialPlan = PlanClickedMapTarget(dungeon.Map!, target);
                 route = initialPlan.Route; plannedInteractions = initialPlan.Interactions;
                 plannedTargetUniverse = initialPlan.TargetUniverse;
                 mapPanel.Route = route; mapPanel.Invalidate();
@@ -133,6 +222,31 @@ public sealed partial class MainForm
                     continue;
                 }
 
+                if (dungeon.PendingRoomPortal is { } pendingPortal && dungeon.RoomPortalOrigin is { } portalOrigin)
+                {
+                    var current = new Cell(dungeon.Map.Player.X, dungeon.Map.Player.Y);
+                    if (dungeon.RoomPortalInteractionAt == 0 && current == pendingPortal.Cell)
+                    {
+                        dungeon.RoomPortalInteractionAt = Environment.TickCount64;
+                        dungeon.AttemptedRoomPortals.Add(pendingPortal.Cell);
+                    }
+                    if (dungeon.RoomPortalInteractionAt != 0 &&
+                        Environment.TickCount64 - dungeon.RoomPortalInteractionAt < 5000 &&
+                        (current == portalOrigin || current == pendingPortal.Cell))
+                    {
+                        State($"等待层内传送门跳转 {pendingPortal.Cell}");
+                        await Task.Delay(80, owner);
+                        continue;
+                    }
+                    if (dungeon.RoomPortalInteractionAt != 0 &&
+                        Environment.TickCount64 - dungeon.RoomPortalInteractionAt >= 5000)
+                    {
+                        dungeon.PendingRoomPortal = null;
+                        dungeon.RoomPortalOrigin = null;
+                        dungeon.RoomPortalInteractionAt = 0;
+                    }
+                }
+
                 var player = new Cell(dungeon.Map.Player.X, dungeon.Map.Player.Y);
                 var targetStillPresent = !string.IsNullOrEmpty(clickedKind) && dungeon.Map.ByCell.TryGetValue(target, out var liveTargetTile) &&
                     liveTargetTile.Roles.Any(role => role.Kind == clickedKind);
@@ -143,7 +257,7 @@ public sealed partial class MainForm
                     return;
                 }
 
-                var plan = initialPlan ?? Planner.PlanToTarget(dungeon.Map, target, Options().Monsters, dungeon.Blocked);
+                var plan = initialPlan ?? PlanClickedMapTarget(dungeon.Map, target);
                 initialPlan = null;
                 route = plan.Route;
                 plannedInteractions = plan.Interactions;
@@ -168,6 +282,7 @@ public sealed partial class MainForm
                     }
                     var delta = new Cell(task.Target.Cell.X - player.X, task.Target.Cell.Y - player.Y);
                     State($"点击导航交互 {task.Target.Kind}，方向 {delta.X},{delta.Y}");
+                    var roomPortal = IsRoomPortalTarget(task.Target);
                     var popupInterrupted = IsCombatInteraction(task.Target.Kind)
                         ? await FightWhileHolding(task, owner)
                         : await SendInteraction((delta, task.Target.Kind), owner);
@@ -175,6 +290,14 @@ public sealed partial class MainForm
                     {
                         await HandleMovementPopupInterrupt(owner);
                         continue;
+                    }
+                    if (roomPortal)
+                    {
+                        dungeon.AttemptedRoomPortals.Add(task.Target.Cell);
+                        dungeon.PendingRoomPortal = task.Target;
+                        dungeon.RoomPortalOrigin = player;
+                        dungeon.RoomPortalInteractionAt = Environment.TickCount64;
+                        Log($"点击导航经过层内传送门 {task.Target.Cell}，等待刷新落点");
                     }
                     if (task.Target.Cell == target && !IsCombatInteraction(task.Target.Kind))
                     {
@@ -192,7 +315,20 @@ public sealed partial class MainForm
                     return;
                 }
                 State($"自动导航至 {target}，剩余 {route.Count - 1} 步");
+                ArmRoomPortalTransition();
                 var routeResult = await ExecuteRouteSlice(owner);
+                if (dungeon.PendingRoomPortal is { } enteringPortal && dungeon.RoomPortalInteractionAt == 0 &&
+                    dungeon.Map is { } movedMap)
+                {
+                    var now = new Cell(movedMap.Player.X, movedMap.Player.Y);
+                    if (now == enteringPortal.Cell ||
+                        Math.Abs(now.X - enteringPortal.Cell.X) + Math.Abs(now.Y - enteringPortal.Cell.Y) > 2 &&
+                        routeResult.Status == RouteExecutionStatus.Completed)
+                    {
+                        dungeon.RoomPortalInteractionAt = Environment.TickCount64;
+                        dungeon.AttemptedRoomPortals.Add(enteringPortal.Cell);
+                    }
+                }
                 if (routeResult.InterruptedByPopup)
                 {
                     await HandleMovementPopupInterrupt(owner);
@@ -219,6 +355,25 @@ public sealed partial class MainForm
             coroutines.StopAll(); portalChoiceCoroutine = null;
             try { await touch.TouchUp(); } catch (Exception ex) { Error(ex); }
         }
+    }
+
+    RoutePlan PlanClickedMapTarget(MapDump map, Cell target)
+    {
+        var direct = Planner.PlanToTarget(map, target, Options().Monsters, dungeon.Blocked);
+        if (direct.FailureReason != "点击目标不可达" || !AbyssRoutePlanner.IsAbyss(map)) return direct;
+
+        // 房间门由服务器传送，不能把地图上的两段道路拼成一条连续步行路线。
+        // 每次只走到一扇门；落地后从最新地图重新规划至原点击坐标。
+        var desired = new[] { new TargetKey(target, "金币") }; // 拾取类停靠点就是目标格本身。
+        var viaKnownDoor = AbyssRoutePlanner.PlanToRoomPortal(map, dungeon.Blocked,
+            !Options().Monsters, dungeon.AttemptedRoomPortals, dungeon.PortalJumps,
+            desired, requireTargetProgress: true);
+        if (viaKnownDoor.Interactions.Count > 0) return viaKnownDoor;
+
+        // 未观察到的门没有权威落点；尝试尚未走过的入口，避免在两间房之间循环。
+        var viaUnknownDoor = AbyssRoutePlanner.PlanToRoomPortal(map, dungeon.Blocked,
+            !Options().Monsters, dungeon.AttemptedRoomPortals, dungeon.PortalJumps, desired);
+        return viaUnknownDoor.Interactions.Count > 0 ? viaUnknownDoor : direct;
     }
 
     bool PopupProbeEnabled()
@@ -272,6 +427,12 @@ public sealed partial class MainForm
                 // 由主循环执行点击并确认覆盖层关闭。
                 LatchRiftGemSelection();
             }
+            else if (kind == MovementPopupKind.ReturnTownConfirm)
+            {
+                await adb.TapScreen(.591, .639);
+                floorPhase = FloorPhase.WaitingReturnTown;
+                Log("已确认返回城镇，等待主城地图加载");
+            }
             else if (kind == MovementPopupKind.AltarDialog)
             {
                 await HandleAltarDialog(ownerToken);
@@ -282,6 +443,12 @@ public sealed partial class MainForm
                 // 实现附魔台交互时移除此分支，并同步调整 PopupUiPipeline、popup-watchdog.json 中的识别节点。
                 await adb.TapScreen(.44, .18);
                 Log("检测到附魔台界面，已点击空白区域关闭");
+                await Task.Delay(180, ownerToken);
+            }
+            else if (kind == MovementPopupKind.AbyssMerchantDialog)
+            {
+                await adb.TapScreen(.52, .18);
+                Log("检测到深渊商人界面，已点击中间空白区域关闭");
                 await Task.Delay(180, ownerToken);
             }
             else if (kind == MovementPopupKind.NextFloorDialog)
@@ -315,6 +482,12 @@ public sealed partial class MainForm
         token.ThrowIfCancellationRequested();
         switch (probe.Value)
         {
+            case MovementPopupKind.ReturnTownConfirm:
+                await adb.TapScreenSecondary(.591, .639);
+                floorPhase = FloorPhase.WaitingReturnTown;
+                Log("独立弹窗监控：已确认返回城镇，等待主城地图加载");
+                State("已确认返回城镇，等待主城地图加载");
+                return true;
             case MovementPopupKind.NextFloorDialog:
             {
                 var kind = probe.NextFloorDialog;
@@ -361,6 +534,10 @@ public sealed partial class MainForm
                 await adb.TapScreenSecondary(.44, .18);
                 Log("独立弹窗监控：已关闭附魔台界面，移动路线未修改");
                 return true;
+            case MovementPopupKind.AbyssMerchantDialog:
+                await adb.TapScreenSecondary(.52, .18);
+                Log("独立弹窗监控：已关闭深渊商人界面，移动路线未修改");
+                return true;
             case MovementPopupKind.ServerError:
                 BeginConnectionRecovery();
                 return true;
@@ -369,16 +546,19 @@ public sealed partial class MainForm
         }
     }
 
-    async Task RunMovement(Func<Task> action, bool startupProbePaused = false)
+    async Task RunMovement(Func<Task> action, bool startupProbePaused = false,
+        PopupRecognitionProfile popupProfile = PopupRecognitionProfile.Normal)
     {
         if (closing || stopping || scanning || activeMovement is { IsCompleted: false } || activeEntry is { IsCompleted: false }) return;
         await operations.RunAsync(ControllerOperationKind.Movement, owner =>
-            RunMovementScope(owner, _ => action(), startupProbePaused));
+            RunMovementScope(owner, _ => action(), startupProbePaused, popupProfile));
         UpdateDeviceAvailability();
     }
 
-    async Task RunMovementScope(CancellationToken owner, Func<CancellationToken, Task> action, bool startupProbePaused = false)
+    async Task RunMovementScope(CancellationToken owner, Func<CancellationToken, Task> action,
+        bool startupProbePaused = false, PopupRecognitionProfile popupProfile = PopupRecognitionProfile.Normal)
     {
+        activePopupProfile = popupProfile;
         mapRunActiveDuringRecovery = true;
         if (startupProbePaused) startupPreparing = true;
         devices.Enabled = false;
@@ -387,7 +567,8 @@ public sealed partial class MainForm
         var watchdog = new PopupWatchdog(adb, PopupProbeEnabled, HandleIndependentPopup,
             ex => Warn($"移动弹窗监控暂时失败：{ex.Message}"),
             message => Log(message),
-            PopupProbeDisabledReason);
+            PopupProbeDisabledReason,
+            () => CurrentPopupProfile);
         var watchdogTask = watchdog.RunAsync(watchdogCts.Token);
         try { await action(owner); }
         finally
@@ -395,6 +576,7 @@ public sealed partial class MainForm
             watchdogCts.Cancel();
             try { await watchdogTask; } catch (OperationCanceledException) { }
             mapRunActiveDuringRecovery = false;
+            activePopupProfile = PopupRecognitionProfile.Normal;
             dungeon.MotionInterrupt.Clear();
             if (startupProbePaused) startupPreparing = false;
             UpdateDeviceAvailability();

@@ -209,7 +209,8 @@ internal sealed class AdbScreenAnalyzer : IDisposable
         Bitmap bitmap,
         CancellationToken token,
         Action<string?>? bodyObserved,
-        Action<string?>? titleObserved = null)
+        Action<string?>? titleObserved = null,
+        bool includeGreedySelection = true)
     {
         // 普通/警告确认框先用绿色勾按钮筛选，再读中央提示文字。
         if (PopupRecognition.HasNextFloorConfirmButton(bitmap))
@@ -221,6 +222,14 @@ internal sealed class AdbScreenAnalyzer : IDisposable
                 titleObserved?.Invoke(null);
                 return DetectNextFloorDialog(bitmap, null, confirmText);
             }
+        }
+
+        if (!includeGreedySelection)
+        {
+            bodyObserved?.Invoke(null);
+            titleObserved?.Invoke(null);
+            LastNextFloorDialogKind = NextFloorDialogKind.None;
+            return NextFloorDialogKind.None;
         }
 
         // 贪婪抉择仅以标题为入口；标题未命中时不读取卡片。

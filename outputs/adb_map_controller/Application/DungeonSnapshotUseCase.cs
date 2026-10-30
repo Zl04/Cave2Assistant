@@ -20,10 +20,17 @@ public sealed class DungeonSnapshotUseCase(DungeonSession dungeon, IGameSnapshot
         var messages = new List<string>();
         if (player.MoveSpeed > 0) dungeon.RouteExecution.MoveSpeed = player.MoveSpeed;
         RouteExecutor.ApplyPlayerStatus(map, player);
+        dungeon.RecordSurveyCoverage(map, [new Cell(map.Player.X, map.Player.Y)]);
+        if (AbyssRoutePlanner.IsAbyss(map))
+            foreach (var landingPortal in dungeon.PortalJumps.ReconcileArrivals(map))
+            {
+                dungeon.AttemptedRoomPortals.Add(landingPortal);
+                messages.Add($"层内传送落地门已显现：{landingPortal}，已修正传送连接");
+            }
         if (previousMap is not null)
             foreach (var unlock in dungeon.PortalUnlocks.Observe(previousMap, map))
                 messages.Add($"检测到传送门解锁：{unlock.Portal}，关联消失小怪 {string.Join(", ", unlock.DefeatedMonsters)}");
-        if (dungeon.PendingRoomPortal is { } roomPortal && previousMap is not null && dungeon.RoomPortalOrigin is { } origin &&
+        if (AbyssRoutePlanner.IsAbyss(map) && dungeon.PendingRoomPortal is { } roomPortal && previousMap is not null && dungeon.RoomPortalOrigin is { } origin &&
             map.Level == previousMap.Level && PortalJumpGraph.KeyOf(map) == PortalJumpGraph.KeyOf(previousMap))
         {
             var now = new Cell(map.Player.X, map.Player.Y);
@@ -42,11 +49,13 @@ public sealed class DungeonSnapshotUseCase(DungeonSession dungeon, IGameSnapshot
                 dungeon.RoomPortalResumeAt = Environment.TickCount64 + 1500;
                 dungeon.PendingRoomPortal = null; dungeon.RoomPortalOrigin = null; dungeon.RoomPortalInteractionAt = 0;
             }
-            else if (dungeon.RoomPortalInteractionAt != 0 && now != origin && now != roomPortal.Cell)
+            else if (dungeon.RoomPortalInteractionAt != 0 &&
+                     Math.Abs(now.X - roomPortal.Cell.X) + Math.Abs(now.Y - roomPortal.Cell.Y) > 2)
             {
-                if (PortalRouting.NearestRoomPortal(map, now) is { } landingPortal)
+                dungeon.PortalJumps.ObserveArrival(map, roomPortal.Cell, now);
+                if (PortalRouting.NearestRoomPortal(map, now, includeLocked: true) is { } landingPortal)
                     dungeon.AttemptedRoomPortals.Add(landingPortal);
-                messages.Add($"层内传送已发生：{roomPortal.Cell} -> {now}，落点附近没有可确认的传送门，保留当前位置重新寻路");
+                messages.Add($"层内传送已发生：{roomPortal.Cell} -> {now}，已记录落地区域，等待目标门显现");
                 dungeon.RoomPortalSettlingCell = now;
                 dungeon.RoomPortalResumeAt = Environment.TickCount64 + 1500;
                 dungeon.PendingRoomPortal = null; dungeon.RoomPortalOrigin = null; dungeon.RoomPortalInteractionAt = 0;

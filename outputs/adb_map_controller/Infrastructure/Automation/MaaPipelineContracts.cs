@@ -183,17 +183,24 @@ public sealed class MaaPipelineTraceMultiplexer : IMaaPipelineTraceSink
 
 public sealed class MaaPipelineTraceCollector : IMaaPipelineTraceSink
 {
+    public static bool SaveRoutineRecords { get; set; } = true;
     readonly ConcurrentQueue<MaaPipelineTraceEvent> events = new();
 
     public IReadOnlyList<MaaPipelineTraceEvent> Events => events.ToArray();
     public void Write(MaaPipelineTraceEvent value) => events.Enqueue(value);
 
-    public void SaveJson(string path)
+    public bool SaveJson(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        var snapshot = Events;
+        if (!SaveRoutineRecords && !snapshot.Any(value =>
+                value.Kind is MaaPipelineTraceKind.NodeFailed or MaaPipelineTraceKind.TaskChainFailed or MaaPipelineTraceKind.LimitExceeded
+                || !string.IsNullOrWhiteSpace(value.Error)))
+            return false;
         var directory = Path.GetDirectoryName(Path.GetFullPath(path));
         if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
-        File.WriteAllText(path, JsonSerializer.Serialize(Events, new JsonSerializerOptions { WriteIndented = true }));
+        File.WriteAllText(path, JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true }));
+        return true;
     }
 }
 

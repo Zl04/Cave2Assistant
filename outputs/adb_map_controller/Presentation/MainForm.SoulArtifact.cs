@@ -26,8 +26,7 @@ public sealed partial class MainForm
             try
             {
                 var tracePath = runtime.Paths.Trace($"soul-artifact-{result.RunId}.json");
-                trace.SaveJson(tracePath);
-                Log($"培养魂器：Pipeline 轨迹已保存：{tracePath}");
+                if (trace.SaveJson(tracePath)) Log($"培养魂器：Pipeline 轨迹已保存：{tracePath}");
             }
             catch (Exception ex) { Warn($"培养魂器：Pipeline 轨迹保存失败：{ex.Message}"); }
             token.ThrowIfCancellationRequested();

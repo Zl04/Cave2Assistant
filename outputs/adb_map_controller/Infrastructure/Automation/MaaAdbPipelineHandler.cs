@@ -72,9 +72,11 @@ public sealed class MaaAdbPipelineHandler<TState> : IMaaPipelineHandler<TState>
         // even when routine evidence capture is disabled for this task or workflow.
         var saveRecognitionFailure = !result.Hit && task.Algorithm is
             MaaPipelineAlgorithm.MatchTemplate or MaaPipelineAlgorithm.OcrDetect;
-        var evidencePath = saveRecognitionFailure || state.SaveEvidence && task.SaveScreenshot
+        var evidencePath = saveRecognitionFailure
             ? PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, state.Log)
-            : null;
+            : state.SaveEvidence && task.SaveScreenshot
+                ? PipelineEvidenceStore.SaveRoutine(frame, context.RunId, context.TaskId, state.Log)
+                : null;
         MaaRect? box = result.Box.IsEmpty
             ? null
             : new MaaRect(

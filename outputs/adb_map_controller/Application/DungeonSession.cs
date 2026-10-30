@@ -6,6 +6,7 @@ namespace AdbMapController;
 /// </summary>
 public sealed class DungeonSession
 {
+    private const int SurveyCoverageRadius = 4;
     public MapDump? Map { get; set; }
     public MotionInterruptState MotionInterrupt { get; } = new();
     public RouteSession Route { get; } = new();
@@ -24,6 +25,8 @@ public sealed class DungeonSession
     public PortalJumpGraph PortalJumps { get; } = new();
     public PortalUnlockGraph PortalUnlocks { get; } = new();
     public HashSet<Cell> AttemptedRoomPortals { get; } = [];
+    public HashSet<Cell> RoomSurveyCoverage { get; } = [];
+    public int RoomSurveyLevel { get; set; } = -1;
     public int ObservedLevel { get; set; } = -1;
     public int PortalConfirmCount { get; set; }
     public int RouteRecoveryUsed { get; set; }
@@ -41,6 +44,34 @@ public sealed class DungeonSession
     public int FloorMiningCompletedLevel { get; set; } = -1;
     public int FloorMiningSkippedLevel { get; set; } = -1;
     public int AltarAttemptedLevel { get; set; } = -1;
+
+    public void RecordSurveyCoverage(MapDump map, IEnumerable<Cell> traversed)
+    {
+        if (!AbyssRoutePlanner.IsAbyss(map)) return;
+        if (RoomSurveyLevel != map.Level)
+        {
+            RoomSurveyCoverage.Clear();
+            RoomSurveyLevel = map.Level;
+        }
+        var tiles = map.ByCell;
+        foreach (var position in traversed)
+        {
+            if (!tiles.TryGetValue(position, out var start) || !start.Walkable) continue;
+            var queue = new Queue<(Cell Cell, int Distance)>();
+            var seen = new HashSet<Cell> { position };
+            queue.Enqueue((position, 0));
+            while (queue.TryDequeue(out var item))
+            {
+                RoomSurveyCoverage.Add(item.Cell);
+                if (item.Distance == SurveyCoverageRadius) continue;
+                foreach (var next in new[] {
+                    new Cell(item.Cell.X - 1, item.Cell.Y), new Cell(item.Cell.X + 1, item.Cell.Y),
+                    new Cell(item.Cell.X, item.Cell.Y - 1), new Cell(item.Cell.X, item.Cell.Y + 1) })
+                    if (seen.Add(next) && tiles.TryGetValue(next, out var tile) && tile.Walkable)
+                        queue.Enqueue((next, item.Distance + 1));
+            }
+        }
+    }
 
     public void Reset()
     {
@@ -61,6 +92,8 @@ public sealed class DungeonSession
         PortalJumps.Clear();
         PortalUnlocks.Clear();
         AttemptedRoomPortals.Clear();
+        RoomSurveyCoverage.Clear();
+        RoomSurveyLevel = -1;
         ObservedLevel = -1;
         PortalConfirmCount = 0;
         RouteRecoveryUsed = 0;
@@ -99,6 +132,8 @@ public sealed class DungeonSession
         FloorMiningSkippedLevel = -1;
         AltarAttemptedLevel = -1;
         AttemptedRoomPortals.Clear();
+        RoomSurveyCoverage.Clear();
+        RoomSurveyLevel = -1;
         PendingRoomPortal = null;
         RoomPortalOrigin = null;
         RoomPortalInteractionAt = 0;

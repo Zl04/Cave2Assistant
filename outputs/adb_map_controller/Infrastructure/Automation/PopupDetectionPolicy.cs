@@ -12,8 +12,10 @@ public static class PopupDetectionPolicy
         {
             MovementPopupKind.ServerError or
             MovementPopupKind.RiftGemSelection or
-            MovementPopupKind.NextFloorDialog => 1,
-            MovementPopupKind.AltarDialog or MovementPopupKind.EnchantingDialog => 2,
+            MovementPopupKind.NextFloorDialog or
+            MovementPopupKind.ReturnTownConfirm => 1,
+            MovementPopupKind.AltarDialog or MovementPopupKind.EnchantingDialog or
+            MovementPopupKind.AbyssMerchantDialog => 2,
             _ => 0
         };
 }

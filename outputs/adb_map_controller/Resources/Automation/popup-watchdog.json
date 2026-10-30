@@ -24,6 +24,13 @@
       "maxAttempts": 1
     },
     {
+      "name": "AbyssMerchantDialog",
+      "result": "AbyssMerchantDialog",
+      "recognizer": "AbyssMerchantDialog",
+      "priority": 17,
+      "maxAttempts": 1
+    },
+    {
       "name": "RiftGemSelection",
       "result": "RiftGemSelection",
       "recognizer": "RiftGemSelection",
@@ -35,6 +42,13 @@
       "result": "NextFloorDialog",
       "recognizer": "NextFloorDialog",
       "priority": 18,
+      "maxAttempts": 1
+    },
+    {
+      "name": "ReturnTownConfirm",
+      "result": "ReturnTownConfirm",
+      "recognizer": "ReturnTownConfirm",
+      "priority": 19,
       "maxAttempts": 1
     }
   ]

@@ -131,10 +131,15 @@ public sealed class JsonSettingsStore : ISettingsStore
                     var allowed = new HashSet<string>(CommonTaskFields);
                     if (kind is ExecutionTaskKind.EntryAndRun or ExecutionTaskKind.CardMining)
                         allowed.UnionWith(EntryFields);
-                    if (kind != ExecutionTaskKind.DreamTrial)
+                    if (kind is not (ExecutionTaskKind.DreamTrial or ExecutionTaskKind.AbyssRun))
                         allowed.UnionWith(TargetFields);
                     if (kind is ExecutionTaskKind.EntryAndRun or ExecutionTaskKind.CurrentMapRun)
                         allowed.UnionWith(RouteFields);
+                    if (kind == ExecutionTaskKind.AbyssRun)
+                    {
+                        allowed.Add(nameof(ControllerSettings.AbyssRunCount));
+                        allowed.Add(nameof(ControllerSettings.AbyssTeamMode));
+                    }
                     if (kind == ExecutionTaskKind.EntryAndRun)
                         allowed.Add(nameof(ControllerSettings.EntryRunCount));
                     if (kind == ExecutionTaskKind.CardMining)

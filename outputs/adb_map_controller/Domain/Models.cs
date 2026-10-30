@@ -35,7 +35,7 @@ public sealed class PlayerInfo { public int X { get; set; } public int Y { get; 
 
 public sealed class RoleInfo
 {
-    public int SpriteID { get; set; }
+    public long SpriteID { get; set; }
     public int TemplateID { get; set; } = -1;
     public int RoleType { get; set; }
     public int MinimapType { get; set; }
@@ -133,7 +133,7 @@ public sealed class TownIconInfo
 {
     public int X { get; set; } = -1;
     public int Y { get; set; } = -1;
-    public int SpriteID { get; set; }
+    public long SpriteID { get; set; }
     public int TemplateID { get; set; } = -1;
     public int RoleType { get; set; }
     public int MinimapType { get; set; }

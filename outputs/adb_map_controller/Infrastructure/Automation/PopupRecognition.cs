@@ -13,6 +13,19 @@ namespace AdbMapController;
 /// </summary>
 public static class PopupRecognition
 {
+    // 深渊商人左上角的两件道具和价格，取自标注红框的内部区域。
+    public static bool HasAbyssMerchantDialog(Bitmap frame)
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "templates", "ui", "abyss-merchant-items.png");
+        if (!File.Exists(path)) return false;
+        var bounds = Rectangle.FromLTRB(0, 0, (int)(frame.Width * .27), (int)(frame.Height * .34));
+        using var crop = frame.Clone(bounds, frame.PixelFormat);
+        var scale = Math.Min(frame.Width, frame.Height) / 1080d;
+        var cropSize = Math.Min(crop.Width, crop.Height);
+        var template = VisualTemplate.FromFile(path, 327 * scale / cropSize, 165 * scale / cropSize);
+        return template.Find(crop, .88) is not null;
+    }
+
     // 点金台任务入口识别。识别器只判断界面是否可见，交互交由 AltarPipeline。
     public static bool HasAltarDialog(Bitmap frame)
     {
@@ -148,6 +161,10 @@ public static class PopupRecognition
         return normalized.Contains("是否进入下一层", StringComparison.Ordinal) ||
                normalized.Contains("是否进入下层", StringComparison.Ordinal);
     }
+
+    public static bool IsReturnTownConfirmText(string? text)
+        => !string.IsNullOrWhiteSpace(text) &&
+            NormalizeText(text).Contains("是否返回城镇", StringComparison.Ordinal);
 
     public static bool IsCharacterAdvancementDialogText(string? text)
     {

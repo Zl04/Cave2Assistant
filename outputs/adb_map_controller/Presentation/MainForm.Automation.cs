@@ -96,8 +96,7 @@ public sealed partial class MainForm
         try
         {
             var tracePath = runtime.Paths.Trace($"map-run-{result.RunId}.json");
-            trace.SaveJson(tracePath);
-            Log($"MAA Pipeline 节点诊断已保存：{tracePath}");
+            if (trace.SaveJson(tracePath)) Log($"MAA Pipeline 节点诊断已保存：{tracePath}");
         }
         catch (Exception ex) { Warn($"MAA Pipeline 节点诊断保存失败：{ex.Message}"); }
         if (!result.Succeeded && result.Status != MaaPipelineExecutionStatus.Canceled)
@@ -616,17 +615,18 @@ public sealed partial class MainForm
                             throw new InvalidOperationException($"机关密室仍锁定，且无可触发机关或可探索区域；失败机关：{string.Join(", ", dungeon.StalledMechanisms)}");
                     }
                     else dungeon.LockedChamberWaitSince = 0;
-                    if (floorPhase == FloorPhase.Explore && reachableTargets.Count == 0)
+                    if ((floorPhase == FloorPhase.Explore ||
+                         AbyssRoutePlanner.IsAbyss(dungeon.Map) && floorPhase == FloorPhase.CollectWarning) &&
+                        reachableTargets.Count == 0)
                     {
                         // 当前没有可到达的目标时，探索是主要动作。
                         // 在检查下一层快捷入口前先执行探索；否则当前地图仍有未发现路径时，
                         // 快捷入口可能会抢先执行。
-                        if (TryPlanExplorationRoute())
-                        {
-                            await Task.Delay(20, owner);
-                            continue;
-                        }
-                        if (TryPlanRoomPortalRoute())
+                        // 已无可达迷雾时先检查下楼入口和房间巡查，避免已确认的
+                        // 回程传送门一直抢占路线，使两个房间之间无限往返。
+                        if (AbyssRoutePlanner.IsAbyss(dungeon.Map) &&
+                            !AbyssRoutePlanner.IsSurveyReady(dungeon.Map, dungeon.Blocked) &&
+                            TryPlanAbyssFallbackRoute())
                         {
                             await Task.Delay(20, owner);
                             continue;
@@ -640,13 +640,28 @@ public sealed partial class MainForm
                         await Task.Delay(80, owner);
                         continue;
                     }
+                    // 锁门的解锁战斗和通往已知目标的传送门应先于房间巡查。
+                    if (AbyssRoutePlanner.IsAbyss(dungeon.Map) && reachableTargets.Count == 0 &&
+                        TryPlanAbyssFallbackRoute())
+                    {
+                        await Task.Delay(20, owner);
+                        continue;
+                    }
+                    if (AbyssRoutePlanner.IsAbyss(dungeon.Map) && reachableTargets.Count == 0 &&
+                        (TryPlanRoomSurveyRoute() || TryPlanRoomSurveyPortalRoute()))
+                    {
+                        await Task.Delay(20, owner);
+                        continue;
+                    }
                     if (floorPhase == FloorPhase.GoToPortal)
                     {
                         State("传送门暂不可达，等待道路更新");
                         dungeon.PortalCandidate = null; dungeon.PortalConfirmCount = 0;
                         await Task.Delay(100, owner); continue;
                     }
-                    if (floorPhase == FloorPhase.Explore && reachableTargets.Count == 0)
+                    if ((floorPhase == FloorPhase.Explore ||
+                         AbyssRoutePlanner.IsAbyss(dungeon.Map) && floorPhase == FloorPhase.CollectWarning) &&
+                        reachableTargets.Count == 0)
                     {
                         State("探索地图，等待发现勾选目标");
                         await Task.Delay(180, owner);
@@ -666,6 +681,13 @@ public sealed partial class MainForm
                 ArmRoomPortalTransition();
                 var executedRoute = route.ToArray();
                 var routeResult = await ExecuteRouteSlice(owner);
+                if (dungeon.Map is { } traversedSnapshot && AbyssRoutePlanner.IsAbyss(traversedSnapshot))
+                {
+                    var observedPosition = new Cell(traversedSnapshot.Player.X, traversedSnapshot.Player.Y);
+                    var traversedIndex = Array.IndexOf(executedRoute, observedPosition);
+                    if (traversedIndex >= 0)
+                        dungeon.RecordSurveyCoverage(traversedSnapshot, executedRoute.Take(traversedIndex + 1));
+                }
                 if (routeResult.Status == RouteExecutionStatus.Completed && dungeon.Map is { } traversedMap)
                 {
                     var arrival = new Cell(traversedMap.Player.X, traversedMap.Player.Y);
@@ -690,6 +712,15 @@ public sealed partial class MainForm
                     // 执行器已经采样了玩家实际所在格，但替换失败路线前也要刷新格子表。
                     // 这样可以防止超调/偏离后在紧循环中重试过期路线。
                     await RefreshMap(false, waitForLock: true);
+                    if (dungeon.PendingRoomPortal is { } pendingPortal && dungeon.RoomPortalInteractionAt == 0 &&
+                        dungeon.Map is { } currentMap &&
+                        new Cell(currentMap.Player.X, currentMap.Player.Y) != pendingPortal.Cell)
+                    {
+                        // 尚未踩到门，普通移动受阻不属于传送；撤销预登记后可立即改路。
+                        dungeon.PendingRoomPortal = null;
+                        dungeon.RoomPortalOrigin = null;
+                        Log($"前往层内传送门 {pendingPortal.Cell} 的路线受阻，立即重新规划入口路线");
+                    }
                     if (dungeon.PendingRoomPortal is not null || dungeon.RoomPortalResumeAt != 0)
                     {
                         // 传送期间坐标跳变不是普通路线偏离；交给传送等待状态确认。

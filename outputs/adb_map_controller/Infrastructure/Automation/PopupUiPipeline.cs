@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 
 namespace AdbMapController;
 
+public enum PopupRecognitionProfile { Normal, Abyss }
+
 /// <summary>
 /// 一次弹窗管线探测的结果。换层确认框的子类型必须和该次探测绑定，
 /// 不能再通过 AdbClient 上的可变“最后一次结果”属性回读，否则移动看门狗
@@ -56,7 +58,8 @@ public static class PopupUiPipeline
         Action<NextFloorDialogKind, string?>? nextFloorDialogDetected = null,
         Action<string?>? nextFloorDialogTitleObserved = null,
         Action<string?>? riftGemTitleObserved = null,
-        bool prioritizeNextFloor = false)
+        bool prioritizeNextFloor = false,
+        PopupRecognitionProfile profile = PopupRecognitionProfile.Normal)
     {
         if (adb is null) throw new ArgumentNullException(nameof(adb));
 
@@ -70,6 +73,9 @@ public static class PopupUiPipeline
         var nodes = new List<UiPipelineNode<Bitmap, MovementPopupKind>>();
         foreach (var node in definition.Nodes)
         {
+            if (profile == PopupRecognitionProfile.Abyss && node.Recognizer == "RiftGemSelection") continue;
+            if (profile != PopupRecognitionProfile.Abyss && node.Recognizer == "ReturnTownConfirm") continue;
+            if (profile != PopupRecognitionProfile.Abyss && node.Recognizer == "AbyssMerchantDialog") continue;
             if (!Enum.TryParse<MovementPopupKind>(node.Result, ignoreCase: true, out var result) ||
                 result == MovementPopupKind.None)
                 throw new InvalidDataException($"节点 {node.Name} 的 result 不是有效弹窗类型：{node.Result}（{path}）");
@@ -77,7 +83,7 @@ public static class PopupUiPipeline
             nodes.Add(new UiPipelineNode<Bitmap, MovementPopupKind>(
                 node.Name,
                 result,
-                CreateRecognizer(adb, node, path, nextFloorDialogDetected, nextFloorDialogTitleObserved, riftGemTitleObserved),
+                CreateRecognizer(adb, node, path, nextFloorDialogDetected, nextFloorDialogTitleObserved, riftGemTitleObserved, profile),
                 node.MaxAttempts,
                 System.Threading.Timeout.InfiniteTimeSpan));
         }
@@ -91,31 +97,19 @@ public static class PopupUiPipeline
         string path,
         Action<NextFloorDialogKind, string?>? nextFloorDialogDetected,
         Action<string?>? nextFloorDialogTitleObserved,
-        Action<string?>? riftGemTitleObserved)
+        Action<string?>? riftGemTitleObserved,
+        PopupRecognitionProfile profile)
         => node.Recognizer switch
         {
-            "ServerErrorDialog" => async (context, token) =>
-            {
-                // Match the dialog's confirm button before reading its message.
-                return await adb.HasServerErrorDialog(context.Frame, token);
-            },
-            "NextFloorDialog" => async (context, token) =>
+            "ServerErrorDialog" => (context, token) => adb.HasServerErrorDialog(context.Frame, token),
+            "NextFloorDialog" => (context, token) => RecognizeNextFloorAsync(adb, context.Frame, token,
+                nextFloorDialogDetected, nextFloorDialogTitleObserved, profile),
+            "RiftGemSelection" => (context, token) => RecognizeRiftGemAsync(adb, context.Frame, token, riftGemTitleObserved),
+            "ReturnTownConfirm" => (context, token) => RecognizeReturnTownAsync(adb, context.Frame, token),
+            "AbyssMerchantDialog" => (context, token) =>
             {
                 token.ThrowIfCancellationRequested();
-                // 换层弹窗的正文/卡片标题位于固定中央区域。扩大裁剪范围以同时
-                // 捕获贪婪抉择卡片的“返回城镇/继续探险”语义，仍避免整屏文字干扰。
-                string? bodyText = null;
-                var kind = await adb.DetectNextFloorDialog(context.Frame, token,
-                    text => bodyText = text, nextFloorDialogTitleObserved);
-                nextFloorDialogDetected?.Invoke(kind, bodyText);
-                token.ThrowIfCancellationRequested();
-                return kind != NextFloorDialogKind.None;
-            },
-            "RiftGemSelection" => async (context, token) =>
-            {
-                var text = await adb.ReadRiftGemTitleAsync(context.Frame, token);
-                riftGemTitleObserved?.Invoke(text);
-                return adb.HasRiftGemSelectionText(text);
+                return Task.FromResult(PopupRecognition.HasAbyssMerchantDialog(context.Frame));
             },
             // 临时兼容识别节点；正式交互接入时同时检查 popup-watchdog.json 与 MainForm.Movement.cs。
             "AltarDialog" => (context, token) =>
@@ -132,11 +126,31 @@ public static class PopupUiPipeline
                 $"节点 {node.Name} 使用了未注册的 recognizer：{node.Recognizer}（{path}）")
         };
 
-    static async Task<bool> ObserveAsync(Func<Task<bool>> detector, CancellationToken token)
+    static async Task<bool> RecognizeNextFloorAsync(AdbClient adb, Bitmap frame, CancellationToken token,
+        Action<NextFloorDialogKind, string?>? detected, Action<string?>? titleObserved,
+        PopupRecognitionProfile profile)
     {
+        string? body = null;
+        var kind = await adb.DetectNextFloorDialog(frame, token, text => body = text, titleObserved,
+            includeGreedySelection: profile == PopupRecognitionProfile.Normal);
+        detected?.Invoke(kind, body);
         token.ThrowIfCancellationRequested();
-        var result = await detector();
-        token.ThrowIfCancellationRequested();
-        return result;
+        return kind != NextFloorDialogKind.None;
     }
+
+    static async Task<bool> RecognizeRiftGemAsync(AdbClient adb, Bitmap frame, CancellationToken token,
+        Action<string?>? titleObserved)
+    {
+        var title = await adb.ReadRiftGemTitleAsync(frame, token);
+        titleObserved?.Invoke(title);
+        return adb.HasRiftGemSelectionText(title);
+    }
+
+    static async Task<bool> RecognizeReturnTownAsync(AdbClient adb, Bitmap frame, CancellationToken token)
+    {
+        if (!PopupRecognition.HasNextFloorConfirmButton(frame)) return false;
+        var text = await adb.ReadReturnTownConfirmTextAsync(frame, token);
+        return PopupRecognition.IsReturnTownConfirmText(text);
+    }
+
 }

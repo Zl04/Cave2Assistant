@@ -5,6 +5,11 @@ namespace AdbMapController;
 
 internal static class PipelineEvidenceStore
 {
+    public static bool SaveRoutineScreenshots { get; set; } = true;
+
+    public static string? SaveRoutine(Bitmap frame, string runId, int taskId, Action<string>? log = null)
+        => SaveRoutineScreenshots ? Save(frame, runId, taskId, log) : null;
+
     public static string? Save(Bitmap frame, string runId, int taskId, Action<string>? log = null)
     {
         try

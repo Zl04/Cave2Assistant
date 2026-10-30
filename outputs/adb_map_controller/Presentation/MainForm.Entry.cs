@@ -214,8 +214,7 @@ public sealed partial class MainForm
         try
         {
             var tracePath = runtime.Paths.Trace($"entry-run-{result.RunId}.json");
-            trace.SaveJson(tracePath);
-            Log($"进图跑图 Pipeline 节点诊断已保存：{tracePath}");
+            if (trace.SaveJson(tracePath)) Log($"进图跑图 Pipeline 节点诊断已保存：{tracePath}");
         }
         catch (Exception ex) { Warn($"进图跑图 Pipeline 诊断保存失败：{ex.Message}"); }
         if (result.Status == MaaPipelineExecutionStatus.Canceled)
@@ -278,8 +277,7 @@ public sealed partial class MainForm
             try
             {
                 var tracePath = runtime.Paths.Trace($"dungeon-entry-{result.RunId}.json");
-                trace.SaveJson(tracePath);
-                Log($"进图 Pipeline 节点诊断已保存：{tracePath}");
+                if (trace.SaveJson(tracePath)) Log($"进图 Pipeline 节点诊断已保存：{tracePath}");
             }
             catch (Exception ex) { Warn($"进图 Pipeline 节点诊断保存失败：{ex.Message}"); }
 

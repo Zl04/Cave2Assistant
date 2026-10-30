@@ -20,6 +20,7 @@ public sealed class PopupWatchdog
     readonly Action<Exception> probeFailed;
     readonly Action<string>? probeStatus;
     readonly Func<string>? probeDisabledReason;
+    readonly Func<PopupRecognitionProfile> recognitionProfile;
 
     internal PopupWatchdog(
         AdbClient adb,
@@ -27,7 +28,8 @@ public sealed class PopupWatchdog
         Func<PopupUiPipelineResult, CancellationToken, Task<bool>> detected,
         Action<Exception> probeFailed,
         Action<string>? probeStatus = null,
-        Func<string>? probeDisabledReason = null)
+        Func<string>? probeDisabledReason = null,
+        Func<PopupRecognitionProfile>? recognitionProfile = null)
     {
         this.adb = adb;
         this.probeEnabled = probeEnabled;
@@ -35,6 +37,7 @@ public sealed class PopupWatchdog
         this.probeFailed = probeFailed;
         this.probeStatus = probeStatus;
         this.probeDisabledReason = probeDisabledReason;
+        this.recognitionProfile = recognitionProfile ?? (() => PopupRecognitionProfile.Normal);
     }
 
     public async Task RunAsync(CancellationToken token)
@@ -49,6 +52,7 @@ public sealed class PopupWatchdog
         var lastGemClickAt = 0L;
         var gemClickAttempts = 0;
         var lastNextFloorClickAt = 0L;
+        string? lastDisabledReason = null;
         probeStatus?.Invoke("弹窗监控已启动");
 
         void ReportStatus(string message, bool force = false)
@@ -65,6 +69,7 @@ public sealed class PopupWatchdog
             // 暂停探测；其余时间即使移动分片刚结束，也要把弹窗锁存给主循环处理。
             if (probeEnabled())
             {
+                lastDisabledReason = null;
                 try
                 {
                     var probeId = ++probeCount;
@@ -79,7 +84,7 @@ public sealed class PopupWatchdog
                         using var frame = await adb.CaptureMovementPopupFrameAsync(frameId, probeCancellation.Token);
                         var captureMs = stopwatch.ElapsedMilliseconds;
                         ReportStatus($"弹窗监控探测 #{probeId}（FrameId={frameId}）：识别中");
-                        var pipelineResult = await adb.RunPopupUiPipelineAsync(frame, frameId, probeCancellation.Token);
+                        var pipelineResult = await adb.RunPopupUiPipelineAsync(frame, frameId, probeCancellation.Token, recognitionProfile());
                         var popup = pipelineResult.Value;
                         var node = pipelineResult.NodeName ?? "无匹配";
                         var attemptDetail = pipelineResult.AttemptSummary;
@@ -158,7 +163,14 @@ public sealed class PopupWatchdog
                 }
             }
             else
-                ReportStatus($"弹窗监控等待专用弹窗流程结束：{probeDisabledReason?.Invoke() ?? "专用流程未结束"}");
+            {
+                var reason = probeDisabledReason?.Invoke() ?? "专用流程未结束";
+                if (reason != lastDisabledReason)
+                {
+                    lastDisabledReason = reason;
+                    ReportStatus($"弹窗监控等待专用弹窗流程结束：{reason}", force: true);
+                }
+            }
 
             try { await Task.Delay(ProbeInterval, token); }
             catch (OperationCanceledException) when (token.IsCancellationRequested) { break; }

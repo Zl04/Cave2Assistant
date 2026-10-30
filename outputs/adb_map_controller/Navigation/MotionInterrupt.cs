@@ -9,8 +9,10 @@ public enum MovementPopupKind
     ServerError,
     RiftGemSelection,
     NextFloorDialog,
+    ReturnTownConfirm,
     AltarDialog,
-    EnchantingDialog
+    EnchantingDialog,
+    AbyssMerchantDialog
 }
 
 public enum NextFloorDialogKind

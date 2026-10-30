@@ -43,6 +43,8 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     readonly ThemedNumericUpDown entryRunCount = new() { Minimum = 0, Maximum = 9999, Increment = 1, Value = 0, Width = 62 };
     readonly ComboBox themeChoice = new ThemedComboBox { Width = 105, DropDownStyle = ComboBoxStyle.DropDownList };
     readonly CheckBox alwaysOnTop = Box("窗口置顶");
+    readonly CheckBox savePipelineScreenshots = new ThemedCheckBox { Text = "保存 Pipeline 运行截图", AutoSize = true, Checked = true };
+    readonly CheckBox savePipelineRecords = new ThemedCheckBox { Text = "保存 Pipeline 运行记录", AutoSize = true, Checked = true };
     readonly ListBox bonusPriority = new()
     {
         Width = 230,
@@ -78,6 +80,11 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     bool closing, closeReady, stopping, scanning;
     bool lastMapRunSucceeded;
     bool entryRunMovementScope;
+    PopupRecognitionProfile activePopupProfile = PopupRecognitionProfile.Normal;
+
+    PopupRecognitionProfile CurrentPopupProfile
+        => dungeon.Map is { } map && MapRunTask.IsReturnDestination(map)
+            ? PopupRecognitionProfile.Normal : activePopupProfile;
     List<Cell> route { get => dungeon.Route.Route; set => dungeon.Route.Route = value; }
     List<PlannedInteraction> plannedInteractions { get => dungeon.Route.Interactions; set => dungeon.Route.Interactions = value; }
     HashSet<TargetKey> plannedTargetUniverse { get => dungeon.Route.TargetUniverse; set => dungeon.Route.TargetUniverse = value; }
@@ -146,6 +153,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     {
         this.runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
         this.settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
+        mapPanel.PortalJumps = dungeon.PortalJumps;
         adb = runtime.Adb;
         touch = runtime.Touch;
         touch.TimingLog = message => Log($"移动诊断：{message}");
@@ -203,7 +211,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             Tag = ThemeRole.Surface
         };
         var scan = Btn("扫描设备", ThemeRole.SecondaryButton); var refresh = Btn("刷新地图", ThemeRole.SecondaryButton);
-        var plan = Btn("规划路线", ThemeRole.InfoButton); var start = Btn("开始", ThemeRole.SuccessButton); var pause = Btn("暂停", ThemeRole.WarningButton); var step = Btn("单步", ThemeRole.InfoButton); var stop = Btn("急停", ThemeRole.DangerButton);
+        var plan = Btn("规划路线", ThemeRole.InfoButton); var start = Btn("开始", ThemeRole.SuccessButton); var abyssRun = Btn("深渊跑图", ThemeRole.SuccessButton); var pause = Btn("暂停", ThemeRole.WarningButton); var step = Btn("单步", ThemeRole.InfoButton); var stop = Btn("急停", ThemeRole.DangerButton);
         var autoEnter = Btn("进图并跑图", ThemeRole.SuccessButton); var enterOnly = Btn("进图", ThemeRole.InfoButton); var calibrateEntry = Btn("更新入口模板", ThemeRole.UtilityButton);
         var openWebMonitor = Btn("Web监控", ThemeRole.InfoButton);
         var detectAssistant = Btn("检测助手", ThemeRole.UtilityButton); var installAssistant = Btn("安装助手", ThemeRole.UtilityButton); var restoreAssistant = Btn("恢复原版", ThemeRole.DangerButton); var openTestPanel = Btn("打开测试面板", ThemeRole.WarningButton); var testConnectionRecovery = Btn("测试重连", ThemeRole.WarningButton);
@@ -214,7 +222,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             var result = await RunEquipmentSaleAsync(operations.CurrentToken);
             State(result ? "装备出售完成" : "装备出售未完成，已停止");
         }));
-        top.Controls.AddRange([refresh, plan, start, mine, sell, pause, step, stop, autoEnter, calibrateEntry]);
+        top.Controls.AddRange([refresh, plan, start, abyssRun, mine, sell, pause, step, stop, autoEnter, calibrateEntry]);
         var testTop = new FlowLayoutPanel
         {
             Dock = DockStyle.Top,
@@ -224,7 +232,9 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             WrapContents = true,
             Tag = ThemeRole.Surface
         };
-        testTop.Controls.AddRange([enterOnly, testConnectionRecovery, openWebMonitor, openTestPanel]);
+        testTop.Controls.AddRange([enterOnly, testConnectionRecovery, openWebMonitor, openTestPanel,
+            savePipelineScreenshots, savePipelineRecords]);
+        testTop.SetFlowBreak(openTestPanel, true);
         var settingsTop = new FlowLayoutPanel
         {
             Dock = DockStyle.Top,
@@ -234,15 +244,16 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
             WrapContents = true,
             Tag = ThemeRole.Surface
         };
-        settingsTop.Controls.AddRange([new Label { Text = "设备", AutoSize = true, Padding = new(0, 6, 0, 0) },
+        settingsTop.Controls.AddRange([scan,
             devices,
-            scan,
             detectAssistant,
             installAssistant,
             restoreAssistant,
             assistantState,
-            new Label { Text = "主题", AutoSize = true, Padding = new(10, 6, 0, 0) },
+            new Label { Text = "主题：", AutoSize = true, Padding = new(0, 6, 0, 0) },
             themeChoice]);
+        settingsTop.SetFlowBreak(devices, true);
+        settingsTop.SetFlowBreak(assistantState, true);
         var options = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 9, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
         options.Controls.AddRange([new Label { Text = "目标（钥匙必选）：", AutoSize = true }, attackBoss, directBossNpc, monsters, elites, woodChests, otherChests, pots, bones, gold, runes, altars, chambers]);
         var bonusOptions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new(10, 4, 10, 4), WrapContents = true, Tag = ThemeRole.SurfaceAlt };
@@ -267,14 +278,24 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         var testPage = new ThemedTabPage { Text = "测试", Padding = new(0), Tag = ThemeRole.Default };
         testPage.Controls.Add(testTop);
         var tabs = new ThemedTabControl { Dock = DockStyle.Fill, Tag = ThemeRole.Default };
-        tabs.TabPages.Add(runPage); tabs.TabPages.Add(CreateTaskListPage()); tabs.TabPages.Add(settingsPage); tabs.TabPages.Add(testPage); tabs.TabPages.Add(logPage);
+        tabs.TabPages.Add(runPage); tabs.TabPages.Add(CreateTaskListPage()); tabs.TabPages.Add(settingsPage); tabs.TabPages.Add(logPage); tabs.TabPages.Add(testPage);
         Controls.Add(tabs);
-        scan.Click += async (_, _) => await RunUi(Scan); refresh.Click += async (_, _) => await RunUi(() => RefreshMap()); plan.Click += async (_, _) => await RunUi(Replan); start.Click += async (_, _) => await RunUi(StartRun); pause.Click += async (_, _) => await RunUi(async () => { await StopMovement(); State("已暂停"); }); step.Click += async (_, _) => await RunUi(Step); stop.Click += async (_, _) => await RunUi(EmergencyStopAndClear);
+        scan.Click += async (_, _) => await RunUi(Scan); refresh.Click += async (_, _) => await RunUi(() => RefreshMap()); plan.Click += async (_, _) => await RunUi(Replan); start.Click += async (_, _) => await RunUi(StartRun); abyssRun.Click += async (_, _) => await RunUi(StartAbyssRun); pause.Click += async (_, _) => await RunUi(async () => { await StopMovement(); State("已暂停"); }); step.Click += async (_, _) => await RunUi(Step); stop.Click += async (_, _) => await RunUi(EmergencyStopAndClear);
         autoEnter.Click += async (_, _) => await RunUi(AutoEnter); enterOnly.Click += async (_, _) => await RunUi(EnterOnly); calibrateEntry.Click += async (_, _) => await RunUi(CalibrateEntry);
         mine.Click += async (_, _) => await RunUi(StartMining);
         BuildWindowCaption();
         openWebMonitor.Click += (_, _) => OpenPipelineWebMonitor();
         alwaysOnTop.CheckedChanged += (_, _) => { ApplyAlwaysOnTop(); SaveSettings(); };
+        savePipelineScreenshots.CheckedChanged += (_, _) =>
+        {
+            PipelineEvidenceStore.SaveRoutineScreenshots = savePipelineScreenshots.Checked;
+            SaveSettings();
+        };
+        savePipelineRecords.CheckedChanged += (_, _) =>
+        {
+            MaaPipelineTraceCollector.SaveRoutineRecords = savePipelineRecords.Checked;
+            SaveSettings();
+        };
         detectAssistant.Click += async (_, _) => await RunUi(DetectAssistant); installAssistant.Click += async (_, _) => await RunUi(InstallAssistant); restoreAssistant.Click += async (_, _) => await RunUi(RestoreAssistant); openTestPanel.Click += async (_, _) => await RunUi(OpenTestPanel);
         testConnectionRecovery.Click += (_, _) => StartConnectionRecoveryTest();
         bonusPriorityToggle.Click += (_, _) =>
@@ -491,6 +512,8 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
     {
         var s = settingsStore.Load();
         if (s is null) return;
+        PipelineEvidenceStore.SaveRoutineScreenshots = s.SavePipelineScreenshots;
+        MaaPipelineTraceCollector.SaveRoutineRecords = s.SavePipelineRecords;
         taskTemplates.AddRange(s.TaskTemplates ?? []);
         foreach (var template in taskTemplates)
         {
@@ -517,6 +540,8 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         }
         themeChoice.SelectedIndex = Math.Clamp((int)s.Theme, 0, 2);
         alwaysOnTop.Checked = s.AlwaysOnTop;
+        savePipelineScreenshots.Checked = s.SavePipelineScreenshots;
+        savePipelineRecords.Checked = s.SavePipelineRecords;
         SetValue(entryRunCount, s.EntryRunCount);
         attackBoss.Checked = s.AttackBoss; directBossNpc.Checked = s.DirectBossNpc; monsters.Checked = s.Monsters; elites.Checked = s.Elites; woodChests.Checked = s.WoodChests; otherChests.Checked = s.OtherChests; pots.Checked = s.Pots;
         bones.Checked = s.Bones; gold.Checked = s.Gold; runes.Checked = s.Runes; altars.Checked = s.Altars; chambers.Checked = s.Chambers;
@@ -554,6 +579,8 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         {
             Theme = CurrentThemeMode,
             AlwaysOnTop = alwaysOnTop.Checked,
+            SavePipelineScreenshots = savePipelineScreenshots.Checked,
+            SavePipelineRecords = savePipelineRecords.Checked,
             EntryRunCount = (int)entryRunCount.Value,
             AttackBoss = attackBoss.Checked,
             DirectBossNpc = directBossNpc.Checked,
@@ -641,6 +668,7 @@ public sealed partial class MainForm : Form, IRouteExecutionObserver
         miniMapForm ??= new MiniMapForm(
             () => dungeon.Map,
             () => route,
+            dungeon.PortalJumps,
             () => alwaysOnTop.Checked,
             value => SetAlwaysOnTop(value),
             ExitMiniWindowMode);

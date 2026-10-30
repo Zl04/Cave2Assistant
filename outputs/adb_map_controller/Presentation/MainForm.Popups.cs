@@ -129,7 +129,8 @@ public sealed partial class MainForm
                 // 相同的共享管线，否则宝石覆盖层可能被当成未识别的换层框。
                 var popupTask = adb.ProbeMovementPopupAsync(token,
                     message => Log($"换层弹窗诊断：第 {probeCount} 轮，{message}"),
-                    prioritizeNextFloor: true);
+                    prioritizeNextFloor: true,
+                    profile: CurrentPopupProfile);
                 yield return popupTask;
                 var probe = popupTask.GetAwaiter().GetResult();
                 var popup = probe.Value;
@@ -189,7 +190,8 @@ public sealed partial class MainForm
                     // 看门狗锁存的帧可能正好处于入场动画；重新取一帧只为补充
                     // 三张卡片按钮属于回城还是下一层，不改变选择流程。
                     var cardProbeTask = adb.ProbeMovementPopupAsync(token,
-                        message => Log($"换层弹窗诊断：第 {probeCount} 轮补充卡片识别，{message}"));
+                        message => Log($"换层弹窗诊断：第 {probeCount} 轮补充卡片识别，{message}"),
+                        profile: CurrentPopupProfile);
                     yield return cardProbeTask;
                     var cardProbe = cardProbeTask.GetAwaiter().GetResult();
                     if (cardProbe.NextFloorDialog == NextFloorDialogKind.GreedySelection)

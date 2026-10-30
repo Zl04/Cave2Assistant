@@ -150,7 +150,7 @@ public sealed class DungeonEntryAutomation
                 }
 
                 using var frame = await adb.CaptureScreenForAutomationAsync(token);
-                var titleEvidence = task.SaveScreenshot ? PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log) : null;
+                var titleEvidence = task.SaveScreenshot ? PipelineEvidenceStore.SaveRoutine(frame, context.RunId, context.TaskId, log) : null;
                 return BastanMapOpening.IsOpen(frame)
                     ? MaaPipelineRecognitionResult.Hit(detail: "巴萨坦地图已打开", evidencePath: titleEvidence)
                     : MaaPipelineRecognitionResult.Miss(detail: "巴萨坦地图未打开", evidencePath: titleEvidence);
@@ -307,7 +307,7 @@ public sealed class DungeonEntryAutomation
         var title = BuiltInUiTemplateCatalog.FindBastanTitle(frame);
         if (close is null || (title is null && BuiltInUiTemplateCatalog.MatchBastanMapBody(frame) < BastanMapBodyThreshold))
             return MaaPipelineRecognitionResult.Miss(detail: "尚未同时确认完整巴萨坦地图及其关闭按钮");
-        var evidence = task.SaveScreenshot ? PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log) : null;
+        var evidence = task.SaveScreenshot ? PipelineEvidenceStore.SaveRoutine(frame, context.RunId, context.TaskId, log) : null;
         return MaaPipelineRecognitionResult.Hit(score: close.Score,
             box: new MaaRect(
                 (int)Math.Round(close.Center.X * VisionPipeline.DesignWidth / (double)frame.Width),
@@ -324,7 +324,7 @@ public sealed class DungeonEntryAutomation
             BuiltInUiTemplateCatalog.FindBastanMapClose(frame) is null;
         if (marker is null || !mapGone)
             return MaaPipelineRecognitionResult.Miss(detail: "尚未确认巴萨坦地图关闭且主城小地图重新出现");
-        var evidence = task.SaveScreenshot ? PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log) : null;
+        var evidence = task.SaveScreenshot ? PipelineEvidenceStore.SaveRoutine(frame, context.RunId, context.TaskId, log) : null;
         log("已二次确认返回巴萨坦主城");
         return MaaPipelineRecognitionResult.Hit(score: marker.Score,
             detail: "巴萨坦地图已关闭，主城小地图已出现", evidencePath: evidence);
@@ -339,7 +339,7 @@ public sealed class DungeonEntryAutomation
 
         token.ThrowIfCancellationRequested();
         using var frame = await adb.CaptureScreenForAutomationAsync();
-        var evidencePath = task.SaveScreenshot ? PipelineEvidenceStore.Save(frame, context.RunId, context.TaskId, log) : null;
+        var evidencePath = task.SaveScreenshot ? PipelineEvidenceStore.SaveRoutine(frame, context.RunId, context.TaskId, log) : null;
         // Match the cropped OCR used when selecting the difficulty. Full-screen OCR can
         // miss the small difficulty label even while it is clearly visible on the right.
         var roi = DifficultyOcrRegion(frame.Width, frame.Height);

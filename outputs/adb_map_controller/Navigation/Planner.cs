@@ -77,7 +77,9 @@ public static class Planner
         {
             // 被锁定的传送门是真实的导航关卡，但当前还不能到达或点击。
             // 游戏服务器会在击杀怪物后解锁它；先前往有证据支持且距离最近的普通怪物。
-            var unlockPlan = PlanToPortalUnlockMonster(map, blocked, unlockGraph);
+            var unlockPlan = AbyssRoutePlanner.IsAbyss(map)
+                ? AbyssRoutePlanner.PlanToUnlockMonster(map, blocked, unlockGraph)
+                : PlanToPortalUnlockMonster(map, blocked, unlockGraph);
             if (HasExecutablePlan(unlockPlan)) return unlockPlan;
         }
         if (HasExecutablePlan(plan) || blocked.Count == 0) return plan;
@@ -151,7 +153,8 @@ public static class Planner
         if (!tiles.TryGetValue(start, out var startTile) || !startTile.Walkable)
             return false;
         var (distance, _, _) = Search(start, tiles, blocked);
-        return distance.Keys.Any(cell => tiles.TryGetValue(cell, out var tile) && tile.Walkable && !tile.Explored);
+        return distance.Keys.Any(cell => tiles.TryGetValue(cell, out var tile) &&
+            tile.Walkable && !tile.Explored);
     }
 
     /// <summary>
@@ -231,7 +234,7 @@ public static class Planner
             .Where(target => !(options.IgnoredTargets?.Contains(target) ?? false))
             .Distinct().ToList();
         // 已选宝物处于封印状态时，先处理当前可见的精英，再等地图报告解锁。
-        if (tiles.Values.SelectMany(tile => tile.Roles).Any(role =>
+        if (!AbyssRoutePlanner.IsAbyss(map) && tiles.Values.SelectMany(tile => tile.Roles).Any(role =>
                 TargetPolicy.IsSelected(role, options) && LockedTreasurePolicy.IsTreasure(role) && role.Locked))
         {
             targets.AddRange(tiles.Values.SelectMany(tile => tile.Roles
@@ -258,7 +261,8 @@ public static class Planner
             {
                 var startDistance = (Cell c) => Math.Abs(c.X - start.X) + Math.Abs(c.Y - start.Y);
                 var warningTargets = tiles.Values
-                    .SelectMany(tile => tile.Roles.Where(role => role.Kind is "小怪" or "群怪" or "精英")
+                    .SelectMany(tile => tile.Roles.Where(role => role.Kind is "小怪" or "群怪" ||
+                            role.Kind == "精英" && !AbyssRoutePlanner.IsAbyss(map))
                         .Select(role => new TargetKey(new Cell(tile.X, tile.Y), role.Kind)))
                     .Distinct().OrderBy(t => startDistance(t.Cell)).Take(needed);
                 targets.AddRange(warningTargets);
@@ -290,12 +294,15 @@ public static class Planner
             TargetKey? chosenTarget = null; Cell? chosenStop = null; Cell? chosenExplore = null;
             var bestScore = double.MinValue;
             var bestEncounters = int.MaxValue;
+            var reachableAbyssBoss = AbyssRoutePlanner.IsAbyss(map) && pending.Any(target =>
+                target.Kind is ("Boss" or "小Boss") && TaskStops(target, tiles).Any(distance.ContainsKey));
 
             foreach (var target in pending)
             {
-                // 某些楼层需要先从普通敌人处获得预警值，才能攻击楼层 Boss。
-                // 将 Boss 保持为敌人列表中的最后一个。
-                if (target.Kind is "Boss" or "小Boss" && pending.Any(other => other.Kind is "小怪" or "群怪" or "精英")) continue;
+                // 普通楼层可能需要先打怪积累预警值；深渊中可达 Boss 优先于精英。
+                if (!AbyssRoutePlanner.IsAbyss(map) && target.Kind is ("Boss" or "小Boss") &&
+                    pending.Any(other => other.Kind is "小怪" or "群怪" or "精英")) continue;
+                if (reachableAbyssBoss && target.Kind == "精英") continue;
                 foreach (var stop in TaskStops(target, tiles))
                 {
                     if (!distance.TryGetValue(stop, out var d)) continue;
@@ -460,99 +467,24 @@ public static class Planner
             .SelectMany(t => t.Roles.Where(r => PortalRouting.IsFloorTransition(r) && !r.Locked)
                 .Select(r => new TargetKey(new Cell(t.X, t.Y), r.Kind))).Distinct().ToList();
         if (portals.Count == 0) return new RoutePlan { WalkableCells = walkableCount, FailureReason = "地图中没有层间出口" };
-        var (distance, previous, encounters) = Search(start, tiles, blocked, avoidMonsters, allowPortalStops: true);
+        // 深渊的房间门是踩上去就触发的传送格，不能作为下楼出口的停靠点，
+        // 也不能穿过它去接近出口；否则出口旁边的房间门会抢先触发跳房间。
+        IReadOnlySet<Cell>? routeBlocked = blocked;
+        if (AbyssRoutePlanner.IsAbyss(map))
+        {
+            var forbidden = blocked is null ? new HashSet<Cell>() : blocked.ToHashSet();
+            foreach (var roomPortal in PortalRouting.Enumerate(map).Where(item => PortalRouting.IsRoomToRoom(item.Role)))
+                forbidden.Add(roomPortal.Cell);
+            routeBlocked = forbidden;
+        }
+        var (distance, previous, encounters) = Search(start, tiles, routeBlocked, avoidMonsters, allowPortalStops: true);
         TargetKey? chosen = null; Cell? stop = null; var best = (Encounters: int.MaxValue, Distance: int.MaxValue);
         foreach (var portal in portals)
             foreach (var candidate in TaskStops(portal, tiles))
-                if (distance.TryGetValue(candidate, out var d) && (encounters[candidate], d).CompareTo(best) < 0)
+                if (!(routeBlocked?.Contains(candidate) ?? false) &&
+                    distance.TryGetValue(candidate, out var d) && (encounters[candidate], d).CompareTo(best) < 0)
                 { best = (encounters[candidate], d); chosen = portal; stop = candidate; }
         if (chosen is null || stop is null) return new RoutePlan { WalkableCells = walkableCount, FailureReason = "出口不可达" };
-        return new RoutePlan
-        {
-            Route = BuildPath(start, stop.Value, previous),
-            Interactions = [new PlannedInteraction(stop.Value, chosen.Value)],
-            TargetUniverse = [chosen.Value], WalkableCells = walkableCount
-        };
-    }
-
-    /// <summary>
-    /// 构建楼层内房间传送门路线的第一段。
-    /// 交互有意作为此规划的终点：服务器可能将玩家移动到另一个房间，
-    /// 因此 MainForm 会刷新，并从跳转后的权威坐标规划下一段。
-    /// </summary>
-    public static RoutePlan PlanToRoomPortal(MapDump map, IReadOnlySet<Cell>? blocked = null,
-        bool avoidMonsters = false, IReadOnlySet<Cell>? attempted = null, PortalJumpGraph? jumps = null,
-        IReadOnlyCollection<TargetKey>? desiredTargets = null)
-    {
-        var tiles = map.ByCell;
-        var start = new Cell(map.Player.X, map.Player.Y);
-        var walkableCount = tiles.Values.Count(t => t.Walkable && !(blocked?.Contains(new Cell(t.X, t.Y)) ?? false));
-        if (!tiles.TryGetValue(start, out var startTile) || !startTile.Walkable)
-            return new RoutePlan { WalkableCells = walkableCount, FailureReason = "起点不可走" };
-
-        var available = PortalRouting.Enumerate(map)
-            .Where(item => PortalRouting.IsRoomToRoom(item.Role) && !item.Role.Locked && item.Cell != start)
-            .ToList();
-        var (distance, previous, encounters) = Search(start, tiles, blocked, avoidMonsters, allowPortalStops: true);
-        var targetStops = (desiredTargets ?? Array.Empty<TargetKey>()).SelectMany(target => TaskStops(target, tiles)).ToHashSet();
-        var roomPortals = available.Select(item => item.Cell).ToHashSet();
-        var destinationProgress = new Dictionary<Cell, (bool Target, bool Unexplored, bool NewPortal)>();
-        (bool Target, bool Unexplored, bool NewPortal) ProgressFrom(Cell destination)
-        {
-            if (destinationProgress.TryGetValue(destination, out var known)) return known;
-            var origin = TaskStops(new TargetKey(destination, "秘境传送门"), tiles).FirstOrDefault();
-            if (!tiles.TryGetValue(origin, out var tile) || !tile.Walkable)
-                return destinationProgress[destination] = (false, false, false);
-            var (reachable, _, _) = Search(origin, tiles, blocked, allowPortalStops: true);
-            return destinationProgress[destination] = (
-                targetStops.Any(reachable.ContainsKey),
-                reachable.Keys.Any(cell => tiles.TryGetValue(cell, out var floor) && !floor.Explored),
-                reachable.Keys.Any(cell => cell != destination && roomPortals.Contains(cell) &&
-                    attempted?.Contains(cell) != true));
-        }
-        // 已观察到的回程边如果只能抵达走过的区域，就不再反复激活。
-        // 只要目的地有目标、未探索格或尚未尝试的门，走过的入口仍可参与规划。
-        if (jumps is not null && attempted is not null)
-            available = available.Where(item =>
-            {
-                var observed = jumps.ObservedTargets(map, item.Cell);
-                return observed.Count == 0 || observed.Any(destination =>
-                {
-                    var progress = ProgressFrom(destination);
-                    return progress.Target || progress.Unexplored || progress.NewPortal;
-                });
-            }).ToList();
-        var portals = available.Select(item => new TargetKey(item.Cell, item.Role.Kind)).Distinct().ToList();
-        if (portals.Count == 0) return new RoutePlan { WalkableCells = walkableCount, FailureReason = "已知层内传送门无法带来新的目标或区域" };
-        var portalPriority = available.GroupBy(item => item.Cell).ToDictionary(group => group.Key, group =>
-            targetStops.Count > 0 && jumps is not null && group.Any(item =>
-                jumps.CandidateTargets(map, item.Cell, item.Role).Any(destination => ProgressFrom(destination).Target)) ? 0 : 1);
-        // 已走过的入口和落点仍可再次使用，但要付出相当于绕行若干格的代价。
-        // 这样附近有新门时优先探索新门，只有新门明显更远或不可达时才回走。
-        var revisitCost = available.GroupBy(item => item.Cell).ToDictionary(group => group.Key, group =>
-        {
-            var sourceCost = attempted?.Contains(group.Key) == true ? 10 : 0;
-            var destinationCost = jumps is not null && attempted is not null && group.Any(item =>
-            {
-                var targets = jumps.CandidateTargets(map, item.Cell, item.Role);
-                return targets.Count > 0 && targets.All(attempted.Contains);
-            }) ? 6 : 0;
-            return sourceCost + destinationCost;
-        });
-        TargetKey? chosen = null; Cell? stop = null;
-        var best = (Priority: int.MaxValue, Cost: int.MaxValue, Distance: int.MaxValue);
-        foreach (var portal in portals)
-            foreach (var candidate in TaskStops(portal, tiles))
-                if (distance.TryGetValue(candidate, out var d) &&
-                    (portalPriority[portal.Cell], d + encounters[candidate] * MonsterAvoidanceDetourLimit +
-                        revisitCost[portal.Cell], d).CompareTo(best) < 0)
-                {
-                    best = (portalPriority[portal.Cell], d + encounters[candidate] * MonsterAvoidanceDetourLimit +
-                        revisitCost[portal.Cell], d);
-                    chosen = portal; stop = candidate;
-                }
-        if (chosen is null || stop is null)
-            return new RoutePlan { WalkableCells = walkableCount, FailureReason = "层内传送门不可达" };
         return new RoutePlan
         {
             Route = BuildPath(start, stop.Value, previous),
@@ -622,7 +554,7 @@ public static class Planner
     static bool RequiresExplicitInteraction(string kind) => kind is
         "小怪" or "群怪" or "精英" or "小Boss" or "Boss" or
         "罐子" or "石堆" or "木箱" or "金箱" or "点金台" or "直接挑战Boss NPC";
-    static IEnumerable<Cell> TaskStops(TargetKey target, Dictionary<Cell, TileInfo> tiles)
+    internal static IEnumerable<Cell> TaskStops(TargetKey target, Dictionary<Cell, TileInfo> tiles)
     {
         if (PortalRouting.IsPortalKind(target.Kind) &&
             tiles.TryGetValue(target.Cell, out var portalTile) && portalTile.Walkable)
@@ -648,14 +580,14 @@ public static class Planner
 
     static int Manhattan(Cell a, Cell b) => Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
 
-    static bool IsNavigationPortal(RoleInfo role)
+    internal static bool IsNavigationPortal(RoleInfo role)
         => PortalRouting.IsPortalRole(role) || PortalRouting.IsPortalKind(role.Kind);
 
     // 绕开一个道路怪物最多值得多走七步。
     // 这样既保持安全偏好，又不会为了单场普通战斗让玩家大幅绕路。
     // 完全相同的情况下，优先选择遭遇更少的路线。
     // 当所有路线都需要战斗时，怪物所在格仍可通行。
-    static (Dictionary<Cell, int> Distance, Dictionary<Cell, Cell> Previous, Dictionary<Cell, int> Encounters) Search(
+    internal static (Dictionary<Cell, int> Distance, Dictionary<Cell, Cell> Previous, Dictionary<Cell, int> Encounters) Search(
         Cell start, Dictionary<Cell, TileInfo> tiles, IReadOnlySet<Cell>? blocked,
         bool avoidMonsters = false, IReadOnlySet<Cell>? clearedMonsters = null, bool allowPortalStops = false)
     {
@@ -691,13 +623,13 @@ public static class Planner
         }
         return (distance, previous, encounters);
     }
-    static List<Cell> BuildPath(Cell start, Cell end, Dictionary<Cell, Cell> previous)
+    internal static List<Cell> BuildPath(Cell start, Cell end, Dictionary<Cell, Cell> previous)
     {
         var path = new List<Cell> { end }; var cursor = end;
         while (cursor != start) { if (!previous.TryGetValue(cursor, out cursor)) return [start]; path.Add(cursor); }
         path.Reverse(); return path;
     }
-    static int CoverageGain(Cell center, HashSet<Cell> uncovered, int radius)
+    internal static int CoverageGain(Cell center, HashSet<Cell> uncovered, int radius)
         => uncovered.Count(cell => Math.Abs(cell.X - center.X) + Math.Abs(cell.Y - center.Y) <= radius);
     static void CoverFrom(Cell center, HashSet<Cell> uncovered, int radius)
         => uncovered.RemoveWhere(cell => Math.Abs(cell.X - center.X) + Math.Abs(cell.Y - center.Y) <= radius);

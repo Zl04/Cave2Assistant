@@ -23,8 +23,17 @@ public sealed partial class MainForm
             popupHandling = true;
             if (!await OpenEquipmentBagAsync(token)) throw new InvalidOperationException("未能打开背包");
             bagOpen = true;
+            set = Math.Clamp(set, 1, 3);
             using (var frame = await CaptureEquipmentFrameAsync(token))
             {
+                var currentSet = DetectCurrentEquipmentSet(frame)
+                    ?? throw new InvalidOperationException("未能识别当前使用的装备方案");
+                Log($"当前使用装备方案{currentSet}");
+                if (currentSet == set)
+                {
+                    Log($"目标也是装备方案{set}，无需切换");
+                    return;
+                }
                 var count = await EquipmentSalePipeline.ReadInventoryCountAsync(frame, adb.ReadOcrWordsAsync, token);
                 if (count is null) throw new InvalidOperationException("未能识别背包容量");
                 var parts = count.Split('/');
@@ -43,8 +52,18 @@ public sealed partial class MainForm
                 }
             }
             await SelectEquipmentTabAsync(token);
-            set = Math.Clamp(set, 1, 3);
-            await adb.TapScreen((set == 1 ? 222d : set == 2 ? 287d : 353d) / 1004, 422d / 565);
+            using (var frame = await CaptureEquipmentFrameAsync(token))
+            {
+                var icon = FindEquipmentSetIcon(frame, set)
+                    ?? throw new InvalidOperationException($"未能识别装备方案{set}图标");
+                if (icon.Active)
+                {
+                    Log($"当前已是装备方案{set}，无需切换");
+                    return;
+                }
+                Log($"点击装备方案{set}图标：({icon.Position.X},{icon.Position.Y})");
+                await adb.TapScreen(icon.Position.X / 1004d, icon.Position.Y / 565d);
+            }
             var confirmVisible = false;
             for (var check = 0; check < 6; check++)
             {
@@ -66,6 +85,48 @@ public sealed partial class MainForm
             popupHandling = false;
             if (bagOpen) await EquipmentBagCloser.CloseAsync(new AdbEquipmentSaleDevice(adb), Log, CancellationToken.None);
         }
+    }
+
+    internal readonly record struct EquipmentSetIconMatch(DrawingPoint Position, bool Active);
+
+    internal static int? DetectCurrentEquipmentSet(Bitmap frame)
+    {
+        int? current = null;
+        for (var set = 1; set <= 3; set++)
+        {
+            if (FindEquipmentSetIcon(frame, set) is not { Active: true }) continue;
+            if (current is not null) return null;
+            current = set;
+        }
+        return current;
+    }
+
+    internal static EquipmentSetIconMatch? FindEquipmentSetIcon(Bitmap frame, int set)
+    {
+        if (frame.Width != 1004 || frame.Height != 565 || set is < 1 or > 3) return null;
+        var area = new Rectangle(195, 395, 185, 50);
+        using var crop = frame.Clone(area, PixelFormat.Format24bppRgb);
+        using var bytes = new MemoryStream();
+        crop.Save(bytes, ImageFormat.Png);
+        using var image = Cv2.ImDecode(bytes.ToArray(), ImreadModes.Grayscale);
+        DrawingPoint? Match(string name)
+        {
+            using var template = Cv2.ImRead(Path.Combine(AppContext.BaseDirectory,
+                "templates", "ui", "EquipmentSale", name), ImreadModes.Grayscale);
+            if (template.Empty()) throw new FileNotFoundException("装备方案图标模板不存在", name);
+            using var scores = new Mat();
+            Cv2.MatchTemplate(image, template, scores, TemplateMatchModes.CCoeffNormed);
+            Cv2.MinMaxLoc(scores, out _, out var score, out _, out OpenCvSharp.Point location);
+            return score >= .94
+                ? new DrawingPoint(area.X + location.X + template.Width / 2,
+                    area.Y + location.Y + template.Height / 2)
+                : null;
+        }
+        var idle = Match($"set_{set}_idle.png");
+        if (idle is { } idlePosition) return new EquipmentSetIconMatch(idlePosition, false);
+        if (Match($"set_{set}_active.png") is { } activePosition)
+            return new EquipmentSetIconMatch(activePosition, true);
+        return null;
     }
 
     async Task SelectEquipmentTabAsync(CancellationToken token)

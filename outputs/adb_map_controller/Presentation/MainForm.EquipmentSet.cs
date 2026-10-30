@@ -42,6 +42,7 @@ public sealed partial class MainForm
                     bagOpen = true;
                 }
             }
+            await SelectEquipmentTabAsync(token);
             set = Math.Clamp(set, 1, 3);
             await adb.TapScreen((set == 1 ? 222d : set == 2 ? 287d : 353d) / 1004, 422d / 565);
             var confirmVisible = false;
@@ -67,12 +68,30 @@ public sealed partial class MainForm
         }
     }
 
+    async Task SelectEquipmentTabAsync(CancellationToken token)
+    {
+        var tabArea = new Rectangle(602, 505, 64, 50);
+        for (var attempt = 0; attempt < 4; attempt++)
+        {
+            using var frame = await CaptureEquipmentFrameAsync(token);
+            if (HasEquipmentTemplate(frame, "equipment_tab_active.png", tabArea)) return;
+            var idle = FindEquipmentTemplate(frame, "equipment_tab_idle.png", tabArea);
+            if (idle is null) throw new InvalidOperationException("未识别到装备页签");
+            Log($"切换到装备页签：第 {attempt + 1} 次");
+            await adb.TapScreen(idle.Value.X / 1004d, idle.Value.Y / 565d);
+            await Task.Delay(450, token);
+        }
+        using var finalFrame = await CaptureEquipmentFrameAsync(token);
+        if (!HasEquipmentTemplate(finalFrame, "equipment_tab_active.png", tabArea))
+            throw new InvalidOperationException("装备页签切换未确认");
+    }
+
     async Task ConfirmEquipmentSwitchDialogClosedAsync(CancellationToken token)
     {
         var missingChecks = 0;
         for (var check = 0; check < 10; check++)
         {
-            await Task.Delay(300, token);
+            await Task.Delay(1000, token);
             using var frame = await CaptureEquipmentFrameAsync(token);
             var decision = EquipmentSwitchConfirmationPolicy.Decide(
                 IsEquipmentSwitchConfirmVisible(frame), missingChecks);

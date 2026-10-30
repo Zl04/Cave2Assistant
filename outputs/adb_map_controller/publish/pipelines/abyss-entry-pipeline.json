@@ -1,0 +1,282 @@
+{
+  "$schema": "https://github.com/MaaAssistantArknights/MaaAssistantArknights/raw/dev-v2/docs/maa_tasks_schema.json",
+  "OpenMap": {
+    "recognition": "Custom",
+    "handler": "AbyssEntry",
+    "action": "DoNothing",
+    "postDelay": 300,
+    "timeout": 6000,
+    "rateLimit": 300,
+    "next": [
+      "MapReady"
+    ]
+  },
+  "MapReady": {
+    "recognition": "Custom",
+    "handler": "AbyssEntry",
+    "action": "DoNothing",
+    "timeout": 5000,
+    "rateLimit": 250,
+    "next": [
+      "OpenMenu"
+    ]
+  },
+  "OpenMenu": {
+    "recognition": "DirectHit",
+    "handler": "MaaAdb",
+    "action": "ClickRect",
+    "specificRect": [
+      1076,
+      198,
+      1,
+      1
+    ],
+    "postDelay": 350,
+    "next": [
+      "MenuReady"
+    ]
+  },
+  "MenuReady": {
+    "recognition": "OcrDetect",
+    "handler": "MaaAdb",
+    "action": "DoNothing",
+    "text": [
+      "深渊秘境"
+    ],
+    "roi": [
+      421,
+      390,
+      166,
+      48
+    ],
+    "timeout": 4000,
+    "rateLimit": 250,
+    "next": [
+      "OpenAbyss"
+    ]
+  },
+  "OpenAbyss": {
+    "recognition": "DirectHit",
+    "handler": "MaaAdb",
+    "action": "ClickRect",
+    "specificRect": [
+      488,
+      348,
+      1,
+      1
+    ],
+    "postDelay": 400,
+    "next": [
+      "AbyssReady"
+    ]
+  },
+  "AbyssReady": {
+    "recognition": "OcrDetect",
+    "handler": "MaaAdb",
+    "action": "DoNothing",
+    "text": [
+      "深渊模式"
+    ],
+    "roi": [
+      637,
+      57,
+      268,
+      61
+    ],
+    "timeout": 5000,
+    "rateLimit": 300,
+    "next": [
+      "ChooseSolo",
+      "ChooseTeam"
+    ]
+  },
+  "ChooseSolo": {
+    "recognition": "Custom",
+    "handler": "AbyssEntry",
+    "action": "DoNothing",
+    "next": [
+      "SoloSelected",
+      "ClickSolo"
+    ]
+  },
+  "SoloSelected": {
+    "recognition": "TemplateMatch",
+    "handler": "MaaAdb",
+    "action": "DoNothing",
+    "template": [
+      "templates/ui/abyss-solo-selected.png"
+    ],
+    "templThreshold": 0.78,
+    "roi": [
+      120,
+      324,
+      76,
+      84
+    ],
+    "next": [
+      "StartSolo"
+    ]
+  },
+  "ClickSolo": {
+    "recognition": "TemplateMatch",
+    "handler": "MaaAdb",
+    "action": "ClickSelf",
+    "postDelay": 350,
+    "next": [
+      "VerifySolo"
+    ],
+    "template": [
+      "templates/ui/abyss-solo-unselected.png"
+    ],
+    "templThreshold": 0.78,
+    "roi": [
+      120,
+      324,
+      76,
+      84
+    ]
+  },
+  "VerifySolo": {
+    "recognition": "TemplateMatch",
+    "handler": "MaaAdb",
+    "action": "DoNothing",
+    "template": [
+      "templates/ui/abyss-solo-selected.png"
+    ],
+    "templThreshold": 0.78,
+    "roi": [
+      120,
+      324,
+      76,
+      84
+    ],
+    "timeout": 3000,
+    "rateLimit": 250,
+    "next": [
+      "StartSolo"
+    ]
+  },
+  "StartSolo": {
+    "recognition": "TemplateMatch",
+    "handler": "MaaAdb",
+    "action": "ClickSelf",
+    "template": [
+      "templates/ui/abyss-start-adventure.png"
+    ],
+    "templThreshold": 0.72,
+    "roi": [
+      125,
+      640,
+      190,
+      60
+    ],
+    "postDelay": 900,
+    "timeout": 5000,
+    "rateLimit": 300
+  },
+  "ChooseTeam": {
+    "recognition": "Custom",
+    "handler": "AbyssEntry",
+    "action": "DoNothing",
+    "next": [
+      "TeamSelected",
+      "ClickTeam"
+    ]
+  },
+  "TeamSelected": {
+    "recognition": "TemplateMatch",
+    "handler": "MaaAdb",
+    "action": "DoNothing",
+    "template": [
+      "templates/ui/abyss-team-selected.png"
+    ],
+    "templThreshold": 0.78,
+    "roi": [
+      236,
+      324,
+      96,
+      84
+    ],
+    "next": [
+      "StartTeam"
+    ]
+  },
+  "ClickTeam": {
+    "recognition": "TemplateMatch",
+    "handler": "MaaAdb",
+    "action": "ClickSelf",
+    "postDelay": 350,
+    "next": [
+      "VerifyTeam"
+    ],
+    "template": [
+      "templates/ui/abyss-team-unselected.png"
+    ],
+    "templThreshold": 0.78,
+    "roi": [
+      236,
+      324,
+      96,
+      84
+    ]
+  },
+  "VerifyTeam": {
+    "recognition": "TemplateMatch",
+    "handler": "MaaAdb",
+    "action": "DoNothing",
+    "template": [
+      "templates/ui/abyss-team-selected.png"
+    ],
+    "templThreshold": 0.78,
+    "roi": [
+      236,
+      324,
+      96,
+      84
+    ],
+    "timeout": 3000,
+    "rateLimit": 250,
+    "next": [
+      "StartTeam"
+    ]
+  },
+  "StartTeam": {
+    "recognition": "TemplateMatch",
+    "handler": "MaaAdb",
+    "action": "ClickSelf",
+    "template": [
+      "templates/ui/abyss-start-adventure.png"
+    ],
+    "templThreshold": 0.72,
+    "roi": [
+      125,
+      640,
+      190,
+      60
+    ],
+    "postDelay": 900,
+    "timeout": 5000,
+    "rateLimit": 300,
+    "next": [
+      "TeamStartNow"
+    ]
+  },
+  "TeamStartNow": {
+    "recognition": "TemplateMatch",
+    "handler": "MaaAdb",
+    "action": "ClickSelf",
+    "template": [
+      "templates/ui/abyss-team-start-now.png"
+    ],
+    "templThreshold": 0.72,
+    "roi": [
+      664,
+      484,
+      252,
+      72
+    ],
+    "postDelay": 900,
+    "timeout": 5000,
+    "rateLimit": 300
+  }
+}
